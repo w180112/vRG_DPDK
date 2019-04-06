@@ -19,7 +19,7 @@
 #define 			NUM_MBUFS 		8191
 #define 			MBUF_CACHE_SIZE 512
 
-BOOL				ppp_testEnable=FALSE;
+BOOL				ppp_testEnable = FALSE;
 U32					ppp_ttl;
 U32					ppp_interval;
 U16					ppp_init_delay;
@@ -39,10 +39,12 @@ unsigned char 			*src_mac;
 unsigned char 			*dst_mac;
 unsigned char 			*user_id;
 unsigned char 			*passwd;
+uint8_t					data_plane_start;
 
 int main(int argc, char **argv)
 {
 	uint16_t portid;
+	uint16_t user_id_length, passwd_length;
 	
 	if (argc < 7) {
 		puts("Too less parameter.");
@@ -59,10 +61,14 @@ int main(int argc, char **argv)
 
 	src_mac = (unsigned char *)malloc(ETH_ALEN);
 	dst_mac = (unsigned char *)malloc(ETH_ALEN);
-	user_id = (unsigned char *)malloc(strlen(argv[1]));
-	passwd = (unsigned char *)malloc(strlen(argv[2]));
-	memcpy(user_id,argv[1],strlen(argv[1]));
-	memcpy(passwd,argv[2],strlen(argv[2]));
+	user_id_length = strlen(argv[1]);
+	passwd_length = strlen(argv[2]);
+	user_id = (unsigned char *)malloc(user_id_length+1);
+	passwd = (unsigned char *)malloc(passwd_length+1);
+	memcpy(user_id,argv[1],user_id_length);
+	memcpy(passwd,argv[2],passwd_length);
+	user_id[user_id_length] = '\0';
+	passwd[passwd_length] = '\0';
 	
 	rte_eth_macaddr_get(1,(struct ether_addr *)src_mac);
 
@@ -80,12 +86,12 @@ int main(int argc, char **argv)
 			rte_exit(EXIT_FAILURE, "Cannot init port %"PRIu8 "\n",portid);
 	}
 
-	//signal(SIGINT,PPP_bye);
+	signal(SIGINT,PPP_bye);
+	data_plane_start = FALSE;
 
-	rte_eal_remote_launch(ppp_recvd,rte_ring,1);
-	rte_eal_remote_launch(encapsulation,rte_ring,2);
-	rte_eal_remote_launch(control_plane,rte_ring,3);
-	//pppoe_cli();
+	rte_eal_remote_launch(ppp_recvd,NULL,1);
+	rte_eal_remote_launch(encapsulation,NULL,2);
+	rte_eal_remote_launch(control_plane,NULL,3);
 	rte_eal_mp_wait_lcore();
     return 0;
 }
@@ -106,7 +112,6 @@ int control_plane(void)
 void PPP_bye(void)
 {
     printf("bye!\n");
-    //free(if_name);
     free(src_mac);
     free(dst_mac);
     free(user_id);
@@ -155,7 +160,7 @@ int pppdInit(void)
 int ppp_init(void)
 {
 	extern STATUS		PPP_FSM(int cp, tPPP_PORT *port_ccb, U16 event, struct ethhdr *eth_hdr, pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp_lcp_header_t *ppp_lcp, ppp_lcp_options_t *ppp_lcp_options);
-    tPPP_MBX			*mail;
+	tPPP_MBX			*mail;
 	tPPP_PORT			*ccb;
 	int					cp; //cp is "control protocol", means we need to determine cp after parsing packet
 	uint16_t			event;
@@ -183,9 +188,9 @@ int ppp_init(void)
     PPP_FSM(0,&ppp_ports[0],E_OPEN,&eth_hdr,&pppoe_header,&ppp_payload,&ppp_lcp,ppp_lcp_options);
     mail = NULL;
 	for(;;){
-		mail = control_plane_dequeue(mail);
+	    mail = control_plane_dequeue(mail);
 	    recv_type = *(uint16_t*)mail;
-	    
+		
 		switch(recv_type){
 		case IPC_EV_TYPE_TMR:
 			break;
@@ -213,6 +218,7 @@ int ppp_init(void)
 					}
 					goto out;
 				}
+				continue;
 			}
 			cp = (ppp_payload.ppp_protocol == htons(IPCP_PROTOCOL)) ? 1 : 0;
 			PPP_FSM(cp,&ppp_ports[cp],event,&eth_hdr,&pppoe_header,&ppp_payload,&ppp_lcp,ppp_lcp_options);
@@ -224,7 +230,6 @@ int ppp_init(void)
 		default:
 		    ;
 		}
-		
     }
 out:
     free(ppp_lcp_options);

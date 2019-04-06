@@ -19,8 +19,8 @@
 
 #define BURST_SIZE 32
 
-unsigned char 					*src_mac;
-unsigned char 					*dst_mac;
+extern unsigned char 			*src_mac;
+extern unsigned char 			*dst_mac;
 extern uint16_t		 			session_id;
 extern struct rte_mempool 		*mbuf_pool;
 extern struct rte_ring 			*rte_ring;
@@ -72,7 +72,7 @@ int PPP_PORT_INIT(uint16_t port)
 int ppp_recvd(void)
 {
 	struct rte_mbuf 	*single_pkt;
-	uint64_t 			total_tx = 0;
+	uint64_t 			total_tx;
 	struct ether_hdr 	*eth_hdr;
 	pppoe_header_t 		*pppoe_header;
 	for(;;) {
@@ -81,6 +81,7 @@ int ppp_recvd(void)
 		uint16_t nb_rx = rte_eth_rx_burst(1,0,pkt,BURST_SIZE);
 		if(nb_rx == 0)
 			continue;
+		total_tx = 0;
 		for(int i=0; i<nb_rx; i++) {
 			single_pkt = pkt[i];
 			eth_hdr = rte_pktmbuf_mtod(single_pkt,struct ether_hdr*);
@@ -138,23 +139,27 @@ tPPP_MBX *control_plane_dequeue(tPPP_MBX *mail)
 int encapsulation(void)
 {
 	struct rte_mbuf 	*single_pkt;
-	uint64_t 			total_tx = 0;
+	uint64_t 			total_tx;
 	struct ether_hdr 	*eth_hdr;
 	pppoe_header_t 		*pppoe_header;
+
+	while(data_plane_start == FALSE);
 	for(;;) {
 		struct rte_mbuf *pkt[BURST_SIZE];
 
 		uint16_t nb_rx = rte_eth_rx_burst(0,0,pkt,BURST_SIZE);
 		if (nb_rx == 0)
 			continue;
+		total_tx = 0;
 		for(int i=0; i<nb_rx; i++) {
 			single_pkt = pkt[i];
 			eth_hdr = rte_pktmbuf_mtod(single_pkt,struct ether_hdr*);
+
 			memcpy(eth_hdr->s_addr.addr_bytes,src_mac,6);
 			memcpy(eth_hdr->d_addr.addr_bytes,dst_mac,6);
+
 			uint16_t protocol = eth_hdr->ether_type;
 			eth_hdr->ether_type = htons(0x8864);
-			
 			char *cur = (char *)eth_hdr - 8;
 			memcpy(cur,eth_hdr,14);
 			pppoe_header = (pppoe_header_t *)(cur+14);

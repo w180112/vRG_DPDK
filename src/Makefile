@@ -5,7 +5,6 @@
 ######################################
 # Set variable
 ######################################
-
 LDLIBS += -L./com_util -lcom_util
 
 SUBDIRS := com_util

@@ -7,7 +7,7 @@ static STATUS   A_send_terminate_ack(int cp, tPPP_PORT*, struct ethhdr *, pppoe_
 static STATUS   A_send_code_reject(int cp, tPPP_PORT*, struct ethhdr *, pppoe_header_t *, ppp_payload_t *, ppp_lcp_header_t *, ppp_lcp_options_t *);
 static STATUS   A_create_down_event(int cp, tPPP_PORT*, struct ethhdr *, pppoe_header_t *, ppp_payload_t *, ppp_lcp_header_t *, ppp_lcp_options_t *);
 static STATUS   A_create_up_event(int cp, tPPP_PORT*, struct ethhdr *, pppoe_header_t *, ppp_payload_t *, ppp_lcp_header_t *, ppp_lcp_options_t *);
-
+//static int   A_init_restart_count(tPPP_PORT*, void*);
 static STATUS   A_send_config_ack(int cp, tPPP_PORT*, struct ethhdr *, pppoe_header_t *, ppp_payload_t *, ppp_lcp_header_t *, ppp_lcp_options_t *);
 static STATUS   A_send_config_nak_rej(int cp, tPPP_PORT*, struct ethhdr *, pppoe_header_t *, ppp_payload_t *, ppp_lcp_header_t *, ppp_lcp_options_t *);
 static STATUS   A_send_terminate_request(int cp, tPPP_PORT*, struct ethhdr *, pppoe_header_t *, ppp_payload_t *, ppp_lcp_header_t *, ppp_lcp_options_t *);
@@ -660,7 +660,7 @@ STATUS A_this_layer_up(int cp, tPPP_PORT *port_ccb, struct ethhdr *eth_hdr, pppo
     	drv_xmit(buffer,mulen);
     }
     else if (ppp_payload->ppp_protocol == htons(IPCP_PROTOCOL)) {
-    	//DPDK enqueue
+    	data_plane_start = TRUE;
     	puts("start to send data via pppoe session.");
     }
     printf("this layer up\n");

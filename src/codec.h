@@ -78,7 +78,6 @@ extern STATUS build_auth_request_pap(unsigned char* buffer, struct ethhdr *eth_h
 
 STATUS check_nak_reject(uint8_t flag,struct ethhdr *eth_hdr, pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp_lcp_header_t *ppp_lcp, ppp_lcp_options_t *ppp_lcp_options, uint16_t total_lcp_length);
 STATUS check_ipcp_nak_rej(uint8_t flag,struct ethhdr *eth_hdr, pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp_lcp_header_t *ppp_lcp, ppp_lcp_options_t *ppp_lcp_options, uint16_t total_lcp_length);
-//extern  void	PPP_init_msg(tPPP_MSG *p);
 
 STATUS pppoe_recv(tPPP_MBX *mail, struct ethhdr *eth_hdr, pppoe_header_t *pppoe_header);
 STATUS build_padi(void);
@@ -90,5 +89,11 @@ extern  U8  	ppp_da_mac[];
 extern  char	cts_port_id[];
 extern  char	cts_port_desc[];
 extern  U32		ppp_ttl;
+
+extern unsigned char *src_mac;
+extern unsigned char *dst_mac;
+extern uint16_t		 session_id;
+extern unsigned char *user_id;
+extern unsigned char *passwd;
 
 #endif

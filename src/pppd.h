@@ -7,6 +7,8 @@
 /\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\*/
 #include <common.h>
 
+#define PPP_Q_KEY				0x0b00   // for the msgq between socket process and ppp process
+#define PPP_Q_KEY_MAIN			0x0c00   // for the msgq between ppp process and main process
 #define ETH_MTU					1500
 #define TEST_PORT_ID			1
 
@@ -81,9 +83,9 @@ extern U8				ppp_max_msg_per_query;
 extern void 		PPP_save_imsg(/*tPPP_MSG *imsg*/);
 int 				ppp_init(void);
 
-int pppdInit(void);
-void PPP_bye(void);
-int control_plane(void);
+int 				pppdInit(void);
+void 				PPP_bye(void);
+int 				control_plane(void);
 
 /*-----------------------------------------
  * Queue between IF driver and daemon
