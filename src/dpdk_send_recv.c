@@ -25,6 +25,9 @@ extern uint16_t		 			session_id;
 extern struct rte_mempool 		*mbuf_pool;
 extern struct rte_ring 			*rte_ring;
 
+static uint16_t nb_rxd = RX_RING_SIZE;
+static uint16_t nb_txd = TX_RING_SIZE;
+
 static const struct rte_eth_conf port_conf_default = {
 	.rxmode = { .max_rx_pkt_len = ETHER_MAX_LEN }
 };
@@ -33,7 +36,7 @@ int PPP_PORT_INIT(uint16_t port)
 {
 	struct rte_eth_conf port_conf = port_conf_default;
 	struct rte_eth_dev_info dev_info;
-	const uint16_t rx_rings = 1, tx_rings = 1;
+	const uint16_t rx_rings = 1, tx_rings = 2;
 	int retval;
 	uint16_t q;
 
@@ -46,17 +49,20 @@ int PPP_PORT_INIT(uint16_t port)
 	retval = rte_eth_dev_configure(port, rx_rings, tx_rings, &port_conf);
 	if (retval != 0)
 		return retval;
+	retval = rte_eth_dev_adjust_nb_rx_tx_desc(port, &nb_rxd,&nb_txd);
+	if (retval < 0)
+		rte_exit(EXIT_FAILURE,"Cannot adjust number of descriptors: err=%d, ""port=%d\n", retval, port);
 
 	/* Allocate and set up 1 RX queue per Ethernet port. */
 	for(q=0; q<rx_rings; q++) {
-		retval = rte_eth_rx_queue_setup(port,q,RX_RING_SIZE,rte_eth_dev_socket_id(port),NULL,mbuf_pool);
+		retval = rte_eth_rx_queue_setup(port,q,nb_rxd,rte_eth_dev_socket_id(port),NULL,mbuf_pool);
 		if (retval < 0)
 			return retval;
 	}
 
-	/* Allocate and set up 1 TX queue per Ethernet port. */
+	/* Allocate and set up 2 TX queue per Ethernet port. */
 	for(q=0; q<tx_rings; q++) {
-		retval = rte_eth_tx_queue_setup(port,q,TX_RING_SIZE,rte_eth_dev_socket_id(port), NULL);
+		retval = rte_eth_tx_queue_setup(port,q,nb_txd,rte_eth_dev_socket_id(port), NULL);
 		if (retval < 0)
 			return retval;
 	}
@@ -74,12 +80,12 @@ int ppp_recvd(void)
 	struct rte_mbuf 	*single_pkt;
 	uint64_t 			total_tx;
 	struct ether_hdr 	*eth_hdr;
-	pppoe_header_t 		*pppoe_header;
+	
 	for(;;) {
 		struct rte_mbuf *pkt[BURST_SIZE];
 
 		uint16_t nb_rx = rte_eth_rx_burst(1,0,pkt,BURST_SIZE);
-		if(nb_rx == 0)
+		if (nb_rx == 0)
 			continue;
 		total_tx = 0;
 		for(int i=0; i<nb_rx; i++) {
@@ -143,7 +149,7 @@ int encapsulation(void)
 	struct ether_hdr 	*eth_hdr;
 	pppoe_header_t 		*pppoe_header;
 
-	while(data_plane_start == FALSE);
+	/*while(data_plane_start == FALSE);*/
 	for(;;) {
 		struct rte_mbuf *pkt[BURST_SIZE];
 
@@ -157,12 +163,13 @@ int encapsulation(void)
 
 			memcpy(eth_hdr->s_addr.addr_bytes,src_mac,6);
 			memcpy(eth_hdr->d_addr.addr_bytes,dst_mac,6);
-
+			
 			uint16_t protocol = eth_hdr->ether_type;
 			eth_hdr->ether_type = htons(0x8864);
 			char *cur = (char *)eth_hdr - 8;
 			memcpy(cur,eth_hdr,14);
 			pppoe_header = (pppoe_header_t *)(cur+14);
+
 			pppoe_header->ver_type = 0x11;
 			pppoe_header->code = 0;
 			pppoe_header->session_id = session_id;
@@ -173,6 +180,7 @@ int encapsulation(void)
 			single_pkt->data_len += 8;
 			pkt[total_tx++] = single_pkt;
 		}
+
 		if (total_tx > 0) {
 			uint16_t nb_tx = rte_eth_tx_burst(1,0,pkt,total_tx);
 			if (unlikely(nb_tx < total_tx)) {
@@ -196,6 +204,6 @@ void drv_xmit(U8 *mu, U16 mulen)
 	pkt->data_len = mulen;
 	pkt->pkt_len = mulen;
 	
-	uint16_t nb_tx = rte_eth_tx_burst(1,0,&pkt,1);
+	uint16_t nb_tx = rte_eth_tx_burst(1,1,&pkt,1);
 	rte_pktmbuf_free(pkt);
 }

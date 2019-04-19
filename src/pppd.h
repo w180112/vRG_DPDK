@@ -7,8 +7,6 @@
 /\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\*/
 #include <common.h>
 
-#define PPP_Q_KEY				0x0b00   // for the msgq between socket process and ppp process
-#define PPP_Q_KEY_MAIN			0x0c00   // for the msgq between ppp process and main process
 #define ETH_MTU					1500
 #define TEST_PORT_ID			1
 

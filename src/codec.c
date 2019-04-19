@@ -1,12 +1,12 @@
 #include "codec.h"
 
-uint8_t 	identifier;
-uint32_t 	magic_num;
-uint32_t 	ipv4 = 0;
-uint32_t 	ipv4_gw = 0;
-uint32_t 	primary_dns = 0;
-uint32_t 	second_dns = 0;
-uint8_t 	phase;
+uint8_t identifier;
+uint32_t magic_num;
+uint32_t ipv4 = 0;
+uint32_t ipv4_gw = 0;
+uint32_t primary_dns = 0;
+uint32_t second_dns = 0;
+uint8_t phase;
 
 /*============================ DECODE ===============================*/
 
@@ -20,7 +20,6 @@ uint8_t 	phase;
 STATUS PPP_decode_frame(tPPP_MBX *mail, /*tPPP_MSG *imsg, */struct ethhdr *eth_hdr, pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp_lcp_header_t *ppp_lcp, ppp_lcp_options_t **ppp_lcp_options, uint16_t *event)
 {
     uint16_t	mulen;
-	//uint8_t		*mu;
 
 	if (mail->len > ETH_MTU){
 	    return ERROR;
@@ -33,8 +32,11 @@ STATUS PPP_decode_frame(tPPP_MBX *mail, /*tPPP_MSG *imsg, */struct ethhdr *eth_h
 	memcpy(pppoe_header,tmp_pppoe_header,sizeof(pppoe_header_t));
 
 	/* we receive pppoe discovery packet and dont need to parse for ppp payload */
-	if (eth_hdr->h_proto == htons(ETH_P_PPP_DIS))
+	if (eth_hdr->h_proto == htons(ETH_P_PPP_DIS)) {
+		if (pppoe_header->code == PADS)
+			phase = LCP_PHASE;
 		return TRUE;
+	}
 	
 	ppp_payload_t *tmp_ppp_payload = (ppp_payload_t *)(tmp_pppoe_header + 1);
 	ppp_lcp_header_t *tmp_ppp_lcp = (ppp_lcp_header_t *)(tmp_ppp_payload + 1);
@@ -62,27 +64,28 @@ STATUS PPP_decode_frame(tPPP_MBX *mail, /*tPPP_MSG *imsg, */struct ethhdr *eth_h
     	}
     }
     else if (ppp_payload->ppp_protocol == htons(LCP_PROTOCOL)) {
-		switch(ppp_lcp->code)
-		{
+		switch(ppp_lcp->code) {
 			case CONFIG_REQUEST : 
 				if (phase != LCP_PHASE)
     				return FALSE;
 				/* we check for if the request packet contains what we want */
-				switch (check_nak_reject(CONFIG_NAK,eth_hdr,pppoe_header,ppp_payload,ppp_lcp,*ppp_lcp_options,total_lcp_length))
-				{
+				switch (check_nak_reject(CONFIG_NAK,eth_hdr,pppoe_header,ppp_payload,ppp_lcp,*ppp_lcp_options,total_lcp_length)) {
 					case ERROR:
 						return FALSE;
 					case 1:
 						*event = E_RECV_BAD_CONFIG_REQUEST;
 						return TRUE;
+					default:
+						;
 				}
-				switch (check_nak_reject(CONFIG_REJECT,eth_hdr,pppoe_header,ppp_payload,ppp_lcp,*ppp_lcp_options,total_lcp_length))
-				{
+				switch (check_nak_reject(CONFIG_REJECT,eth_hdr,pppoe_header,ppp_payload,ppp_lcp,*ppp_lcp_options,total_lcp_length)) {
 					case ERROR:
 						return FALSE;
 					case 1:
 						*event = E_RECV_BAD_CONFIG_REQUEST;
 						return TRUE;
+					default:
+						;
 				}
 				*event = E_RECV_GOOD_CONFIG_REQUEST;
 				ppp_lcp->length = htons(total_lcp_length);
@@ -94,10 +97,9 @@ STATUS PPP_decode_frame(tPPP_MBX *mail, /*tPPP_MSG *imsg, */struct ethhdr *eth_h
 					return FALSE;
 			
 				/* only check magic number. Skip the bytes stored in ppp_lcp_options_t length to find magic num. */
-				for (ppp_lcp_options_t *cur=*ppp_lcp_options; cur->type!=0;) {
+				for(ppp_lcp_options_t *cur=*ppp_lcp_options; cur->type!=0;) {
 					if (cur->type == MAGIC_NUM) {
-						int i;
-						for(i=cur->length-3; i>0; i--) {
+						for(int i=cur->length-3; i>0; i--) {
 							if (*(((uint8_t *)&magic_num) + i) != cur->val[i]) {
 								puts("recv ppp LCP magic number error");
 								return FALSE;
@@ -113,6 +115,7 @@ STATUS PPP_decode_frame(tPPP_MBX *mail, /*tPPP_MSG *imsg, */struct ethhdr *eth_h
 				return TRUE;
 			case CONFIG_REJECT :
 				*event = E_RECV_CONFIG_NAK_REJ;
+				printf("recv LCP reject message with %x option\n", (*ppp_lcp_options)->type);
 				return TRUE;
 			case TERMIN_REQUEST :
 				*event = E_RECV_TERMINATE_REQUEST;
@@ -162,6 +165,15 @@ STATUS PPP_decode_frame(tPPP_MBX *mail, /*tPPP_MSG *imsg, */struct ethhdr *eth_h
 			puts("auth fail.");
 			return TRUE;
 		}
+		else if (ppp_lcp->code == AUTH_REQUEST) {
+			unsigned char buffer[MSG_BUF];
+    		uint16_t mulen;
+
+			build_auth_ack_pap(buffer,eth_hdr,pppoe_header,ppp_payload,ppp_lcp,NULL,&mulen);
+			drv_xmit(buffer,mulen);
+			puts("recv pap request");
+			return FALSE;
+		}
 	}
 	else {
 		puts("unknown PPP protocol");
@@ -173,24 +185,25 @@ STATUS PPP_decode_frame(tPPP_MBX *mail, /*tPPP_MSG *imsg, */struct ethhdr *eth_h
 
 STATUS decode_ipcp(struct ethhdr *eth_hdr, pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp_lcp_header_t *ppp_lcp, ppp_lcp_options_t *ppp_lcp_options, uint16_t total_lcp_length, uint16_t *event)
 {
-	switch(ppp_lcp->code)
-	{
+	switch(ppp_lcp->code) {
 		case CONFIG_REQUEST : 
-			switch (check_ipcp_nak_rej(CONFIG_NAK,eth_hdr,pppoe_header,ppp_payload,ppp_lcp,ppp_lcp_options,total_lcp_length))
-			{
+			switch (check_ipcp_nak_rej(CONFIG_NAK,eth_hdr,pppoe_header,ppp_payload,ppp_lcp,ppp_lcp_options,total_lcp_length)) {
 				case ERROR:
 					return FALSE;
 				case 1:
 					*event = E_RECV_BAD_CONFIG_REQUEST;
 					return TRUE;
+				default:
+					;
 			}
-			switch (check_ipcp_nak_rej(CONFIG_REJECT,eth_hdr,pppoe_header,ppp_payload,ppp_lcp,ppp_lcp_options,total_lcp_length))
-			{
+			switch (check_ipcp_nak_rej(CONFIG_REJECT,eth_hdr,pppoe_header,ppp_payload,ppp_lcp,ppp_lcp_options,total_lcp_length)) {
 				case ERROR:
 					return FALSE;
 				case 1:
 					*event = E_RECV_BAD_CONFIG_REQUEST;
 					return TRUE;
+				default:
+					;
 			}
 			memcpy(&ipv4_gw,ppp_lcp_options->val,sizeof(ipv4_gw));
 			*event = E_RECV_GOOD_CONFIG_REQUEST;
@@ -273,14 +286,14 @@ STATUS check_nak_reject(uint8_t flag,struct ethhdr *eth_hdr, pppoe_header_t *ppp
 {
 	ppp_lcp_options_t *tmp_buf = (ppp_lcp_options_t *)malloc(MSG_BUF*sizeof(char));
 	ppp_lcp_options_t *tmp_cur = tmp_buf;
-	int bool = 0;
-	uint16_t tmp_total_length = 4;
+	int 			  bool = 0;
+	uint16_t 		  tmp_total_length = 4;
 	
 	memset(tmp_buf,0,MSG_BUF);
 	memcpy(tmp_buf,ppp_lcp_options,MSG_BUF);
 
 	ppp_lcp->length = sizeof(ppp_lcp_header_t);
-	for (ppp_lcp_options_t *cur=ppp_lcp_options; tmp_total_length<total_lcp_length; cur=(ppp_lcp_options_t *)((char *)cur + cur->length)) {
+	for(ppp_lcp_options_t *cur=ppp_lcp_options; tmp_total_length<total_lcp_length; cur=(ppp_lcp_options_t *)((char *)cur + cur->length)) {
 		if (flag == CONFIG_NAK) {
 			if (cur->type == MRU && (cur->val[0] != 0x5 || cur->val[1] != 0x78)) {
 				bool = 1;
@@ -350,7 +363,7 @@ STATUS build_padi(void)
 	pppoe_header_t 		pppoe_header;
 	pppoe_header_tag_t 	pppoe_header_tag;
 
-	for (int i=0; i<6; i++) {
+	for(int i=0; i<6; i++) {
  		eth_hdr.h_source[i] = src_mac[i];
  		eth_hdr.h_dest[i] = 0xff;
 	}
@@ -465,7 +478,6 @@ STATUS build_config_request(int cp, unsigned char *buffer, struct ethhdr *eth_hd
 	eth_hdr->h_proto = htons(ETH_P_PPP_SES);
 
 	/* build ppp protocol and lcp header. */
-
  	pppoe_header->ver_type = VER_TYPE;
  	pppoe_header->code = 0;
  	pppoe_header->session_id = session_id; /* We didnt convert seesion id to little endian at first */
@@ -659,7 +671,7 @@ STATUS build_auth_request_pap(unsigned char* buffer, struct ethhdr *eth_hdr, ppp
 	ppp_lcp_header_t ppp_pap_header;
 	uint8_t peer_id_length = strlen(user_id);
 	uint8_t peer_passwd_length = strlen(passwd);
-	
+
 	phase = AUTH_PHASE;
 
 	memcpy(eth_hdr->h_source,src_mac,6);
@@ -685,7 +697,42 @@ STATUS build_auth_request_pap(unsigned char* buffer, struct ethhdr *eth_hdr, ppp
  	memcpy(buffer+14+sizeof(pppoe_header_t)+sizeof(ppp_payload_t)+sizeof(ppp_lcp_header_t)+sizeof(uint8_t),user_id,peer_id_length);
  	memcpy(buffer+14+sizeof(pppoe_header_t)+sizeof(ppp_payload_t)+sizeof(ppp_lcp_header_t)+sizeof(uint8_t)+peer_id_length,&peer_passwd_length,sizeof(uint8_t));
  	memcpy(buffer+14+sizeof(pppoe_header_t)+sizeof(ppp_payload_t)+sizeof(ppp_lcp_header_t)+sizeof(uint8_t)+peer_id_length+sizeof(uint8_t),passwd,peer_passwd_length);
-
+ 	
  	puts("pap request built.");
  	return TRUE;
+}
+
+void build_auth_ack_pap(unsigned char* buffer, struct ethhdr *eth_hdr, pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp_lcp_header_t *ppp_lcp, ppp_lcp_options_t *ppp_lcp_options, uint16_t *mulen)
+{
+	ppp_lcp_header_t ppp_pap_header;
+	char *login_msg = "Login ok";
+	ppp_pap_ack_nak_t ppp_pap_ack_nak;
+
+	phase = AUTH_PHASE;
+
+	memcpy(eth_hdr->h_source,src_mac,6);
+	memcpy(eth_hdr->h_dest,dst_mac,6);
+
+	ppp_payload->ppp_protocol = htons(AUTH_PROTOCOL);
+	ppp_pap_header.code = AUTH_ACK;
+	ppp_pap_header.identifier = ppp_lcp->identifier;
+
+	ppp_pap_ack_nak.msg_length = strlen(login_msg);
+	memcpy(ppp_pap_ack_nak.msg,login_msg,ppp_pap_ack_nak.msg_length);
+
+	ppp_pap_header.length =  sizeof(ppp_lcp_header_t);
+	pppoe_header->length = ppp_pap_header.length + sizeof(ppp_payload_t);
+	ppp_pap_header.length = htons(ppp_pap_header.length);
+	pppoe_header->length = htons(pppoe_header->length);
+
+	*mulen = ntohs(pppoe_header->length) + 14 + sizeof(pppoe_header_t);
+
+	memset(buffer,0,MSG_BUF);
+	memcpy(buffer,eth_hdr,14);
+ 	memcpy(buffer+14,pppoe_header,sizeof(pppoe_header_t));
+ 	memcpy(buffer+14+sizeof(pppoe_header_t),ppp_payload,sizeof(ppp_payload_t));
+ 	memcpy(buffer+14+sizeof(pppoe_header_t)+sizeof(ppp_payload_t),&ppp_pap_header,sizeof(ppp_lcp_header_t));
+ 	memcpy(buffer+14+sizeof(pppoe_header_t)+sizeof(ppp_payload_t)+sizeof(ppp_lcp_header_t),&ppp_pap_ack_nak,sizeof(ppp_pap_ack_nak.msg_length)+ppp_pap_ack_nak.msg_length);
+ 	
+ 	puts("pap ack built.");
 }
