@@ -4,12 +4,13 @@
   Designed by THE on Jan 14, 2019
 /\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\*/
 
-#ifndef _PPP_CODEC_H_
-#define _PPP_CODEC_H_
+#ifndef _CODEC_H_
+#define _CODEC_H_
 
 #include "pppoeclient.h"
 #include <ip_codec.h>
 #include "fsm.h"
+#include <rte_timer.h>
 
 #define PPP_MAX_MSG_LEN			512
 #define DEF_TTL					120 //secs
@@ -62,38 +63,33 @@ typedef enum {
     for((entry)=0; (table)[(entry)].type!=(max_type) && (t)!=(table)[(entry)].type; (entry)++); \
 }
  
-extern STATUS PPP_decode_frame(tPPP_MBX *mail, struct ethhdr *eth_hdr, pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp_lcp_header_t *ppp_lcp, ppp_lcp_options_t **ppp_lcp_options, uint16_t *event);
-extern STATUS decode_ipcp(struct ethhdr *eth_hdr, pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp_lcp_header_t *ppp_lcp, ppp_lcp_options_t *ppp_lcp_options, uint16_t total_lcp_length, uint16_t *event);
+extern STATUS PPP_decode_frame(tPPP_MBX *mail, struct ethhdr *eth_hdr, pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp_lcp_header_t *ppp_lcp, ppp_lcp_options_t *ppp_lcp_options, uint16_t *event, struct rte_timer *tim, tPPP_PORT *port_ccb);
+extern STATUS decode_ipcp(struct ethhdr *eth_hdr, pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp_lcp_header_t *ppp_lcp, ppp_lcp_options_t *ppp_lcp_options, uint16_t total_lcp_length, uint16_t *event, struct rte_timer *tim, tPPP_PORT *port_ccb);
 
 extern void   DECODE_OBJID(U8 *vp, U8 vlen, U32 *oids, U8 *oids_len);
 
-extern STATUS build_config_request(int cp, unsigned char* buffer, struct ethhdr *eth_hdr, pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp_lcp_header_t *ppp_lcp, ppp_lcp_options_t *ppp_lcp_options, uint16_t *mulen);
-extern STATUS build_config_ack(int cp, unsigned char* buffer, struct ethhdr *eth_hdr, pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp_lcp_header_t *ppp_lcp, ppp_lcp_options_t *ppp_lcp_options, uint16_t *mulen);
-extern STATUS build_config_nak_rej(int cp, unsigned char* buffer, struct ethhdr *eth_hdr, pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp_lcp_header_t *ppp_lcp, ppp_lcp_options_t *ppp_lcp_options, uint16_t *mulen);
-extern STATUS build_terminate_ack(int cp, unsigned char* buffer, struct ethhdr *eth_hdr, pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp_lcp_header_t *ppp_lcp, ppp_lcp_options_t *ppp_lcp_options, uint16_t *mulen);
-extern STATUS build_code_reject(int cp, unsigned char* buffer, struct ethhdr *eth_hdr, pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp_lcp_header_t *ppp_lcp, ppp_lcp_options_t *ppp_lcp_options, uint16_t *mulen);
-extern STATUS build_terminate_request(int cp, unsigned char* buffer, struct ethhdr *eth_hdr, pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp_lcp_header_t *ppp_lcp, ppp_lcp_options_t *ppp_lcp_options, uint16_t *mulen);
-extern STATUS build_echo_reply(unsigned char* buffer, struct ethhdr *eth_hdr, pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp_lcp_header_t *ppp_lcp, ppp_lcp_options_t *ppp_lcp_options, uint16_t *mulen);
-extern STATUS build_auth_request_pap(unsigned char* buffer, struct ethhdr *eth_hdr, pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp_lcp_header_t *ppp_lcp, ppp_lcp_options_t *ppp_lcp_options, uint16_t *mulen);
+extern STATUS build_config_request(unsigned char *buffer, tPPP_PORT *port_ccb, uint16_t *mulen);
+extern STATUS build_config_ack(unsigned char *buffer, tPPP_PORT *port_ccb, uint16_t *mulen);
+extern STATUS build_config_nak_rej(unsigned char *buffer, tPPP_PORT *port_ccb, uint16_t *mulen);
+extern STATUS build_terminate_ack(unsigned char *buffer, tPPP_PORT *port_ccb, uint16_t *mulen);
+extern STATUS build_code_reject(unsigned char *buffer, tPPP_PORT *port_ccb, uint16_t *mulen);
+extern STATUS build_terminate_request(unsigned char *buffer, tPPP_PORT *port_ccb, uint16_t *mulen);
+extern STATUS build_echo_reply(unsigned char *buffer, tPPP_PORT *port_ccb, uint16_t *mulen);
+extern STATUS build_auth_request_pap(unsigned char *buffer, tPPP_PORT *port_ccb, uint16_t *mulen);
+extern STATUS build_auth_ack_pap(unsigned char *buffer, tPPP_PORT *port_ccb, uint16_t *mulen);
 
 STATUS check_nak_reject(uint8_t flag,struct ethhdr *eth_hdr, pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp_lcp_header_t *ppp_lcp, ppp_lcp_options_t *ppp_lcp_options, uint16_t total_lcp_length);
 STATUS check_ipcp_nak_rej(uint8_t flag,struct ethhdr *eth_hdr, pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp_lcp_header_t *ppp_lcp, ppp_lcp_options_t *ppp_lcp_options, uint16_t total_lcp_length);
 
-STATUS pppoe_recv(tPPP_MBX *mail, struct ethhdr *eth_hdr, pppoe_header_t *pppoe_header);
-STATUS build_padi(void);
-STATUS build_padr(struct ethhdr *eth_hdr, pppoe_header_t *pppoe_header, pppoe_header_tag_t *pppoe_header_tag);
-STATUS build_padt(struct ethhdr *eth_hdr, pppoe_header_t *pppoe_header);
+STATUS build_padi(__attribute__((unused)) struct rte_timer *tim, tPPP_PORT *port_ccb, uint16_t *max_retransmit);
+STATUS build_padr(__attribute__((unused)) struct rte_timer *tim, tPPP_PORT *port_ccb, pppoe_phase_t *pppoe_phase);
+STATUS build_padt(struct ethhdr *eth_hdr, tPPP_PORT *port_ccb, pppoe_header_t *pppoe_header);
 
-extern  U8		ppp_802_1_oui[];
-extern  U8  	ppp_da_mac[];
-extern  char	cts_port_id[];
-extern  char	cts_port_desc[];
-extern  U32		ppp_ttl;
-
-extern unsigned char *src_mac;
-extern unsigned char *dst_mac;
-extern uint16_t		 session_id;
-extern unsigned char *user_id;
-extern unsigned char *passwd;
+extern  U8			ppp_802_1_oui[];
+extern  U8  		ppp_da_mac[];
+extern  char		cts_port_id[];
+extern  char		cts_port_desc[];
+extern  U32			ppp_ttl;
+extern 	tPPP_PORT	ppp_ports[USER];
 
 #endif

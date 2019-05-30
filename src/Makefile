@@ -12,7 +12,7 @@ SUBDIRS := com_util
 APP = pppoeclient
 
 # all source are stored in SRCS-y
-SRCS-y := pppd.c fsm.c codec.c dpdk_send_recv.c
+SRCS-y := pppd.c fsm.c codec.c dpdk_send_recv.c timer.c nat.c ethtool.c
 
 # Build using pkg-config variables if possible
 $(shell pkg-config --exists libdpdk)

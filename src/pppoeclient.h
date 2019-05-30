@@ -10,6 +10,7 @@
 #define LCP_PHASE			0x2
 #define AUTH_PHASE			0x3
 #define IPCP_PHASE			0x4
+#define END_PHASE			0x0
 
 #define END_OF_LIST 		0x0
 #define SERVICE_NAME 		0x0101
@@ -63,47 +64,7 @@
 #define PRIMARY_DNS			0x81
 #define SECOND_DNS			0x83
 
-#define MAX_RECV			1470
+#define MAX_RECV			1492
+#define MAX_RETRAN			10
 
-typedef struct pppoe_header {
-	uint8_t ver_type;
-	uint8_t code;
-	uint16_t session_id;
-	uint16_t length;
-} pppoe_header_t;
-
-typedef struct pppoe_header_tag {
-	uint16_t type;
-  	uint16_t length;
-  	// depend on the type and length.
-  	uint8_t value[0];
-} pppoe_header_tag_t;
-
-typedef struct ppp_lcp_header {
-	uint8_t code;
-	uint8_t identifier;
-	uint16_t length;
-}ppp_lcp_header_t;
-
-typedef struct ppp_pap_ack_nak {
-	uint8_t msg_length;
-	uint8_t msg[0];
-}ppp_pap_ack_nak_t;
-
-typedef struct ppp_payload {
-	uint16_t ppp_protocol;
-}ppp_payload_t;
-
-typedef struct ppp_lcp_options{
-	uint8_t type;
-	uint8_t length;
-	uint8_t val[0];
-}ppp_lcp_options_t;
-
-int lcp_nego(unsigned char if_name[], unsigned char *buffer);
-int raw_sock_send(char if_name[], uint8_t code, unsigned char *buffer);
-pppoe_header_t* create_padi(struct ethhdr *eth_hdr);
-int raw_sock_receive(char if_name[], uint8_t code, unsigned char *buffer);
-pppoe_header_t* create_padr(struct ethhdr *eth_hdr, unsigned char *tmp_buf);
-pppoe_header_t* create_padt(struct ethhdr *eth_hdr);
 extern uint8_t data_plane_start;

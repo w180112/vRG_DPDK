@@ -57,20 +57,20 @@ only .h file could be included in either .c or .cpp file */
 
 extern tTMR_OBJ		tmrObj;		
 extern tIPC_ID		tmr_semid,tmr_shmid,tmrQ;
-extern void 		tmrExit();
+extern void 		tmrExit(void);
 extern int   		tmrTid;
-extern char     	*SYS_UP_CTIME(),*SYS_UP_TIME(),*_2CTIME(U64);
+extern char     	*SYS_UP_CTIME(void),*SYS_UP_TIME(void),*_2CTIME(U64);
 extern void         _SEC2CTIME(U64,char*);
 extern void         _SEC2STR_TIME(U64,char*);
 
-extern int 			tmrInit();
-extern STATUS       OSTMR_InitTmrCbs();
-extern pTMR_CB      OSTMR_MallocTmrCb();
-extern void         OSTMR_FreeTmrCb();
+extern int 			tmrInit(void);
+extern STATUS       OSTMR_InitTmrCbs(void);
+extern pTMR_CB      OSTMR_MallocTmrCb(void);
+extern void         OSTMR_FreeTmrCb(pTMR_CB p);
 extern void         OSTMR_StartTmr(tIPC_ID Que, void *ccb, U32 delay, char *name, U16 event);
 extern void         OSTMR_StopTmrs(void *ccb);
 extern void         OSTMR_StopXtmr(void *ccb, U16 event);
-extern BOOL         OSTMR_IsTmrListEmpty();
+extern BOOL         OSTMR_IsTmrListEmpty(void);
 extern BOOL         OSTMR_IsTmrExist(void *ccb, U16 event);
 
 #endif /* _OS_TIMER_H_ */

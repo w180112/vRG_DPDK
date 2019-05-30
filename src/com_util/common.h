@@ -59,9 +59,9 @@ extern "C" {
 
 typedef  		unsigned char   	BOOL;
 typedef  		short				STATUS;
-typedef  		int    				(*FUNCPTR)();       //return int
-typedef  		unsigned char		(*U8FUNCPTR)();     //return U8
-typedef  		void   				(*VOIDFUNCPTR)();   //return void
+typedef  		int    				(*FUNCPTR)(void);       //return int
+typedef  		unsigned char		(*U8FUNCPTR)(void);     //return U8
+typedef  		void   				(*VOIDFUNCPTR)(void);   //return void
 
 #define         ADV_TRUE           	1
 #define         ADV_FALSE          	0
@@ -121,15 +121,15 @@ typedef unsigned long long  U64;
 #endif
 
 typedef unsigned int	    UINT;	
-typedef U8                  (*U8_FUNCPTR)();
-typedef U16                 (*U16_FUNCPTR)();      /* return U16 */
-typedef U32                 (*U32_FUNCPTR)();      /* return U32 */
-typedef void                (*VOID_FUNCPTR)();      /* return U32 */
+typedef U8                  (*U8_FUNCPTR)(void);
+typedef U16                 (*U16_FUNCPTR)(void);      /* return U16 */
+typedef U32                 (*U32_FUNCPTR)(void);      /* return U32 */
+typedef void                (*VOID_FUNCPTR)(void);      /* return U32 */
 
-typedef U8                  *(*U8PTR_FUNCPTR)();   /* return U8 ptr */
-typedef U32                 *(*U32PTR_FUNCPTR)();  /* return U32 ptr */
-typedef void                *(*VOIDPTR_FUNCPTR)(); /* return void ptr */
-typedef char                *(*STRFUNCPTR)();      /* return char ptr */
+typedef U8                  *(*U8PTR_FUNCPTR)(void);   /* return U8 ptr */
+typedef U32                 *(*U32PTR_FUNCPTR)(void);  /* return U32 ptr */
+typedef void                *(*VOIDPTR_FUNCPTR)(void); /* return void ptr */
+typedef char                *(*STRFUNCPTR)(void);      /* return char ptr */
 typedef void 				(*SIG_FUNCPTR)(int);
     
 #define W1                  1   /* debug warnning level */

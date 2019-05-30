@@ -18,12 +18,11 @@
 /* protocol type */
 #define FRAME_TYPE_ARP          0x0806
 #define FRAME_TYPE_IP          	0x0800
+#define PROTO_TYPE_ICMP         1
+#define PROTO_TYPE_TCP          6
 #define PROTO_TYPE_UDP          17
 #define OP_ARP_REQ              1
 #define OP_ARP_RSP              2   
-
-#define OP_ARP_REQ              1
-#define OP_ARP_RSP              2
 
 /* frame, ip, udp */
 #define ETH_HDR_LEN				12
@@ -73,8 +72,8 @@ struct _IP_PACKET {
     U8			*data;
 };
 typedef struct _IP_PACKET  tIP_PKT;
-extern U8   	*ENCODE_IP_PKT();
-extern STATUS 	DECODE_IP_PKT(/*tIP_PKT *ip_pkt, U8 *data, U16 *len*/);
+extern U8   	*ENCODE_IP_PKT(tIP_PKT *ip_pkt, U8 *cp);
+extern STATUS 	DECODE_IP_PKT(tIP_PKT *ip_pkt, U8 *data, U16 *len);
 
 /*----------------------------------------------------------
  * UDP packet 
@@ -90,7 +89,7 @@ typedef struct UDP_PACKET  tUDP_PKT;
 
 extern U16 	CHECK_SUM(U32);
 extern int  DECODE_UDP_PKT(tUDP_PKT *udp_pkt, tIP_PKT *ip_pkt, U16 *data_len);
-extern U8   *ENCODE_UDP_PKT();
+extern U8   *ENCODE_UDP_PKT(tIP_PKT *ip_pkt, tUDP_PKT *udp_pkt, U8 *mp);
 extern void DHCPR_encode_frame(U8 *dm, U8 *sm, U8 *dip, U8 *sip, UINT vid, U8 *im, UINT len, U8 *mu, UINT *mulen);
 
 struct ARP_PACKET {
@@ -105,5 +104,5 @@ struct ARP_PACKET {
     U8      da_ip[IP_ADDR_LEN];
 };
 typedef struct ARP_PACKET  tARP_PKT;
-extern U8   *ENCODE_ARP_PKT();
+extern U8   *ENCODE_ARP_PKT(tARP_PKT *arp_pkt, U8 *cp);
 #endif /* _IP_CODEC_H_ */
