@@ -9,8 +9,8 @@
 #include 	<common.h>
 #include 	"dpdk_send_recv.h"
 
-#ifndef _PPP_FSM_H_
-#define _PPP_FSM_H_
+#ifndef _FSM_H_
+#define _FSM_H_
 
 typedef struct{
     U8   	state;

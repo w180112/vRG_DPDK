@@ -16,7 +16,7 @@
 
 int timer_loop(__attribute__((unused)) void *arg);
 
-#define TIMER_RESOLUTION_CYCLES 20000000ULL /* around 10ms at 2 Ghz */
+#define TIMER_RESOLUTION_CYCLES 20000000ULL
 
 __attribute__((noreturn)) int timer_loop(__attribute__((unused)) void *arg)
 {

@@ -8,6 +8,7 @@
 #define _CODEC_H_
 
 #include "pppoeclient.h"
+#include "pppd.h"
 #include <ip_codec.h>
 #include "fsm.h"
 #include <rte_timer.h>
@@ -83,7 +84,7 @@ STATUS check_ipcp_nak_rej(uint8_t flag,struct ethhdr *eth_hdr, pppoe_header_t *p
 
 STATUS build_padi(__attribute__((unused)) struct rte_timer *tim, tPPP_PORT *port_ccb, uint16_t *max_retransmit);
 STATUS build_padr(__attribute__((unused)) struct rte_timer *tim, tPPP_PORT *port_ccb, pppoe_phase_t *pppoe_phase);
-STATUS build_padt(struct ethhdr *eth_hdr, tPPP_PORT *port_ccb, pppoe_header_t *pppoe_header);
+STATUS build_padt(tPPP_PORT *port_ccb);
 
 extern  U8			ppp_802_1_oui[];
 extern  U8  		ppp_da_mac[];

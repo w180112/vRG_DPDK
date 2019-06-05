@@ -15,7 +15,6 @@
 #include <string.h>
 #include <stdio.h>
 #include <rte_memcpy.h>
-#include <ip_codec.h>
 #include "pppoeclient.h"
 
 #define RX_RING_SIZE 128
@@ -34,8 +33,8 @@ static uint16_t 				nb_txd = TX_RING_SIZE;
 
 static const struct rte_eth_conf port_conf_default = {
 	.rxmode = { .max_rx_pkt_len = ETHER_MAX_LEN, }, 
-	.txmode = { .offloads = DEV_TX_OFFLOAD_IPV4_CKSUM,
-							DEV_TX_OFFLOAD_UDP_CKSUM,
+	.txmode = { .offloads = DEV_TX_OFFLOAD_IPV4_CKSUM | 
+							DEV_TX_OFFLOAD_UDP_CKSUM | 
 							DEV_TX_OFFLOAD_TCP_CKSUM, }
 };
 extern void 		nat_icmp_learning(struct ether_hdr *eth_hdr, struct ipv4_hdr *ip_hdr, struct icmp_hdr *icmphdr, uint32_t *new_port_id);
@@ -104,16 +103,17 @@ int ppp_recvd(void)
 	struct ipv4_hdr 	*ip_hdr;
 	struct icmp_hdr		*icmphdr;
 	struct rte_mbuf 	*pkt[BURST_SIZE];
-	uint16_t 			ori_port_id;
+	uint16_t 			ori_port_id, nb_rx;
 	ppp_payload_t 		*ppp_payload;
 	tPPP_MBX 			*mail = malloc(sizeof(tPPP_MBX));
+	int 				i;
 	
 	for(;;) {
-		uint16_t nb_rx = rte_eth_rx_burst(1,0,pkt,BURST_SIZE);
+		nb_rx = rte_eth_rx_burst(1,0,pkt,BURST_SIZE);
 		if (nb_rx == 0)
 			continue;
 		total_tx = 0;
-		for(int i=0; i<nb_rx; i++) {
+		for(i=0; i<nb_rx; i++) {
 			single_pkt = pkt[i];
 			rte_prefetch0(rte_pktmbuf_mtod(single_pkt, void *));
 			eth_hdr = rte_pktmbuf_mtod(single_pkt,struct ether_hdr*);
@@ -354,7 +354,7 @@ int gateway(void)
 	uint32_t			lan_ip = rte_cpu_to_be_32(0xc0a80001); //192.168.0.1
 
 	rte_eth_macaddr_get(0,(struct ether_addr *)mac_addr);
-	while(data_plane_start == FALSE)
+	while(ppp_ports[0].data_plane_start == FALSE)
 		usleep(1000);
 	for(;;) {
 		nb_rx = rte_eth_rx_burst(0,0,pkt,BURST_SIZE);
@@ -366,7 +366,7 @@ int gateway(void)
 			rte_prefetch0(rte_pktmbuf_mtod(single_pkt,void *));
 			eth_hdr = rte_pktmbuf_mtod(single_pkt,struct ether_hdr*);
 			if (eth_hdr->ether_type == rte_cpu_to_be_16(FRAME_TYPE_ARP)) { 
-				/* We only reply arp request to us*/
+				/* We only reply arp request to us */
 				rte_memcpy(eth_hdr->d_addr.addr_bytes,eth_hdr->s_addr.addr_bytes,6);
 				rte_memcpy(eth_hdr->s_addr.addr_bytes,mac_addr,6);
 				arphdr = (struct arp_hdr *)(rte_pktmbuf_mtod(single_pkt, unsigned char *) + sizeof(struct ether_hdr));
@@ -481,5 +481,5 @@ void drv_xmit(U8 *mu, U16 mulen)
 	rte_memcpy(buf,mu,mulen);
 	pkt->data_len = mulen;
 	pkt->pkt_len = mulen;
-	rte_pktmbuf_free(pkt);
+	rte_eth_tx_burst(1,1,&pkt,1);
 }

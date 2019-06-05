@@ -2,6 +2,8 @@
 #include <rte_timer.h>
 #include <rte_memcpy.h>
 
+extern STATUS PPP_FSM(struct rte_timer *ppp, tPPP_PORT *port_ccb, U16 event);
+
 /*============================ DECODE ===============================*/
 
 /*****************************************************
@@ -14,7 +16,6 @@
 STATUS PPP_decode_frame(tPPP_MBX *mail, struct ethhdr *eth_hdr, pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp_lcp_header_t *ppp_lcp, ppp_lcp_options_t *ppp_lcp_options, uint16_t *event, struct rte_timer *tim, tPPP_PORT *port_ccb)
 {
     uint16_t	mulen;
-	//uint8_t		*mu;
 
 	if (mail->len > ETH_MTU)
 	    return ERROR;
@@ -37,7 +38,7 @@ STATUS PPP_decode_frame(tPPP_MBX *mail, struct ethhdr *eth_hdr, pppoe_header_t *
 	rte_memcpy(ppp_payload,tmp_ppp_payload,sizeof(ppp_payload_t));
 	rte_memcpy(ppp_lcp,tmp_ppp_lcp,sizeof(ppp_lcp_header_t));
 	rte_memcpy(ppp_lcp_options,tmp_ppp_lcp+1,htons(ppp_lcp->length)-4);
-	
+
 	mulen = mail->len;
     
     if (pppoe_header->session_id != ppp_ports[0].session_id) {
@@ -153,22 +154,19 @@ STATUS PPP_decode_frame(tPPP_MBX *mail, struct ethhdr *eth_hdr, pppoe_header_t *
 			return TRUE;
 		}
 		else if (ppp_lcp->code == AUTH_NAK) {
-			unsigned char buffer[MSG_BUF];
-    		uint16_t mulen;
     		tPPP_PORT tmp_port_ccb;
 
-    		port_ccb->phase = END_PHASE;
+    		tmp_port_ccb.ppp_phase[0].state = S_OPENED;
     		tmp_port_ccb.ppp_phase[0].eth_hdr = eth_hdr;
     		tmp_port_ccb.ppp_phase[0].pppoe_header = pppoe_header;
     		tmp_port_ccb.ppp_phase[0].ppp_payload = ppp_payload;
     		tmp_port_ccb.ppp_phase[0].ppp_lcp = ppp_lcp;
     		tmp_port_ccb.ppp_phase[0].ppp_lcp_options = NULL;
     		tmp_port_ccb.cp = 0;
-    		if (build_terminate_request(buffer,&tmp_port_ccb,&mulen) < 0)
-        		return FALSE;
-    		drv_xmit(buffer,mulen);
+    		tmp_port_ccb.ppp = port_ccb->ppp;
+    		PPP_FSM(&(tmp_port_ccb.ppp),&tmp_port_ccb,E_CLOSE);
 			puts("auth fail.");
-			return TRUE;
+			return FALSE;
 		}
 		else if (ppp_lcp->code == AUTH_REQUEST) {
 			unsigned char buffer[MSG_BUF];
@@ -193,13 +191,19 @@ STATUS PPP_decode_frame(tPPP_MBX *mail, struct ethhdr *eth_hdr, pppoe_header_t *
 		puts("unknown PPP protocol");
 		return FALSE;
 	}
-
-	/*----------- ppp -------------*/
-	//PRINT_ppp_MSG(imsg);
 	
 	return TRUE;
 }
 
+/*****************************************************
+ * decode_ipcp
+ * 
+ * input : eth_hdr,pppoe_header,ppp_payload,ppp_lcp,
+ * 			ppp_lcp_options,total_lcp_length,
+ * 			event,tim,port_ccb
+ * output: event
+ * return: BOOLEAN
+ *****************************************************/
 STATUS decode_ipcp(struct ethhdr *eth_hdr, pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp_lcp_header_t *ppp_lcp, ppp_lcp_options_t *ppp_lcp_options, uint16_t total_lcp_length, uint16_t *event, struct rte_timer *tim, tPPP_PORT *port_ccb)
 {
 	switch(ppp_lcp->code) {
@@ -449,24 +453,26 @@ STATUS build_padr(__attribute__((unused)) struct rte_timer *tim, tPPP_PORT *port
 	return TRUE;
 }
 
-STATUS build_padt(struct ethhdr *eth_hdr, tPPP_PORT *port_ccb, pppoe_header_t *pppoe_header)
+STATUS build_padt(tPPP_PORT *port_ccb)
 {
-	unsigned char buffer[MSG_BUF];
-	uint16_t mulen;
+	unsigned char 	buffer[MSG_BUF];
+	uint16_t 		mulen;
+	struct ethhdr 	eth_hdr;
+	pppoe_header_t 	pppoe_header;
 
-	rte_memcpy(eth_hdr->h_source,port_ccb->src_mac,6);
- 	rte_memcpy(eth_hdr->h_dest,port_ccb->dst_mac,6);
- 	eth_hdr->h_proto = htons(ETH_P_PPP_DIS);
+	rte_memcpy(eth_hdr.h_source,port_ccb->src_mac,6);
+ 	rte_memcpy(eth_hdr.h_dest,port_ccb->dst_mac,6);
+ 	eth_hdr.h_proto = htons(ETH_P_PPP_DIS);
 
-	pppoe_header->ver_type = VER_TYPE;
-	pppoe_header->code = PADT;
-	pppoe_header->session_id = ppp_ports[0].session_id; 
-	pppoe_header->length = 0;
+	pppoe_header.ver_type = VER_TYPE;
+	pppoe_header.code = PADT;
+	pppoe_header.session_id = ppp_ports[0].session_id; 
+	pppoe_header.length = 0;
 
 	mulen = sizeof(struct ethhdr) + sizeof(pppoe_header_t);
 
-	rte_memcpy(buffer,eth_hdr,sizeof(struct ethhdr));
-	rte_memcpy(buffer+sizeof(struct ethhdr),pppoe_header,sizeof(pppoe_header_t));
+	rte_memcpy(buffer,&eth_hdr,sizeof(struct ethhdr));
+	rte_memcpy(buffer+sizeof(struct ethhdr),&pppoe_header,sizeof(pppoe_header_t));
 	drv_xmit(buffer,mulen);
 
 	return TRUE;
@@ -489,7 +495,8 @@ STATUS build_config_request(unsigned char *buffer, tPPP_PORT *port_ccb, uint16_t
 	/* build ppp protocol and lcp header. */
  	pppoe_header->ver_type = VER_TYPE;
  	pppoe_header->code = 0;
- 	pppoe_header->session_id = ppp_ports[0].session_id; /* We didnt convert seesion id to little endian at first */
+ 	/* We don't need to convert seesion id to little endian at first */
+ 	pppoe_header->session_id = port_ccb->session_id; 
 
  	ppp_lcp->code = CONFIG_REQUEST;
  	ppp_lcp->identifier = ((rand() % 254) + 1);
@@ -668,13 +675,17 @@ STATUS build_terminate_request(unsigned char* buffer, tPPP_PORT *port_ccb, uint1
 	rte_memcpy(eth_hdr->h_dest,tmp_mac,6);
 	eth_hdr->h_proto = htons(ETH_P_PPP_SES);
 
-	/* build ppp protocol and lcp header. */
+	/* build ppp protocol and lcp/ipcp header. */
 
  	pppoe_header->ver_type = VER_TYPE;
  	pppoe_header->code = 0;
- 	pppoe_header->session_id = ppp_ports[0].session_id; /* We didnt convert seesion id to little endian at first */
+ 	/* We don't need to convert seesion id to little endian at first */
+ 	pppoe_header->session_id = port_ccb->session_id;
 
- 	ppp_payload->ppp_protocol = htons(LCP_PROTOCOL);
+ 	if (port_ccb->cp == 0) 
+ 		ppp_payload->ppp_protocol = htons(LCP_PROTOCOL);
+ 	else if (port_ccb->cp == 1)
+ 		ppp_payload->ppp_protocol = htons(IPCP_PROTOCOL);
 
  	ppp_lcp->code = TERMIN_REQUEST;
  	ppp_lcp->identifier = ((rand() % 254) + 1);

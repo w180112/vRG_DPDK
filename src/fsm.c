@@ -21,9 +21,8 @@ static STATUS   A_init_restart_config(__attribute__((unused)) struct rte_timer *
 static STATUS   A_init_restart_termin(__attribute__((unused)) struct rte_timer *tim, __attribute__((unused)) tPPP_PORT *port_ccb);
 static STATUS   A_send_echo_reply(__attribute__((unused)) struct rte_timer *tim, __attribute__((unused)) tPPP_PORT *port_ccb);
 static STATUS   A_zero_restart_count(__attribute__((unused)) struct rte_timer *tim, __attribute__((unused)) tPPP_PORT *port_ccb);
-
-extern struct rte_flow *generate_lan_flow(uint16_t port_id, uint16_t rx_q_udp, uint16_t rx_q_tcp, struct rte_flow_error *error);
-extern struct rte_flow *generate_wan_flow(uint16_t port_id, uint16_t rx_q_udp, uint16_t rx_q_tcp, struct rte_flow_error *error);
+static STATUS 	A_send_padt(__attribute__((unused)) struct rte_timer *tim, __attribute__((unused)) tPPP_PORT *port_ccb);
+static STATUS 	A_create_close_to_lower_layer(__attribute__((unused)) struct rte_timer *tim, __attribute__((unused)) tPPP_PORT *port_ccb);
 
 tPPP_STATE_TBL  ppp_fsm_tbl[2][121] = { 
 /*//////////////////////////////////////////////////////////////////////////////////
@@ -45,7 +44,7 @@ tPPP_STATE_TBL  ppp_fsm_tbl[2][121] = {
 { S_STARTING,		E_CLOSE,    						    		S_INIT,			    { A_this_layer_finish, 0 }},
 
 /*---------------------------------------------------------------------------*/
-{ S_CLOSED,			E_DOWN, 							      		S_INIT,			    { 0 }},
+{ S_CLOSED,			E_DOWN, 							      		S_INIT,			    { A_send_padt, 0 }},
 
 { S_CLOSED,			E_OPEN, 							      		S_REQUEST_SENT,	  	{ A_send_config_request, A_init_restart_config, 0 }},
 
@@ -323,7 +322,7 @@ tPPP_STATE_TBL  ppp_fsm_tbl[2][121] = {
 { S_STARTING,		E_CLOSE,    						    		S_INIT,			    { A_this_layer_finish, 0 }},
 
 /*---------------------------------------------------------------------------*/
-{ S_CLOSED,			E_DOWN, 							      		S_INIT,			    { 0 }},
+{ S_CLOSED,			E_DOWN, 							      		S_INIT,			    { A_create_close_to_lower_layer, 0 }},
 
 { S_CLOSED,			E_OPEN, 							      		S_REQUEST_SENT,	  	{ A_send_config_request, A_init_restart_config, 0 }},
 
@@ -387,77 +386,77 @@ tPPP_STATE_TBL  ppp_fsm_tbl[2][121] = {
 
 { S_CLOSING, 		E_OPEN,								     		S_STOPPING,		    { A_create_down_event, A_create_up_event, 0 }},
 
-{ S_CLOSING, 	E_CLOSE,							     S_CLOSING,		      { 0 }},
+{ S_CLOSING, 		E_CLOSE,							     		S_CLOSING,		    { 0 }},
 
-{ S_CLOSING, 	E_TIMEOUT_COUNTER_POSITIVE,S_CLOSING,		      { A_send_terminate_request, 0 }},
+{ S_CLOSING, 		E_TIMEOUT_COUNTER_POSITIVE,						S_CLOSING,		    { A_send_terminate_request, 0 }},
 
-{ S_CLOSING, 	E_TIMEOUT_COUNTER_EXPIRED, S_CLOSED,		      { A_this_layer_finish, 0 }},
+{ S_CLOSING, 		E_TIMEOUT_COUNTER_EXPIRED, 						S_CLOSED,		    { A_this_layer_finish, 0 }},
 
-{ S_CLOSING,	E_RECV_GOOD_CONFIG_REQUEST,S_CLOSING,		      { 0 }},
+{ S_CLOSING,		E_RECV_GOOD_CONFIG_REQUEST,						S_CLOSING,		    { 0 }},
 
-{ S_CLOSING,	E_RECV_BAD_CONFIG_REQUEST, S_CLOSING,		      { 0 }},
+{ S_CLOSING,		E_RECV_BAD_CONFIG_REQUEST, 						S_CLOSING,		    { 0 }},
 
-{ S_CLOSING,	E_RECV_CONFIG_ACK, 				 S_CLOSING,		      { 0 }},
+{ S_CLOSING,		E_RECV_CONFIG_ACK, 				 				S_CLOSING,		    { 0 }},
 
-{ S_CLOSING,	E_RECV_CONFIG_NAK_REJ, 		 S_CLOSING,		      { 0 }},
+{ S_CLOSING,		E_RECV_CONFIG_NAK_REJ, 		 					S_CLOSING,		    { 0 }},
 
-{ S_CLOSING,	E_RECV_TERMINATE_REQUEST,  S_CLOSING,		      { A_send_terminate_ack, 0 }},
+{ S_CLOSING,		E_RECV_TERMINATE_REQUEST,  						S_CLOSING,		    { A_send_terminate_ack, 0 }},
 
-{ S_CLOSING,	E_RECV_TERMINATE_ACK, 		 S_CLOSED,		      { A_create_down_event, A_create_up_event, 0 }},
+{ S_CLOSING,		E_RECV_TERMINATE_ACK, 		 					S_CLOSED,		    { A_create_down_event, A_create_up_event, 0 }},
 
-{ S_CLOSING,	E_RECV_UNKNOWN_CODE, 			 S_CLOSING,		      { A_send_code_reject, 0 }},
-
-/* recv code/protocol reject when rejected value is acceptable, 
-	such as a Code-Reject of an extended code, 
-	or a Protocol-Reject of a NCP */ 
-{ S_CLOSING,	E_RECV_GOOD_CODE_PROTOCOL_REJECT, S_CLOSING,  { 0 }},
-
-{ S_CLOSING,	E_RECV_BAD_CODE_PROTOCOL_REJECT, 	S_CLOSED,		{ A_this_layer_finish, 0 }},
-
-{ S_CLOSING,	E_RECV_ECHO_REPLY_REQUEST_DISCARD_REQUEST, S_CLOSING,{ 0 }},
-
-/*---------------------------------------------------------------------------*/
-{ S_STOPPING, E_DOWN,								     S_STARTING, 	      { 0 }},
-
-{ S_STOPPING, E_OPEN,								     S_STOPPING, 	      { A_create_down_event, A_create_up_event, 0 }},
-
-{ S_STOPPING, E_CLOSE,							     S_CLOSING, 		    { 0 }},
-
-{ S_STOPPING, E_TIMEOUT_COUNTER_POSITIVE,S_STOPPING,		    { A_send_terminate_request, 0 }},
-
-{ S_STOPPING, E_TIMEOUT_COUNTER_EXPIRED, S_STOPPED,		      { A_this_layer_finish, 0 }},
-
-{ S_STOPPING,	E_RECV_GOOD_CONFIG_REQUEST,     	S_STOPPING,		{ 0 }},
-
-{ S_STOPPING,	E_RECV_BAD_CONFIG_REQUEST,     		S_STOPPING,		{ 0 }},
-
-{ S_STOPPING,	E_RECV_CONFIG_ACK, 					S_STOPPING,		{ 0 }},
-
-{ S_STOPPING,	E_RECV_CONFIG_NAK_REJ, 				S_STOPPING,		{ 0 }},
-
-{ S_STOPPING,	E_RECV_TERMINATE_REQUEST, 			S_STOPPING,		{ A_send_terminate_ack, 0 }},
-
-{ S_STOPPING,	E_RECV_TERMINATE_ACK, 				S_STOPPED,		{ A_create_down_event, A_create_up_event, 0 }},
-
-{ S_STOPPING,	E_RECV_UNKNOWN_CODE, 				S_STOPPING,		{ A_send_code_reject, 0 }},
+{ S_CLOSING,		E_RECV_UNKNOWN_CODE, 			 				S_CLOSING,		    { A_send_code_reject, 0 }},
 
 /* recv code/protocol reject when rejected value is acceptable, 
 	such as a Code-Reject of an extended code, 
 	or a Protocol-Reject of a NCP */ 
-{ S_STOPPING,	E_RECV_GOOD_CODE_PROTOCOL_REJECT, 	S_STOPPING,		{ 0 }},
+{ S_CLOSING,		E_RECV_GOOD_CODE_PROTOCOL_REJECT, 				S_CLOSING,  		{ 0 }},
 
-{ S_STOPPING,	E_RECV_BAD_CODE_PROTOCOL_REJECT, 	S_STOPPED,		{ A_this_layer_finish, 0 }},
+{ S_CLOSING,		E_RECV_BAD_CODE_PROTOCOL_REJECT, 				S_CLOSED,			{ A_this_layer_finish, 0 }},
 
-{ S_STOPPING,	E_RECV_ECHO_REPLY_REQUEST_DISCARD_REQUEST, S_STOPPING,{ 0 }},
+{ S_CLOSING,		E_RECV_ECHO_REPLY_REQUEST_DISCARD_REQUEST, 		S_CLOSING,			{ 0 }},
 
 /*---------------------------------------------------------------------------*/
-{ S_REQUEST_SENT, E_DOWN,							S_STARTING, 	{ 0 }},
+{ S_STOPPING, 		E_DOWN,								     		S_STARTING, 	    { 0 }},
 
-{ S_REQUEST_SENT, E_OPEN,							S_REQUEST_SENT, { 0 }},
+{ S_STOPPING, 		E_OPEN,								     		S_STOPPING, 	    { A_create_down_event, A_create_up_event, 0 }},
 
-{ S_REQUEST_SENT, E_CLOSE,							S_CLOSING, 		{ A_init_restart_termin, A_send_terminate_request, 0 }},
+{ S_STOPPING, 		E_CLOSE,							     		S_CLOSING, 		    { 0 }},
 
-{ S_REQUEST_SENT, E_TIMEOUT_COUNTER_POSITIVE,		S_REQUEST_SENT, { A_send_config_request, 0 }},
+{ S_STOPPING, 		E_TIMEOUT_COUNTER_POSITIVE,						S_STOPPING,		    { A_send_terminate_request, 0 }},
+
+{ S_STOPPING, 		E_TIMEOUT_COUNTER_EXPIRED, 						S_STOPPED,		    { A_this_layer_finish, 0 }},
+
+{ S_STOPPING,		E_RECV_GOOD_CONFIG_REQUEST,     				S_STOPPING,			{ 0 }},
+
+{ S_STOPPING,		E_RECV_BAD_CONFIG_REQUEST,     					S_STOPPING,			{ 0 }},
+
+{ S_STOPPING,		E_RECV_CONFIG_ACK, 								S_STOPPING,			{ 0 }},
+
+{ S_STOPPING,		E_RECV_CONFIG_NAK_REJ, 							S_STOPPING,			{ 0 }},
+
+{ S_STOPPING,		E_RECV_TERMINATE_REQUEST, 						S_STOPPING,			{ A_send_terminate_ack, 0 }},
+
+{ S_STOPPING,		E_RECV_TERMINATE_ACK, 							S_STOPPED,			{ A_create_down_event, A_create_up_event, 0 }},
+
+{ S_STOPPING,		E_RECV_UNKNOWN_CODE, 							S_STOPPING,			{ A_send_code_reject, 0 }},
+
+/* recv code/protocol reject when rejected value is acceptable, 
+	such as a Code-Reject of an extended code, 
+	or a Protocol-Reject of a NCP */ 
+{ S_STOPPING,		E_RECV_GOOD_CODE_PROTOCOL_REJECT, 				S_STOPPING,			{ 0 }},
+
+{ S_STOPPING,		E_RECV_BAD_CODE_PROTOCOL_REJECT, 				S_STOPPED,			{ A_this_layer_finish, 0 }},
+
+{ S_STOPPING,		E_RECV_ECHO_REPLY_REQUEST_DISCARD_REQUEST, 		S_STOPPING,			{ 0 }},
+
+/*---------------------------------------------------------------------------*/
+{ S_REQUEST_SENT, 	E_DOWN,											S_STARTING, 		{ 0 }},
+
+{ S_REQUEST_SENT, 	E_OPEN,											S_REQUEST_SENT, 	{ 0 }},
+
+{ S_REQUEST_SENT,	E_CLOSE,										S_CLOSING, 			{ A_init_restart_termin, A_send_terminate_request, 0 }},
+
+{ S_REQUEST_SENT, 	E_TIMEOUT_COUNTER_POSITIVE,						S_REQUEST_SENT, 	{ A_send_config_request, 0 }},
 
 /* may be with "PASSIVE" option, with this option, ppp will not exit but then just wait for a valid LCP packet from peer if there is not received form peer */
 { S_REQUEST_SENT, E_TIMEOUT_COUNTER_EXPIRED,		S_STOPPED, 		{ A_this_layer_finish, 0 }},
@@ -602,7 +601,7 @@ STATUS PPP_FSM(struct rte_timer *ppp, tPPP_PORT *port_ccb, U16 event)
 
     if (!port_ccb)
         return FALSE;
-
+    
     /* Find a matched state */
     for(i=0; ppp_fsm_tbl[port_ccb->cp][i].state!=S_INVLD; i++)
         if (ppp_fsm_tbl[port_ccb->cp][i].state == port_ccb->ppp_phase[port_ccb->cp].state)
@@ -620,7 +619,7 @@ STATUS PPP_FSM(struct rte_timer *ppp, tPPP_PORT *port_ccb, U16 event)
         if (ppp_fsm_tbl[port_ccb->cp][i].event == event)
             break;
     
-    if (ppp_fsm_tbl[port_ccb->cp][i].state != port_ccb->ppp_phase[port_ccb->cp].state)/* search until meet the next state */
+    if (ppp_fsm_tbl[port_ccb->cp][i].state != port_ccb->ppp_phase[port_ccb->cp].state)
   		return TRUE; /* still pass to endpoint */
     
     /* Correct state found */
@@ -665,8 +664,9 @@ STATUS A_this_layer_up(__attribute__((unused)) struct rte_timer *tim, __attribut
     	puts("Starting Authenticate.");
     }
     else if (port_ccb->ppp_phase[port_ccb->cp].ppp_payload->ppp_protocol == htons(IPCP_PROTOCOL)) {
-    	data_plane_start = TRUE;
-    	rte_timer_reset(&(port_ccb->nat),rte_get_timer_hz(),PERIODICAL,0,(rte_timer_cb_t)nat_rule_timer,NULL);
+    	port_ccb->data_plane_start = TRUE;
+    	port_ccb->phase = DATA_PHASE;
+    	rte_timer_reset(&(port_ccb->nat),rte_get_timer_hz(),PERIODICAL,3,(rte_timer_cb_t)nat_rule_timer,NULL);
     	puts("IPCP connection establish successfully.");
     	printf("Now we can start to send data via pppoe session id 0x%x.\n", htons(port_ccb->session_id));
     	printf("Our PPPoE client IP address is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 ", PPPoE server IP address is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 "\n", *(((uint8_t *)&(port_ccb->ipv4))), *(((uint8_t *)&(port_ccb->ipv4))+1), *(((uint8_t *)&(port_ccb->ipv4))+2), *(((uint8_t *)&(port_ccb->ipv4))+3), *(((uint8_t *)&(port_ccb->ipv4_gw))), *(((uint8_t *)&(port_ccb->ipv4_gw))+1), *(((uint8_t *)&(port_ccb->ipv4_gw))+2), *(((uint8_t *)&(port_ccb->ipv4_gw))+3));
@@ -675,6 +675,15 @@ STATUS A_this_layer_up(__attribute__((unused)) struct rte_timer *tim, __attribut
     return TRUE;
 }
 
+/***********************************************************************
+ * A_this_layer_down
+ *
+ * purpose : To notify upper layer this layer is leaving OPEN state.
+ * input   : ppp - timer
+ *			 port_ccb - user connection info.
+ *           event -
+ * return  : error status
+ ***********************************************************************/
 STATUS A_this_layer_down(__attribute__((unused)) struct rte_timer *tim, __attribute__((unused)) tPPP_PORT *port_ccb)
 {
     printf("this layer down\n");
@@ -815,6 +824,7 @@ STATUS A_create_up_event(__attribute__((unused)) struct rte_timer *tim, __attrib
 STATUS A_create_down_event(__attribute__((unused)) struct rte_timer *tim, __attribute__((unused)) tPPP_PORT *port_ccb)
 {
     printf("create down event\n");
+    PPP_FSM(tim,port_ccb,E_DOWN);
 
     return TRUE;
 }
@@ -822,6 +832,25 @@ STATUS A_create_down_event(__attribute__((unused)) struct rte_timer *tim, __attr
 STATUS A_zero_restart_count(__attribute__((unused)) struct rte_timer *tim, __attribute__((unused)) tPPP_PORT *port_ccb)
 {
     printf("zero restart count\n");
+
+    return TRUE;
+}
+
+STATUS A_send_padt(__attribute__((unused)) struct rte_timer *tim, __attribute__((unused)) tPPP_PORT *port_ccb)
+{
+    if (build_padt(port_ccb) < 0)
+        return FALSE;
+    port_ccb->phase--;
+
+    return TRUE;
+}
+
+STATUS A_create_close_to_lower_layer(__attribute__((unused)) struct rte_timer *tim, __attribute__((unused)) tPPP_PORT *port_ccb)
+{
+    puts("Notify lower layer to close connection.");
+    port_ccb->cp = 0;
+    port_ccb->phase--;
+    PPP_FSM(tim,port_ccb,E_CLOSE);
 
     return TRUE;
 }

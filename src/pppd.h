@@ -5,6 +5,10 @@
 
   Designed by THE on Jan 14, 2019
 /\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\*/
+
+#ifndef _PPPD_H_
+#define _PPPD_H_
+
 #include <common.h>
 #include <rte_timer.h>
 #include <rte_memory.h>
@@ -105,6 +109,16 @@ typedef struct ppp_phase {
 	uint8_t				timer_counter;
 }ppp_phase_t;
 
+typedef struct addr_table {
+	unsigned char 	mac_addr[6];
+	uint32_t		src_ip;
+	uint32_t		dst_ip;
+	uint16_t		port_id;
+	uint32_t		shift;
+	int8_t 			is_fill;
+	uint8_t			is_alive;
+}__rte_cache_aligned addr_table_t;
+
 //========= The structure of port ===========
 typedef struct {
 	BOOL				enable;
@@ -129,6 +143,7 @@ typedef struct {
 	ppp_phase_t 		ppp_phase[2];
 	int 				cp;	//cp is "control protocol", means we need to determine cp is LCP or NCP after parsing packet
 	uint16_t 			session_id;
+	uint16_t			user_num;
 	uint8_t				phase;
 
 	unsigned char 		src_mac[6];
@@ -152,17 +167,9 @@ typedef struct {
 	struct rte_timer 	pppoe;
 	struct rte_timer 	ppp;
 	struct rte_timer 	nat;
-}__rte_cache_aligned tPPP_PORT;
 
-typedef struct addr_table {
-	unsigned char 	mac_addr[6];
-	uint32_t		src_ip;
-	uint32_t		dst_ip;
-	uint16_t		port_id;
-	uint32_t		shift;
-	int8_t 			is_fill;
-	uint8_t			is_alive;
-}__rte_cache_aligned addr_table_t;
+	addr_table_t 		addr_table[65535];
+}__rte_cache_aligned tPPP_PORT;
 
 extern tPPP_PORT		ppp_ports[USER];
 extern U32				ppp_interval;
@@ -172,6 +179,7 @@ int 				ppp_init(void);
 
 int 				pppdInit(void);
 void 				PPP_bye(void);
+void 				PPP_int(void);
 int 				control_plane(void);
 
 /*-----------------------------------------
@@ -182,3 +190,5 @@ typedef struct {
 	U8          	refp[ETH_MTU];
 	int	        	len;
 } tPPP_MBX;
+
+#endif

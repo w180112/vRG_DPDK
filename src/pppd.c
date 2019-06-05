@@ -14,10 +14,12 @@
 #include 				<rte_timer.h>
 #include 				<rte_ethdev.h>
 #include 				<rte_ether.h>
+#include 				<rte_log.h>
 #include 				<linux/ethtool.h>
 
 #include				<rte_memcpy.h>
 #include 				<rte_flow.h>
+#include 				"pppd.h"
 #include				"fsm.h"
 #include 				"dpdk_send_recv.h"
 #include 				"flow_rules.h"
@@ -42,10 +44,12 @@ struct rte_ring 		*rte_ring,*decap;
 extern int 				timer_loop(__attribute__((unused)) void *arg);
 extern int 				rte_ethtool_get_drvinfo(uint16_t port_id, struct ethtool_drvinfo *drvinfo);
 extern STATUS			PPP_FSM(struct rte_timer *ppp, tPPP_PORT *port_ccb, U16 event);
+extern STATUS 			parse_cmd(char *cmd, size_t cmd_len);
 
 unsigned char 			*wan_mac;
 struct rte_flow 		*flow;
-BOOL					data_plane_start;
+int 					log_type;
+FILE 					*fp;
 
 int main(int argc, char **argv)
 {
@@ -63,8 +67,10 @@ int main(int argc, char **argv)
 	if (ret < 0)
 		rte_exit(EXIT_FAILURE, "rte initlize fail.");
 
-	if (rte_lcore_count() < 5)
-		rte_exit(EXIT_FAILURE, "We need at least 5 cores.\n");
+	fp = fopen("./pppoeclient.log","a+");
+
+	if (rte_lcore_count() < 6)
+		rte_exit(EXIT_FAILURE, "We need at least 6 cores.\n");
 	if (rte_eth_dev_count_avail() < 2)
 		rte_exit(EXIT_FAILURE, "We need at least 2 eth ports.\n");
 
@@ -108,7 +114,7 @@ int main(int argc, char **argv)
 	}
 
 	signal(SIGTERM,(__sighandler_t)PPP_bye);
-	data_plane_start = FALSE;
+	signal(SIGINT,(__sighandler_t)PPP_int);
 
 	/* init RTE timer library */
 	rte_timer_subsystem_init();
@@ -118,13 +124,26 @@ int main(int argc, char **argv)
 		rte_timer_init(&(ppp_ports[i].pppoe));
 		rte_timer_init(&(ppp_ports[i].ppp));
 		rte_timer_init(&(ppp_ports[i].nat));
+		ppp_ports[i].data_plane_start = FALSE;
 	}
 
 	rte_eal_remote_launch((lcore_function_t *)ppp_recvd,NULL,1);
 	rte_eal_remote_launch((lcore_function_t *)decapsulation,NULL,2);
 	rte_eal_remote_launch((lcore_function_t *)timer_loop,NULL,3);
 	rte_eal_remote_launch((lcore_function_t *)gateway,NULL,4);
-	control_plane();
+	rte_eal_remote_launch((lcore_function_t *)control_plane,NULL,5);
+
+	char *cmd = NULL;
+	size_t cmd_len = 0;
+	sleep(2);
+	for(;;) {
+		puts("PPPoE Clinet bash #");
+		getline(&cmd, &cmd_len, stdin);
+		if (parse_cmd(cmd,cmd_len) == FALSE) {
+			puts("Not a valid command");
+			continue;
+		}
+	}
 	rte_eal_mp_wait_lcore();
     return 0;
 }
@@ -146,7 +165,35 @@ void PPP_bye(void)
     printf("bye!\n");
     free(wan_mac);
     rte_ring_free(rte_ring);
+    fclose(fp);
     exit(0);
+}
+
+/*---------------------------------------------------------
+ * ppp_int : signal handler for INTR-C only
+ *--------------------------------------------------------*/
+void PPP_int(void)
+{
+    printf("pppoe client interupt!\n");
+    for(int i=0; i<USER; i++) { 
+    	switch(ppp_ports[i].phase) {
+    		case PPPOE_PHASE: 
+    			break;
+    		case LCP_PHASE:
+    			ppp_ports[i].cp = 0;
+    			PPP_FSM(&(ppp_ports[i].ppp),&ppp_ports[i],E_CLOSE);
+    			break;
+    		case DATA_PHASE:
+    			ppp_ports[i].phase--;
+    			ppp_ports[i].data_plane_start = FALSE;
+    		case IPCP_PHASE:
+    			ppp_ports[i].cp = 1;
+    			PPP_FSM(&(ppp_ports[i].ppp),&ppp_ports[i],E_CLOSE);
+    			break;
+    		default:
+    			;
+    	}
+    }
 }
 
 /**************************************************************
@@ -203,12 +250,11 @@ int ppp_init(void)
 	ppp_ports[0].phase = PPPOE_PHASE;
     if (build_padi(&(ppp_ports[0].pppoe),&(ppp_ports[0]),&max_retransmit) == FALSE)
     	goto out;
-    rte_timer_reset(&(ppp_ports[0].pppoe),rte_get_timer_hz(),PERIODICAL,4,(rte_timer_cb_t)build_padi,&max_retransmit);
+    rte_timer_reset(&(ppp_ports[0].pppoe),rte_get_timer_hz(),PERIODICAL,3,(rte_timer_cb_t)build_padi,&max_retransmit);
 	for(;;){
 	    burst_size = control_plane_dequeue(mail);
 	    for(int i=0; i<burst_size; i++) {
 	    	recv_type = *(uint16_t *)mail[i];
-		
 			switch(recv_type){
 			case IPC_EV_TYPE_TMR:
 				break;
@@ -232,7 +278,7 @@ int ppp_init(void)
 						rte_memcpy(ppp_ports[0].dst_mac,eth_hdr.h_source,6);
 						if (build_padr(&(ppp_ports[0].pppoe),&(ppp_ports[0]),&pppoe_phase) == FALSE)
 							goto out;
-						rte_timer_reset(&(ppp_ports[0].pppoe),rte_get_timer_hz(),PERIODICAL,4,(rte_timer_cb_t)build_padr,&pppoe_phase);
+						rte_timer_reset(&(ppp_ports[0].pppoe),rte_get_timer_hz(),PERIODICAL,3,(rte_timer_cb_t)build_padr,&pppoe_phase);
 						continue;
 					case PADS:
 						rte_timer_stop(&(ppp_ports[0].pppoe));
@@ -248,13 +294,14 @@ int ppp_init(void)
     					PPP_FSM(&(ppp_ports[0].ppp),&ppp_ports[0],E_OPEN);
 						continue;
 					case PADT:
-						if (build_padt(&eth_hdr,&(ppp_ports[0]),&pppoe_header) == FALSE) {
+						if (build_padt(&(ppp_ports[0])) == FALSE) {
 							goto out;
 						}
 						puts("Connection disconnected.");
 						goto out;
 					case PADM:
-						puts("recv active discovery message");
+						RTE_LOG(INFO,EAL,"recv active discovery message");
+						//puts("recv active discovery message");
 						continue;
 					default:
 						puts("Unknown PPPoE discovery type.");

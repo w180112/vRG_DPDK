@@ -32,12 +32,10 @@ void nat_icmp_learning(struct ether_hdr *eth_hdr, struct ipv4_hdr *ip_hdr, struc
 	*new_port_id = ntohs(icmphdr->icmp_ident + (ip_hdr->src_addr) / 10000);
 	if (*new_port_id > 0xffff)
 		*new_port_id = *new_port_id / 0xffff + 1000;
-		for (int j=1000,shift=0; j<65535; j++) {
+	for(int j=1000,shift=0; j<65535; j++) {
 		if (addr_table[*new_port_id].is_fill == 1) {
-			if (addr_table[*new_port_id].src_ip == ip_hdr->src_addr && addr_table[*new_port_id].dst_ip == ip_hdr->dst_addr ) {
-				puts("nat rule exist");
+			if (addr_table[*new_port_id].src_ip == ip_hdr->src_addr && addr_table[*new_port_id].dst_ip == ip_hdr->dst_addr )
 				return;
-			}
 			shift++;
 			(*new_port_id)++;
 		}
@@ -59,9 +57,9 @@ void nat_udp_learning(struct ether_hdr *eth_hdr, struct ipv4_hdr *ip_hdr, struct
 	*new_port_id = ntohs(udphdr->src_port + (ip_hdr->src_addr) / 10000);
 	if (*new_port_id > 0xffff)
 		*new_port_id = *new_port_id / 0xffff + 1000;
-		for (int j=1000,shift=0; j<65535; j++) {
+	for(int j=1000,shift=0; j<65535; j++) {
 		if (addr_table[*new_port_id].is_fill == 1) {
-			if (addr_table[*new_port_id].src_ip == ip_hdr->src_addr && addr_table[*new_port_id].dst_ip == ip_hdr->dst_addr )
+			if (addr_table[*new_port_id].src_ip == ip_hdr->src_addr && addr_table[*new_port_id].dst_ip == ip_hdr->dst_addr)
 				return;
 			shift++;
 			(*new_port_id)++;
@@ -84,9 +82,9 @@ void nat_tcp_learning(struct ether_hdr *eth_hdr, struct ipv4_hdr *ip_hdr, struct
 	*new_port_id = ntohs(tcphdr->src_port + (ip_hdr->src_addr) / 10000);
 	if (*new_port_id > 0xffff)
 		*new_port_id = *new_port_id / 0xffff + 1000;
-		for (int j=1000,shift=0; j<65535; j++) {
+	for(int j=1000,shift=0; j<65535; j++) {
 		if (addr_table[*new_port_id].is_fill == 1) {
-			if (addr_table[*new_port_id].src_ip == ip_hdr->src_addr && addr_table[*new_port_id].dst_ip == ip_hdr->dst_addr )
+			if (addr_table[*new_port_id].src_ip == ip_hdr->src_addr && addr_table[*new_port_id].dst_ip == ip_hdr->dst_addr)
 				return;
 			shift++;
 			(*new_port_id)++;

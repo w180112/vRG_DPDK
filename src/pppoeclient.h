@@ -1,3 +1,6 @@
+#ifndef _PPPOECLIENT_H_
+#define _PPPOECLIENT_H_
+
 #include <time.h>
 #include <sys/wait.h>
 #include "pppd.h"
@@ -10,6 +13,7 @@
 #define LCP_PHASE			0x2
 #define AUTH_PHASE			0x3
 #define IPCP_PHASE			0x4
+#define DATA_PHASE			0x5
 #define END_PHASE			0x0
 
 #define END_OF_LIST 		0x0
@@ -67,4 +71,4 @@
 #define MAX_RECV			1492
 #define MAX_RETRAN			10
 
-extern uint8_t data_plane_start;
+#endif

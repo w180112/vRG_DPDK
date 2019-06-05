@@ -8,7 +8,7 @@ In nowadays high speed virtualized nerwork, tranditional network mechanism has n
 System required:
 ================
 
-Intel DPDK 18.11, Linux kernel > 3.10, at least 4G ram, 5 cpu cores.
+Intel DPDK 18.11, Linux kernel > 3.10, at least 4G ram, 6 cpu cores.
 
 How to use:
 ===========
@@ -20,9 +20,11 @@ Git clone this repository
 Type 
 
 	# cd PPPoE_Client_DPDK/src
+
 and 
 
 	# make 
+
 to compile
 
 Then 
@@ -31,7 +33,7 @@ Then
 
 e.g. 
 
-	# ./pppoeclient asdf zxcv -l 0-4 -n 4
+	# ./pppoeclient asdf zxcv -l 0-5 -n 4
 
 In this project we need 2 DPDK ethernet ports, the first is used to receive packets from/send packets to LAN port and the second is used to receive packets from/send packets to WAN port.
 
@@ -59,3 +61,12 @@ TODO:
 	1.VLAN support
 	2.Some LCP exception
 	3.Multiple users/devices support
+
+ChangeLogs:
+===========
+
+2019/06/05
+----------
+
+1. Support Unix SIGINT signal
+2. Bugs fix
