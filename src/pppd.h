@@ -29,7 +29,7 @@
 #define CAP_VSI_DISCOV_PROTO	1
 #define CAP_802_1X_AUTH_REQ		1
 
-#define USER					1
+#define MAX_USER				1
 
 typedef struct {
 	U8		subt;
@@ -168,10 +168,12 @@ typedef struct {
 	struct rte_timer 	ppp;
 	struct rte_timer 	nat;
 
+	uint8_t 			vlan;
+
 	addr_table_t 		addr_table[65535];
 }__rte_cache_aligned tPPP_PORT;
 
-extern tPPP_PORT		ppp_ports[USER];
+extern tPPP_PORT		ppp_ports[MAX_USER];
 extern U32				ppp_interval;
 extern U8				ppp_max_msg_per_query;
 

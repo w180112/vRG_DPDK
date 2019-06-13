@@ -5,7 +5,6 @@
 ######################################
 # Set variable
 ######################################
-
 LDLIBS += -L./com_util -lcom_util
 
 SUBDIRS := com_util
@@ -13,7 +12,7 @@ SUBDIRS := com_util
 APP = pppoeclient
 
 # all source are stored in SRCS-y
-SRCS-y := pppd.c fsm.c codec.c dpdk_send_recv.c timer.c nat.c ethtool.c cmdline.c #flow_rules.c
+SRCS-y := pppd.c fsm.c codec.c dpdk_send_recv.c timer.c nat.c ethtool.c cmdline.c dbg.c
 
 # Build using pkg-config variables if possible
 $(shell pkg-config --exists libdpdk)

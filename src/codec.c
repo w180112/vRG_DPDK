@@ -1,4 +1,5 @@
 #include "codec.h"
+#include "dbg.h"
 #include <rte_timer.h>
 #include <rte_memcpy.h>
 
@@ -16,9 +17,12 @@ extern STATUS PPP_FSM(struct rte_timer *ppp, tPPP_PORT *port_ccb, U16 event);
 STATUS PPP_decode_frame(tPPP_MBX *mail, struct ethhdr *eth_hdr, pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp_lcp_header_t *ppp_lcp, ppp_lcp_options_t *ppp_lcp_options, uint16_t *event, struct rte_timer *tim, tPPP_PORT *port_ccb)
 {
     uint16_t	mulen;
+	//uint8_t		*mu;
 
-	if (mail->len > ETH_MTU)
+	if (mail->len > ETH_MTU){
+	    DBG_PPP(DBGLVL1,0,"error! too large frame(%d)\n",mail->len);
 	    return ERROR;
+	}
 
 	struct ethhdr *tmp_eth_hdr = (struct ethhdr *)mail->refp;
 	pppoe_header_t *tmp_pppoe_header = (pppoe_header_t *)(tmp_eth_hdr + 1);
@@ -38,13 +42,8 @@ STATUS PPP_decode_frame(tPPP_MBX *mail, struct ethhdr *eth_hdr, pppoe_header_t *
 	rte_memcpy(ppp_payload,tmp_ppp_payload,sizeof(ppp_payload_t));
 	rte_memcpy(ppp_lcp,tmp_ppp_lcp,sizeof(ppp_lcp_header_t));
 	rte_memcpy(ppp_lcp_options,tmp_ppp_lcp+1,htons(ppp_lcp->length)-4);
-
+	
 	mulen = mail->len;
-    
-    if (pppoe_header->session_id != ppp_ports[0].session_id) {
-    	puts("recv not our PPP packet");
-    	return ERROR;
-    }
 
     mulen -= 14; //DA-MAC[6] + SA-MAC[6] + ETH-TYPE[2]
     uint16_t total_lcp_length = ntohs(ppp_lcp->length);
@@ -195,15 +194,14 @@ STATUS PPP_decode_frame(tPPP_MBX *mail, struct ethhdr *eth_hdr, pppoe_header_t *
 	return TRUE;
 }
 
-/*****************************************************
+/*******************************************************************
  * decode_ipcp
  * 
  * input : eth_hdr,pppoe_header,ppp_payload,ppp_lcp,
- * 			ppp_lcp_options,total_lcp_length,
- * 			event,tim,port_ccb
+ * 			ppp_lcp_options,total_lcp_length,event,tim,port_ccb
  * output: event
- * return: BOOLEAN
- *****************************************************/
+ * return: error
+ *******************************************************************/
 STATUS decode_ipcp(struct ethhdr *eth_hdr, pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp_lcp_header_t *ppp_lcp, ppp_lcp_options_t *ppp_lcp_options, uint16_t total_lcp_length, uint16_t *event, struct rte_timer *tim, tPPP_PORT *port_ccb)
 {
 	switch(ppp_lcp->code) {
@@ -261,6 +259,20 @@ STATUS decode_ipcp(struct ethhdr *eth_hdr, pppoe_header_t *pppoe_header, ppp_pay
 	return TRUE;
 }
 
+/********************************************************************************************
+ * check_ipcp_nak_rej
+ *
+ * purpose: check whether IPCP config request we received includes PPP options we dont want.
+ * input: 	flag - check NAK/REJ
+ * 		   	*eth_hdr
+ * 		    *pppoe_header, 
+ * 		    *ppp_payload, 
+ * 		    *ppp_lcp, 
+ * 		    *ppp_lcp_options, 
+ * 		    total_lcp_length
+ * output: 	TRUE/FALSE
+ * return: 	should send NAK/REJ or ACK
+ *******************************************************************************************/
 STATUS check_ipcp_nak_rej(uint8_t flag, __attribute__((unused)) struct ethhdr *eth_hdr, pppoe_header_t *pppoe_header, __attribute__((unused)) ppp_payload_t *ppp_payload, ppp_lcp_header_t *ppp_lcp, ppp_lcp_options_t *ppp_lcp_options, uint16_t total_lcp_length)
 {
 	ppp_lcp_options_t *tmp_buf = (ppp_lcp_options_t *)malloc(MSG_BUF*sizeof(char));
@@ -466,7 +478,7 @@ STATUS build_padt(tPPP_PORT *port_ccb)
 
 	pppoe_header.ver_type = VER_TYPE;
 	pppoe_header.code = PADT;
-	pppoe_header.session_id = ppp_ports[0].session_id; 
+	pppoe_header.session_id = port_ccb->session_id; 
 	pppoe_header.length = 0;
 
 	mulen = sizeof(struct ethhdr) + sizeof(pppoe_header_t);
@@ -664,15 +676,14 @@ STATUS build_terminate_ack(unsigned char* buffer, tPPP_PORT *port_ccb, uint16_t 
 
 STATUS build_terminate_request(unsigned char* buffer, tPPP_PORT *port_ccb, uint16_t *mulen)
 {
-	unsigned char 			tmp_mac[6];
+	//unsigned char 			tmp_mac[6];
 	struct ethhdr 			*eth_hdr = port_ccb->ppp_phase[port_ccb->cp].eth_hdr;
 	pppoe_header_t 			*pppoe_header = port_ccb->ppp_phase[port_ccb->cp].pppoe_header;
 	ppp_payload_t 			*ppp_payload = port_ccb->ppp_phase[port_ccb->cp].ppp_payload;
 	ppp_lcp_header_t 		*ppp_lcp = port_ccb->ppp_phase[port_ccb->cp].ppp_lcp;
 
-	rte_memcpy(tmp_mac,eth_hdr->h_source,6);
-	rte_memcpy(eth_hdr->h_source,eth_hdr->h_dest,6);
-	rte_memcpy(eth_hdr->h_dest,tmp_mac,6);
+	rte_memcpy(eth_hdr->h_source,port_ccb->src_mac,6);
+	rte_memcpy(eth_hdr->h_dest,port_ccb->dst_mac,6);
 	eth_hdr->h_proto = htons(ETH_P_PPP_SES);
 
 	/* build ppp protocol and lcp/ipcp header. */

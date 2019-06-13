@@ -23,7 +23,7 @@
 
 #define BURST_SIZE 32
 
-extern tPPP_PORT				ppp_ports[USER];
+extern tPPP_PORT				ppp_ports[MAX_USER];
 extern struct rte_mempool 		*mbuf_pool;
 extern struct rte_ring 			*rte_ring;
 extern struct rte_ring 			*decap;
@@ -49,8 +49,6 @@ int 				control_plane_dequeue(tPPP_MBX **mail);
 int 				decapsulation(void);
 int 				gateway(void);
 void 				drv_xmit(U8 *mu, U16 mulen);
-
-addr_table_t addr_table[65535];
 
 int PPP_PORT_INIT(uint16_t port)
 {
@@ -99,7 +97,7 @@ int ppp_recvd(void)
 {
 	struct rte_mbuf 	*single_pkt;
 	uint64_t 			total_tx;
-	struct ether_hdr 	*eth_hdr;
+	struct ether_hdr 	*eth_hdr,tmp_eth_hdr;
 	struct ipv4_hdr 	*ip_hdr;
 	struct icmp_hdr		*icmphdr;
 	struct rte_mbuf 	*pkt[BURST_SIZE];
@@ -131,8 +129,9 @@ int ppp_recvd(void)
 				rte_pktmbuf_free(single_pkt);
 				continue;
 			}
-			eth_hdr->ether_type = ppp_payload->ppp_protocol;
-			rte_memcpy((char *)eth_hdr+8,eth_hdr,sizeof(struct ether_hdr));
+			eth_hdr->ether_type = rte_cpu_to_be_16(FRAME_TYPE_IP);
+			rte_memcpy(&tmp_eth_hdr,eth_hdr,sizeof(struct ether_hdr));
+			rte_memcpy((char *)eth_hdr+8,&tmp_eth_hdr,sizeof(struct ether_hdr));
 			single_pkt->data_off += 8;
 			single_pkt->pkt_len -= 8;
 			single_pkt->data_len -= 8;
@@ -149,14 +148,13 @@ int ppp_recvd(void)
 					single_pkt->ol_flags |= PKT_TX_IPV4 | PKT_TX_IP_CKSUM;
 					ori_port_id = rte_cpu_to_be_16(icmphdr->icmp_ident);
 					rte_memcpy(eth_hdr->s_addr.addr_bytes,ppp_ports[0].lan_mac,6);
-					rte_memcpy(eth_hdr->d_addr.addr_bytes,addr_table[ori_port_id].mac_addr,6);
-					ip_hdr->dst_addr = addr_table[ori_port_id].src_ip;
-					icmphdr->icmp_ident = addr_table[ori_port_id].port_id;
-					addr_table[ori_port_id].is_alive = 10;
+					rte_memcpy(eth_hdr->d_addr.addr_bytes,ppp_ports[0].addr_table[ori_port_id].mac_addr,6);
+					ip_hdr->dst_addr = ppp_ports[0].addr_table[ori_port_id].src_ip;
+					icmphdr->icmp_ident = ppp_ports[0].addr_table[ori_port_id].port_id;
+					ppp_ports[0].addr_table[ori_port_id].is_alive = 10;
 
 					icmphdr->icmp_cksum = 0;
 					icmphdr->icmp_cksum = get_checksum(icmphdr,single_pkt->data_len - sizeof(struct ipv4_hdr));
-					pkt[total_tx++] = single_pkt;
 					puts("nat mapping at port 1");
 					break;
 				case PROTO_TYPE_UDP:
@@ -202,11 +200,11 @@ int decapsulation(void)
 		total_tx = 0;
 		for(i=0; i<burst_size; i++) {
 			single_pkt = pkt[i];
-			rte_prefetch0(rte_pktmbuf_mtod(single_pkt, void *));
+			rte_prefetch0(rte_pktmbuf_mtod(single_pkt,void *));
 			eth_hdr = rte_pktmbuf_mtod(single_pkt,struct ether_hdr*);
 
 			/* for NAT mapping */
-			ip_hdr = (struct ipv4_hdr *)(rte_pktmbuf_mtod(single_pkt, unsigned char *) + sizeof(struct ether_hdr));
+			ip_hdr = (struct ipv4_hdr *)(rte_pktmbuf_mtod(single_pkt,unsigned char *) + sizeof(struct ether_hdr));
 			
 			single_pkt->l2_len = sizeof(struct ether_hdr);
 			single_pkt->l3_len = sizeof(struct ipv4_hdr);
@@ -218,10 +216,10 @@ int decapsulation(void)
 					udphdr = (struct udp_hdr *)(rte_pktmbuf_mtod(single_pkt, unsigned char *) + sizeof(struct ether_hdr) + sizeof(struct ipv4_hdr));
 					ori_port_id = rte_cpu_to_be_16(udphdr->dst_port);
 					rte_memcpy(eth_hdr->s_addr.addr_bytes,ppp_ports[0].lan_mac,6);
-					rte_memcpy(eth_hdr->d_addr.addr_bytes,addr_table[ori_port_id].mac_addr,6);
-					ip_hdr->dst_addr = addr_table[ori_port_id].src_ip;
-					udphdr->dst_port = addr_table[ori_port_id].port_id;
-					addr_table[ori_port_id].is_alive = 10;
+					rte_memcpy(eth_hdr->d_addr.addr_bytes,ppp_ports[0].addr_table[ori_port_id].mac_addr,6);
+					ip_hdr->dst_addr = ppp_ports[0].addr_table[ori_port_id].src_ip;
+					udphdr->dst_port = ppp_ports[0].addr_table[ori_port_id].port_id;
+					ppp_ports[0].addr_table[ori_port_id].is_alive = 10;
 
 					udphdr->dgram_cksum = 0;
 					break;
@@ -230,10 +228,10 @@ int decapsulation(void)
 					tcphdr = (struct tcp_hdr *)(rte_pktmbuf_mtod(single_pkt, unsigned char *) + sizeof(struct ether_hdr) + sizeof(struct ipv4_hdr));
 					ori_port_id = rte_cpu_to_be_16(tcphdr->dst_port);
 					rte_memcpy(eth_hdr->s_addr.addr_bytes,ppp_ports[0].lan_mac,6);
-					rte_memcpy(eth_hdr->d_addr.addr_bytes,addr_table[ori_port_id].mac_addr,6);
-					ip_hdr->dst_addr = addr_table[ori_port_id].src_ip;
-					tcphdr->dst_port = addr_table[ori_port_id].port_id;
-					addr_table[ori_port_id].is_alive = 10;
+					rte_memcpy(eth_hdr->d_addr.addr_bytes,ppp_ports[0].addr_table[ori_port_id].mac_addr,6);
+					ip_hdr->dst_addr = ppp_ports[0].addr_table[ori_port_id].src_ip;
+					tcphdr->dst_port = ppp_ports[0].addr_table[ori_port_id].port_id;
+					ppp_ports[0].addr_table[ori_port_id].is_alive = 10;
 					tcphdr->cksum = 0;
 					break;
 				default:
@@ -241,11 +239,8 @@ int decapsulation(void)
 			}
 			pkt[total_tx++] = single_pkt;
 		}
-		if (likely(total_tx > 0)) {
+		if (likely(total_tx > 0))
 			nb_tx = rte_eth_tx_burst(0,0,pkt,total_tx);
-			for(i=0; i<nb_tx; i++)
-				pkt[i] = rte_pktmbuf_alloc(mbuf_pool);
-		}
 	}
 	return 0;
 }
@@ -266,7 +261,6 @@ int control_plane_dequeue(tPPP_MBX **mail)
 void encapsulation_udp(struct rte_mbuf *single_pkt, struct ether_hdr *eth_hdr, struct ipv4_hdr *ip_hdr)
 {
 	struct udp_hdr 		*udphdr;
-	uint16_t 			protocol;
 	char 				*cur;
 	uint32_t 			new_port_id;
 	pppoe_header_t 		*pppoe_header;
@@ -278,14 +272,15 @@ void encapsulation_udp(struct rte_mbuf *single_pkt, struct ether_hdr *eth_hdr, s
 	nat_udp_learning(eth_hdr,ip_hdr,udphdr,&new_port_id);
 	ip_hdr->src_addr = ppp_ports[0].ipv4;
 	udphdr->src_port = rte_cpu_to_be_16(new_port_id);
-	addr_table[new_port_id].is_alive = 10;
+	ppp_ports[0].addr_table[new_port_id].is_alive = 10;
+	ip_hdr->hdr_checksum = rte_ipv4_cksum(ip_hdr);
 	udphdr->dgram_cksum = 0;
+	udphdr->dgram_cksum = rte_ipv4_udptcp_cksum(ip_hdr,udphdr);
 
 	/* for PPPoE */
 	rte_memcpy(eth_hdr->s_addr.addr_bytes,ppp_ports[0].src_mac,6);
 	rte_memcpy(eth_hdr->d_addr.addr_bytes,ppp_ports[0].dst_mac,6);
 
-	protocol = eth_hdr->ether_type;
 	eth_hdr->ether_type = rte_cpu_to_be_16(ETH_P_PPP_SES);
 	cur = (char *)eth_hdr - 8;
 	rte_memcpy(cur,eth_hdr,14);
@@ -294,7 +289,7 @@ void encapsulation_udp(struct rte_mbuf *single_pkt, struct ether_hdr *eth_hdr, s
 	pppoe_header->code = 0;
 	pppoe_header->session_id = ppp_ports[0].session_id;
 	pppoe_header->length = rte_cpu_to_be_16((single_pkt->pkt_len) - 14 + 2);
-	*((uint16_t *)(cur+14+sizeof(pppoe_header_t))) = protocol;
+	*((uint16_t *)(cur+14+sizeof(pppoe_header_t))) = rte_cpu_to_be_16(IP_PROTOCOL);
 	single_pkt->data_off -= 8;
 	single_pkt->pkt_len += 8;
 	single_pkt->data_len += 8;
@@ -305,7 +300,6 @@ void encapsulation_tcp(struct rte_mbuf *single_pkt, struct ether_hdr *eth_hdr, s
 	struct tcp_hdr 		*tcphdr;
 	uint32_t 			new_port_id;
 	pppoe_header_t 		*pppoe_header;
-	uint16_t 			protocol;
 	char 				*cur;
 	
 	/* for nat */
@@ -315,14 +309,15 @@ void encapsulation_tcp(struct rte_mbuf *single_pkt, struct ether_hdr *eth_hdr, s
 	nat_tcp_learning(eth_hdr,ip_hdr,tcphdr,&new_port_id);
 	ip_hdr->src_addr = ppp_ports[0].ipv4;
 	tcphdr->src_port = rte_cpu_to_be_16(new_port_id);
-	addr_table[new_port_id].is_alive = 10;
+	ppp_ports[0].addr_table[new_port_id].is_alive = 10;
+	ip_hdr->hdr_checksum = rte_ipv4_cksum(ip_hdr);
 	tcphdr->cksum = 0;
+	tcphdr->cksum = rte_ipv4_udptcp_cksum(ip_hdr,tcphdr);
 
-	/* for PPPoE*/
+	/* for PPPoE */
 	rte_memcpy(eth_hdr->s_addr.addr_bytes,ppp_ports[0].src_mac,6);
 	rte_memcpy(eth_hdr->d_addr.addr_bytes,ppp_ports[0].dst_mac,6);
 
-	protocol = eth_hdr->ether_type;
 	eth_hdr->ether_type = rte_cpu_to_be_16(ETH_P_PPP_SES);
 	cur = (char *)eth_hdr - 8;
 	rte_memcpy(cur,eth_hdr,14);
@@ -331,7 +326,7 @@ void encapsulation_tcp(struct rte_mbuf *single_pkt, struct ether_hdr *eth_hdr, s
 	pppoe_header->code = 0;
 	pppoe_header->session_id = ppp_ports[0].session_id;
 	pppoe_header->length = rte_cpu_to_be_16((single_pkt->pkt_len) - 14 + 2);
-	*((uint16_t *)(cur+14+sizeof(pppoe_header_t))) = protocol;
+	*((uint16_t *)(cur+14+sizeof(pppoe_header_t))) = rte_cpu_to_be_16(IP_PROTOCOL);
 	single_pkt->data_off -= 8;
 	single_pkt->pkt_len += 8;
 	single_pkt->data_len += 8;
@@ -350,7 +345,7 @@ int gateway(void)
 	char 				*cur;
 	int 				i;
 	pppoe_header_t 		*pppoe_header;
-	uint16_t 			protocol, nb_tx, nb_rx;
+	uint16_t 			nb_tx, nb_rx;
 	uint32_t			lan_ip = rte_cpu_to_be_32(0xc0a80001); //192.168.0.1
 
 	rte_eth_macaddr_get(0,(struct ether_addr *)mac_addr);
@@ -401,14 +396,14 @@ int gateway(void)
 						nat_icmp_learning(eth_hdr,ip_hdr,icmphdr,&new_port_id);
 						ip_hdr->src_addr = ppp_ports[0].ipv4;
 						icmphdr->icmp_ident = rte_cpu_to_be_16(new_port_id);
-						addr_table[new_port_id].is_alive = 10;
+						ppp_ports[0].addr_table[new_port_id].is_alive = 10;
+						ip_hdr->hdr_checksum = rte_ipv4_cksum(ip_hdr);
 						icmphdr->icmp_cksum = 0;
 						icmphdr->icmp_cksum = get_checksum(icmphdr,single_pkt->data_len - sizeof(struct ipv4_hdr));
 
 						rte_memcpy(eth_hdr->s_addr.addr_bytes,ppp_ports[0].src_mac,6);
 						rte_memcpy(eth_hdr->d_addr.addr_bytes,ppp_ports[0].dst_mac,6);
 
-						protocol = eth_hdr->ether_type;
 						eth_hdr->ether_type = rte_cpu_to_be_16(ETH_P_PPP_SES);
 						cur = (char *)eth_hdr - 8;
 						rte_memcpy(cur,eth_hdr,14);
@@ -417,7 +412,7 @@ int gateway(void)
 						pppoe_header->code = 0;
 						pppoe_header->session_id = ppp_ports[0].session_id;
 						pppoe_header->length = rte_cpu_to_be_16((single_pkt->pkt_len) - 14 + 2);
-						*((uint16_t *)(cur+14+sizeof(pppoe_header_t))) = protocol;
+						*((uint16_t *)(cur+14+sizeof(pppoe_header_t))) = rte_cpu_to_be_16(IP_PROTOCOL);//protocol;
 						single_pkt->data_off -= 8;
 						single_pkt->pkt_len += 8;
 						single_pkt->data_len += 8;

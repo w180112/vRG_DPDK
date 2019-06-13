@@ -46,11 +46,13 @@ Note:
 	1.We only support 3 LCP options, PAP authentication, Magic Number, Max receive unit so far.
 	2.User can now set the default gateway address 192.168.0.1 to end device after PPPoE link established.
 	3.The master branch contains NAT feature. If you don't want any NAT translation, switch to non_nat branch by typing git checkout non_nat.
+	4.User can assign how many sessions will be established, we support maximum 3 sessions so far. Default is 1 session.
+	5.Data plant now only support 1 session and will increase in the future.
 
 Test environment: 
 =================
 
-	1.CentOS 7.5 KVM with Mellanox CX3, CX4 Lx and Intel X520 NIC SR-I/OV virtual function driver
+	1.CentOS 7.5 KVM with Mellanox CX4 Lx and Intel X520 NIC SR-I/OV virtual function driver
 	2.AMD Ryzen 2700, 32GB ram
 	3.Successfully test connection with CHT(Chunghwa Telecom Co., Ltd.) BRAS PPPoE server and Spirent test center
 	4.Intel DPDK 18.11 and GCC compiler
@@ -60,10 +62,19 @@ TODO:
 
 	1.VLAN support
 	2.Some LCP exception
-	3.Multiple users/devices support
+	3.Multiple users/devices data plane support
+	4.Command line interface
 
 ChangeLogs:
 ===========
+
+2019/06/13
+----------
+
+1. Add log system at ./pppoeclient.log
+2. Add debug message system
+3. Add multiple user connection
+4. Fix upstream and downstream bugs
 
 2019/06/05
 ----------

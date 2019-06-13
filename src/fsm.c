@@ -1,5 +1,6 @@
 #include    "fsm.h"
 #include 	"dpdk_header.h"
+#include 	"dbg.h"
 #include 	<inttypes.h>
 
 STATUS 			PPP_FSM(struct rte_timer *ppp, tPPP_PORT *port_ccb, U16 event);
@@ -598,18 +599,25 @@ STATUS PPP_FSM(struct rte_timer *ppp, tPPP_PORT *port_ccb, U16 event)
 {	
     register int  	i,j;
     int			    retval;
+    char 			      str1[30],str2[30];
 
-    if (!port_ccb)
+    if (!port_ccb) {
+        DBG_PPP(DBGLVL1,port_ccb,"Error! No port found for the event(%d)\n",event);
         return FALSE;
+    }
     
     /* Find a matched state */
     for(i=0; ppp_fsm_tbl[port_ccb->cp][i].state!=S_INVLD; i++)
         if (ppp_fsm_tbl[port_ccb->cp][i].state == port_ccb->ppp_phase[port_ccb->cp].state)
             break;
-    printf("cur state = %x, control protocol = %d\n", ppp_fsm_tbl[port_ccb->cp][i].state, port_ccb->cp);
+    DBG_PPP(DBGLVL1,port_ccb,"Current state is %s\n",PPP_state2str(ppp_fsm_tbl[port_ccb->cp][i].state));
+    printf("control protocol = %d\n", port_ccb->cp);
 
-    if (ppp_fsm_tbl[port_ccb->cp][i].state == S_INVLD)
+    if (ppp_fsm_tbl[port_ccb->cp][i].state == S_INVLD) {
+        DBG_PPP(DBGLVL1,port_ccb,"Error! unknown state(%d) specified for the event(%d)\n",
+        	port_ccb->ppp_phase[port_ccb->cp].state,event);
         return FALSE;
+    }
 
     /*
      * Find a matched event in a specific state.
@@ -619,12 +627,19 @@ STATUS PPP_FSM(struct rte_timer *ppp, tPPP_PORT *port_ccb, U16 event)
         if (ppp_fsm_tbl[port_ccb->cp][i].event == event)
             break;
     
-    if (ppp_fsm_tbl[port_ccb->cp][i].state != port_ccb->ppp_phase[port_ccb->cp].state)
+    if (ppp_fsm_tbl[port_ccb->cp][i].state != port_ccb->ppp_phase[port_ccb->cp].state) { /* search until meet the next state */
+        DBG_PPP(DBGLVL1,port_ccb,"error! invalid event(%d) in state(%s)\n",
+            event, PPP_state2str(port_ccb->ppp_phase[port_ccb->cp].state));
   		return TRUE; /* still pass to endpoint */
+    }
     
     /* Correct state found */
-    if (port_ccb->ppp_phase[port_ccb->cp].state != ppp_fsm_tbl[port_ccb->cp][i].next_state)
+    if (port_ccb->ppp_phase[port_ccb->cp].state != ppp_fsm_tbl[port_ccb->cp][i].next_state) {
+        strcpy(str1,PPP_state2str(port_ccb->ppp_phase[port_ccb->cp].state));
+        strcpy(str2,PPP_state2str(ppp_fsm_tbl[port_ccb->cp][i].next_state));
+        DBG_PPP(DBGLVL1,port_ccb,"state changed from %s to %s\n",str1,str2);
         port_ccb->ppp_phase[port_ccb->cp].state = ppp_fsm_tbl[port_ccb->cp][i].next_state;
+    }
     
     for(j=0; ppp_fsm_tbl[port_ccb->cp][i].hdl[j]; j++) {
     	port_ccb->ppp_phase[port_ccb->cp].timer_counter = 10;
