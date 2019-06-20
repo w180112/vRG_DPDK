@@ -17,7 +17,6 @@ extern STATUS PPP_FSM(struct rte_timer *ppp, tPPP_PORT *port_ccb, U16 event);
 STATUS PPP_decode_frame(tPPP_MBX *mail, struct ethhdr *eth_hdr, pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp_lcp_header_t *ppp_lcp, ppp_lcp_options_t *ppp_lcp_options, uint16_t *event, struct rte_timer *tim, tPPP_PORT *port_ccb)
 {
     uint16_t	mulen;
-	//uint8_t		*mu;
 
 	if (mail->len > ETH_MTU){
 	    DBG_PPP(DBGLVL1,0,"error! too large frame(%d)\n",mail->len);
@@ -42,7 +41,6 @@ STATUS PPP_decode_frame(tPPP_MBX *mail, struct ethhdr *eth_hdr, pppoe_header_t *
 	rte_memcpy(ppp_payload,tmp_ppp_payload,sizeof(ppp_payload_t));
 	rte_memcpy(ppp_lcp,tmp_ppp_lcp,sizeof(ppp_lcp_header_t));
 	rte_memcpy(ppp_lcp_options,tmp_ppp_lcp+1,htons(ppp_lcp->length)-4);
-	
 	mulen = mail->len;
 
     mulen -= 14; //DA-MAC[6] + SA-MAC[6] + ETH-TYPE[2]
@@ -109,7 +107,9 @@ STATUS PPP_decode_frame(tPPP_MBX *mail, struct ethhdr *eth_hdr, pppoe_header_t *
 				return TRUE;
 			case CONFIG_REJECT :
 				*event = E_RECV_CONFIG_NAK_REJ;
+#ifdef _DP_DBG
 				printf("recv LCP reject message with option %x\n", ppp_lcp_options->type);
+#endif
 				if (ppp_lcp_options->type == AUTH)
 					port_ccb->is_pap_auth = FALSE;
 				return TRUE;
@@ -363,16 +363,15 @@ STATUS check_nak_reject(uint8_t flag, __attribute__((unused)) struct ethhdr *eth
 	return 0;
 }
 
-STATUS build_padi(__attribute__((unused)) struct rte_timer *tim, tPPP_PORT *port_ccb, uint16_t *max_retransmit)
+STATUS build_padi(__attribute__((unused)) struct rte_timer *tim, tPPP_PORT *port_ccb)
 {
 	unsigned char 		buffer[MSG_BUF];
 	uint16_t 			mulen;
 	struct ethhdr 		eth_hdr;
 	pppoe_header_t 		pppoe_header;
 	pppoe_header_tag_t 	pppoe_header_tag;
-	static int 			retransmit_count = 0;
 
-	if (retransmit_count >= *max_retransmit) {
+	if (port_ccb->pppoe_phase.timer_counter >= port_ccb->pppoe_phase.max_retransmit) {
 		puts("timeout when sending PADI");
 		kill(getpid(),SIGTERM);
 	}
@@ -397,45 +396,44 @@ STATUS build_padi(__attribute__((unused)) struct rte_timer *tim, tPPP_PORT *port
 	rte_memcpy(buffer+sizeof(struct ethhdr),&pppoe_header,sizeof(pppoe_header_t));
 	rte_memcpy(buffer+sizeof(struct ethhdr)+sizeof(pppoe_header_t),&pppoe_header_tag,sizeof(pppoe_header_tag_t));
 	drv_xmit(buffer,mulen);
-	retransmit_count++;
+	port_ccb->pppoe_phase.timer_counter++;
 
 	return TRUE;
 }
 
 /* rebuild pppoe tag */
-STATUS build_padr(__attribute__((unused)) struct rte_timer *tim, tPPP_PORT *port_ccb, pppoe_phase_t *pppoe_phase)
+STATUS build_padr(__attribute__((unused)) struct rte_timer *tim, tPPP_PORT *port_ccb)
 {
 	unsigned char buffer[MSG_BUF];
 	uint16_t mulen;
 	pppoe_header_tag_t *tmp_pppoe_header_tag = (pppoe_header_tag_t *)((pppoe_header_t *)((struct ethhdr *)buffer + 1) + 1);
-	static int retransmit_count = 0;
 
-	if (retransmit_count >= pppoe_phase->max_retransmit) {
+	if (port_ccb->pppoe_phase.timer_counter >= port_ccb->pppoe_phase.max_retransmit) {
 		puts("timeout when sending PADR");
 		kill(getpid(),SIGTERM);
 	}
-	rte_memcpy(pppoe_phase->eth_hdr->h_source,port_ccb->src_mac,6);
- 	rte_memcpy(pppoe_phase->eth_hdr->h_dest,port_ccb->dst_mac,6);
- 	pppoe_phase->pppoe_header->code = PADR;
+	rte_memcpy(port_ccb->pppoe_phase.eth_hdr->h_source,port_ccb->src_mac,6);
+ 	rte_memcpy(port_ccb->pppoe_phase.eth_hdr->h_dest,port_ccb->dst_mac,6);
+ 	port_ccb->pppoe_phase.pppoe_header->code = PADR;
 
  	uint32_t total_tag_length = 0;
 	for(pppoe_header_tag_t *cur = tmp_pppoe_header_tag;;) {
-		cur->type = pppoe_phase->pppoe_header_tag->type;
-		cur->length = pppoe_phase->pppoe_header_tag->length;
-		switch(ntohs(pppoe_phase->pppoe_header_tag->type)) {
+		cur->type = port_ccb->pppoe_phase.pppoe_header_tag->type;
+		cur->length = port_ccb->pppoe_phase.pppoe_header_tag->length;
+		switch(ntohs(port_ccb->pppoe_phase.pppoe_header_tag->type)) {
 			case END_OF_LIST:
 				break;
 			case SERVICE_NAME:
 				break;
 			case AC_NAME:
 				/* We dont need to add ac-name tag to PADR. */
-				pppoe_phase->pppoe_header_tag = (pppoe_header_tag_t *)((char *)(pppoe_phase->pppoe_header_tag) + 4 + ntohs(pppoe_phase->pppoe_header_tag->length));
+				port_ccb->pppoe_phase.pppoe_header_tag = (pppoe_header_tag_t *)((char *)(port_ccb->pppoe_phase.pppoe_header_tag) + 4 + ntohs(port_ccb->pppoe_phase.pppoe_header_tag->length));
 				continue;
 			case HOST_UNIQ:
 			case AC_COOKIE:
 			case RELAY_ID:
 				if (cur->length != 0)
-					rte_memcpy(cur->value,pppoe_phase->pppoe_header_tag->value,ntohs(cur->length));
+					rte_memcpy(cur->value,port_ccb->pppoe_phase.pppoe_header_tag->value,ntohs(cur->length));
 				break;
 			case GENERIC_ERROR:
 				puts("PPPoE discover generic error");
@@ -443,24 +441,24 @@ STATUS build_padr(__attribute__((unused)) struct rte_timer *tim, tPPP_PORT *port
 			default:
 				perror("Unknown PPPOE tag value"); 
 		}
-		if (ntohs(pppoe_phase->pppoe_header_tag->type) == END_OF_LIST)
+		if (ntohs(port_ccb->pppoe_phase.pppoe_header_tag->type) == END_OF_LIST)
 			break;
 
 		/* to caculate total pppoe header tags' length, we need to add tag type and tag length field in each tag scanning. */
 		total_tag_length = ntohs(cur->length) + 4 + total_tag_length;
 		/* Fetch next tag field. */
-		pppoe_phase->pppoe_header_tag = (pppoe_header_tag_t *)((char *)(pppoe_phase->pppoe_header_tag) + 4 + ntohs(pppoe_phase->pppoe_header_tag->length));
+		port_ccb->pppoe_phase.pppoe_header_tag = (pppoe_header_tag_t *)((char *)(port_ccb->pppoe_phase.pppoe_header_tag) + 4 + ntohs(port_ccb->pppoe_phase.pppoe_header_tag->length));
 		cur = (pppoe_header_tag_t *)((char *)cur + 4 + ntohs(cur->length));
 	}
 
-	pppoe_phase->pppoe_header->length = htons(total_tag_length);
+	port_ccb->pppoe_phase.pppoe_header->length = htons(total_tag_length);
 	mulen = sizeof(struct ethhdr) + sizeof(pppoe_header_t) + total_tag_length;
 
-	rte_memcpy(buffer,pppoe_phase->eth_hdr,sizeof(struct ethhdr));
-	rte_memcpy(buffer+sizeof(struct ethhdr),pppoe_phase->pppoe_header,sizeof(pppoe_header_t));
+	rte_memcpy(buffer,port_ccb->pppoe_phase.eth_hdr,sizeof(struct ethhdr));
+	rte_memcpy(buffer+sizeof(struct ethhdr),port_ccb->pppoe_phase.pppoe_header,sizeof(pppoe_header_t));
 	rte_memcpy(buffer+sizeof(struct ethhdr)+sizeof(pppoe_header_t),tmp_pppoe_header_tag,total_tag_length);
 	drv_xmit(buffer,mulen);
-	retransmit_count++;
+	port_ccb->pppoe_phase.timer_counter++;
 
 	return TRUE;
 }
@@ -676,7 +674,6 @@ STATUS build_terminate_ack(unsigned char* buffer, tPPP_PORT *port_ccb, uint16_t 
 
 STATUS build_terminate_request(unsigned char* buffer, tPPP_PORT *port_ccb, uint16_t *mulen)
 {
-	//unsigned char 			tmp_mac[6];
 	struct ethhdr 			*eth_hdr = port_ccb->ppp_phase[port_ccb->cp].eth_hdr;
 	pppoe_header_t 			*pppoe_header = port_ccb->ppp_phase[port_ccb->cp].pppoe_header;
 	ppp_payload_t 			*ppp_payload = port_ccb->ppp_phase[port_ccb->cp].ppp_payload;

@@ -37,9 +37,9 @@ static const struct rte_eth_conf port_conf_default = {
 							DEV_TX_OFFLOAD_UDP_CKSUM | 
 							DEV_TX_OFFLOAD_TCP_CKSUM, }
 };
-extern void 		nat_icmp_learning(struct ether_hdr *eth_hdr, struct ipv4_hdr *ip_hdr, struct icmp_hdr *icmphdr, uint32_t *new_port_id);
-extern void 		nat_udp_learning(struct ether_hdr *eth_hdr, struct ipv4_hdr *ip_hdr, struct udp_hdr *udphdr, uint32_t *new_port_id);
-extern void 		nat_tcp_learning(struct ether_hdr *eth_hdr, struct ipv4_hdr *ip_hdr, struct tcp_hdr *tcphdr, uint32_t *new_port_id);
+extern void 		nat_icmp_learning(struct ether_hdr *eth_hdr, struct ipv4_hdr *ip_hdr, struct icmp_hdr *icmphdr, uint32_t *new_port_id, tPPP_PORT *port_ccb);
+extern void 		nat_udp_learning(struct ether_hdr *eth_hdr, struct ipv4_hdr *ip_hdr, struct udp_hdr *udphdr, uint32_t *new_port_id, tPPP_PORT *port_ccb);
+extern void 		nat_tcp_learning(struct ether_hdr *eth_hdr, struct ipv4_hdr *ip_hdr, struct tcp_hdr *tcphdr, uint32_t *new_port_id, tPPP_PORT *port_ccb);
 extern uint16_t 	get_checksum(const void *const addr, const size_t bytes);
 int 				PPP_PORT_INIT(uint16_t port);
 int 				ppp_recvd(void);
@@ -105,6 +105,7 @@ int ppp_recvd(void)
 	ppp_payload_t 		*ppp_payload;
 	tPPP_MBX 			*mail = malloc(sizeof(tPPP_MBX));
 	int 				i;
+	uint32_t 			icmp_new_cksum;
 	
 	for(;;) {
 		nb_rx = rte_eth_rx_burst(1,0,pkt,BURST_SIZE);
@@ -147,15 +148,19 @@ int ppp_recvd(void)
 					icmphdr = (struct icmp_hdr *)(rte_pktmbuf_mtod(single_pkt, unsigned char *) + sizeof(struct ether_hdr) + sizeof(struct ipv4_hdr));
 					single_pkt->ol_flags |= PKT_TX_IPV4 | PKT_TX_IP_CKSUM;
 					ori_port_id = rte_cpu_to_be_16(icmphdr->icmp_ident);
+					int16_t icmp_cksum_diff = icmphdr->icmp_ident - ppp_ports[0].addr_table[ori_port_id].port_id;
 					rte_memcpy(eth_hdr->s_addr.addr_bytes,ppp_ports[0].lan_mac,6);
 					rte_memcpy(eth_hdr->d_addr.addr_bytes,ppp_ports[0].addr_table[ori_port_id].mac_addr,6);
 					ip_hdr->dst_addr = ppp_ports[0].addr_table[ori_port_id].src_ip;
 					icmphdr->icmp_ident = ppp_ports[0].addr_table[ori_port_id].port_id;
 					ppp_ports[0].addr_table[ori_port_id].is_alive = 10;
 
-					icmphdr->icmp_cksum = 0;
-					icmphdr->icmp_cksum = get_checksum(icmphdr,single_pkt->data_len - sizeof(struct ipv4_hdr));
+					if (((icmp_new_cksum = icmp_cksum_diff + icmphdr->icmp_cksum) >> 16) != 0)
+						icmp_new_cksum = (icmp_new_cksum & 0xFFFF) + (icmp_new_cksum >> 16);
+					icmphdr->icmp_cksum = (uint16_t)icmp_new_cksum;
+#ifdef _DP_DBG
 					puts("nat mapping at port 1");
+#endif
 					break;
 				case PROTO_TYPE_UDP:
 				case PROTO_TYPE_TCP:
@@ -186,7 +191,7 @@ int decapsulation(void)
 	struct ipv4_hdr 	*ip_hdr;
 	struct udp_hdr 		*udphdr;
 	struct tcp_hdr 		*tcphdr;
-	uint16_t 			ori_port_id, burst_size, nb_tx;
+	uint16_t 			ori_port_id, burst_size;
 	struct rte_mbuf 	*pkt[BURST_SIZE], *single_pkt;
 	int 				i;
 	
@@ -240,7 +245,7 @@ int decapsulation(void)
 			pkt[total_tx++] = single_pkt;
 		}
 		if (likely(total_tx > 0))
-			nb_tx = rte_eth_tx_burst(0,0,pkt,total_tx);
+			rte_eth_tx_burst(0,0,pkt,total_tx);
 	}
 	return 0;
 }
@@ -269,7 +274,7 @@ void encapsulation_udp(struct rte_mbuf *single_pkt, struct ether_hdr *eth_hdr, s
 	single_pkt->ol_flags |= PKT_TX_IPV4 | PKT_TX_IP_CKSUM | PKT_TX_UDP_CKSUM;
 
 	udphdr = (struct udp_hdr *)(rte_pktmbuf_mtod(single_pkt, unsigned char *) + sizeof(struct ether_hdr) + sizeof(struct ipv4_hdr));
-	nat_udp_learning(eth_hdr,ip_hdr,udphdr,&new_port_id);
+	nat_udp_learning(eth_hdr,ip_hdr,udphdr,&new_port_id,&ppp_ports[0]);
 	ip_hdr->src_addr = ppp_ports[0].ipv4;
 	udphdr->src_port = rte_cpu_to_be_16(new_port_id);
 	ppp_ports[0].addr_table[new_port_id].is_alive = 10;
@@ -306,7 +311,7 @@ void encapsulation_tcp(struct rte_mbuf *single_pkt, struct ether_hdr *eth_hdr, s
 	single_pkt->ol_flags |= PKT_TX_IPV4 | PKT_TX_IP_CKSUM | PKT_TX_TCP_CKSUM;
 
 	tcphdr = (struct tcp_hdr *)(rte_pktmbuf_mtod(single_pkt, unsigned char *) + sizeof(struct ether_hdr) + sizeof(struct ipv4_hdr));
-	nat_tcp_learning(eth_hdr,ip_hdr,tcphdr,&new_port_id);
+	nat_tcp_learning(eth_hdr,ip_hdr,tcphdr,&new_port_id,&ppp_ports[0]);
 	ip_hdr->src_addr = ppp_ports[0].ipv4;
 	tcphdr->src_port = rte_cpu_to_be_16(new_port_id);
 	ppp_ports[0].addr_table[new_port_id].is_alive = 10;
@@ -392,15 +397,18 @@ int gateway(void)
 					icmphdr = (struct icmp_hdr *)(rte_pktmbuf_mtod(single_pkt, unsigned char *) + sizeof(struct ether_hdr) + sizeof(struct ipv4_hdr));
 					if (ip_hdr->dst_addr != lan_ip) {
 						uint32_t 			new_port_id;
+						uint32_t			icmp_new_cksum;
 
-						nat_icmp_learning(eth_hdr,ip_hdr,icmphdr,&new_port_id);
+						nat_icmp_learning(eth_hdr,ip_hdr,icmphdr,&new_port_id,&ppp_ports[0]);
 						ip_hdr->src_addr = ppp_ports[0].ipv4;
 						icmphdr->icmp_ident = rte_cpu_to_be_16(new_port_id);
 						ppp_ports[0].addr_table[new_port_id].is_alive = 10;
 						ip_hdr->hdr_checksum = rte_ipv4_cksum(ip_hdr);
-						icmphdr->icmp_cksum = 0;
-						icmphdr->icmp_cksum = get_checksum(icmphdr,single_pkt->data_len - sizeof(struct ipv4_hdr));
 
+						if (((icmp_new_cksum = icmphdr->icmp_cksum + ppp_ports[0].addr_table[new_port_id].port_id - rte_cpu_to_be_16(new_port_id)) >> 16) != 0)
+							icmp_new_cksum = (icmp_new_cksum & 0xFFFF) + (icmp_new_cksum >> 16);
+						icmphdr->icmp_cksum = (uint16_t)icmp_new_cksum;
+						
 						rte_memcpy(eth_hdr->s_addr.addr_bytes,ppp_ports[0].src_mac,6);
 						rte_memcpy(eth_hdr->d_addr.addr_bytes,ppp_ports[0].dst_mac,6);
 
@@ -418,7 +426,9 @@ int gateway(void)
 						single_pkt->data_len += 8;
 						
 						pkt[total_tx++] = single_pkt;
+#ifdef _DP_DBG
 						puts("nat icmp at port 0");
+#endif
 					}
 					else {
 						memcpy(eth_hdr->d_addr.addr_bytes,eth_hdr->s_addr.addr_bytes,6);
@@ -445,12 +455,18 @@ int gateway(void)
 					pkt[total_tx++] = single_pkt;
 				}
 				else {
+#ifdef _DP_DBG
 					puts("unknown L4 packet recv on gateway LAN port queue");
+					printf("protocol = %x\n", ip_hdr->next_proto_id);
+#endif
 					rte_pktmbuf_free(single_pkt);
 				}
 			}
 			else {
+#ifdef _DP_DBG
 				puts("unknown ether type recv on gateway LAN port queue");
+				printf("ether type = %x\n", rte_be_to_cpu_16(eth_hdr->ether_type));
+#endif
 				rte_pktmbuf_free(single_pkt);
 				continue;
 			}

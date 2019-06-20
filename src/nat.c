@@ -19,87 +19,85 @@
 #include <assert.h>
 #include "pppd.h"
 
-void 		nat_icmp_learning(struct ether_hdr *eth_hdr, struct ipv4_hdr *ip_hdr, struct icmp_hdr *icmphdr, uint32_t *new_port_id);
-void 		nat_udp_learning(struct ether_hdr *eth_hdr, struct ipv4_hdr *ip_hdr, struct udp_hdr *udphdr, uint32_t *new_port_id);
-void 		nat_tcp_learning(struct ether_hdr *eth_hdr, struct ipv4_hdr *ip_hdr, struct tcp_hdr *tcphdr, uint32_t *new_port_id);
-void 		nat_rule_timer(__attribute__((unused)) struct rte_timer *tim, __attribute__((unused)) void *arg);
+void 		nat_icmp_learning(struct ether_hdr *eth_hdr, struct ipv4_hdr *ip_hdr, struct icmp_hdr *icmphdr, uint32_t *new_port_id, tPPP_PORT *port_ccb);
+void 		nat_udp_learning(struct ether_hdr *eth_hdr, struct ipv4_hdr *ip_hdr, struct udp_hdr *udphdr, uint32_t *new_port_id, tPPP_PORT *port_ccb);
+void 		nat_tcp_learning(struct ether_hdr *eth_hdr, struct ipv4_hdr *ip_hdr, struct tcp_hdr *tcphdr, uint32_t *new_port_id, tPPP_PORT *port_ccb);
+void 		nat_rule_timer(__attribute__((unused)) struct rte_timer *tim, tPPP_PORT ppp_ports[]);
 uint16_t 	get_checksum(const void *const addr, const size_t bytes);
 
-extern addr_table_t addr_table[65535];
-
-void nat_icmp_learning(struct ether_hdr *eth_hdr, struct ipv4_hdr *ip_hdr, struct icmp_hdr *icmphdr, uint32_t *new_port_id)
+void nat_icmp_learning(struct ether_hdr *eth_hdr, struct ipv4_hdr *ip_hdr, struct icmp_hdr *icmphdr, uint32_t *new_port_id, tPPP_PORT *port_ccb)
 {
-	*new_port_id = ntohs(icmphdr->icmp_ident + (ip_hdr->src_addr) / 10000);
+	*new_port_id = ntohs(icmphdr->icmp_ident + (ip_hdr->src_addr) % 10000);
 	if (*new_port_id > 0xffff)
 		*new_port_id = *new_port_id / 0xffff + 1000;
 	for(int j=1000,shift=0; j<65535; j++) {
-		if (addr_table[*new_port_id].is_fill == 1) {
-			if (addr_table[*new_port_id].src_ip == ip_hdr->src_addr && addr_table[*new_port_id].dst_ip == ip_hdr->dst_addr )
+		if (port_ccb->addr_table[*new_port_id].is_fill == 1) {
+			if (port_ccb->addr_table[*new_port_id].src_ip == ip_hdr->src_addr && port_ccb->addr_table[*new_port_id].dst_ip == ip_hdr->dst_addr )
 				return;
 			shift++;
 			(*new_port_id)++;
 		}
 		else {
-			addr_table[*new_port_id].is_fill = 1;
-			addr_table[*new_port_id].shift = shift;
+			port_ccb->addr_table[*new_port_id].is_fill = 1;
+			port_ccb->addr_table[*new_port_id].shift = shift;
 			break;
 		}
 	}
 	puts("learning new icmp nat rule");
-	memcpy(addr_table[*new_port_id].mac_addr,eth_hdr->s_addr.addr_bytes,6);
-	addr_table[*new_port_id].src_ip = ip_hdr->src_addr;
-	addr_table[*new_port_id].dst_ip = ip_hdr->dst_addr; 
-	addr_table[*new_port_id].port_id = icmphdr->icmp_ident;
+	memcpy(port_ccb->addr_table[*new_port_id].mac_addr,eth_hdr->s_addr.addr_bytes,6);
+	port_ccb->addr_table[*new_port_id].src_ip = ip_hdr->src_addr;
+	port_ccb->addr_table[*new_port_id].dst_ip = ip_hdr->dst_addr; 
+	port_ccb->addr_table[*new_port_id].port_id = icmphdr->icmp_ident;
 }
 
-void nat_udp_learning(struct ether_hdr *eth_hdr, struct ipv4_hdr *ip_hdr, struct udp_hdr *udphdr, uint32_t *new_port_id)
+void nat_udp_learning(struct ether_hdr *eth_hdr, struct ipv4_hdr *ip_hdr, struct udp_hdr *udphdr, uint32_t *new_port_id, tPPP_PORT *port_ccb)
 {
-	*new_port_id = ntohs(udphdr->src_port + (ip_hdr->src_addr) / 10000);
+	*new_port_id = ntohs(udphdr->src_port + (ip_hdr->src_addr) % 10000);
 	if (*new_port_id > 0xffff)
 		*new_port_id = *new_port_id / 0xffff + 1000;
 	for(int j=1000,shift=0; j<65535; j++) {
-		if (addr_table[*new_port_id].is_fill == 1) {
-			if (addr_table[*new_port_id].src_ip == ip_hdr->src_addr && addr_table[*new_port_id].dst_ip == ip_hdr->dst_addr)
+		if (port_ccb->addr_table[*new_port_id].is_fill == 1) {
+			if (port_ccb->addr_table[*new_port_id].src_ip == ip_hdr->src_addr && port_ccb->addr_table[*new_port_id].dst_ip == ip_hdr->dst_addr)
 				return;
 			shift++;
 			(*new_port_id)++;
 		}
 		else {
-			addr_table[*new_port_id].is_fill = 1;
-			addr_table[*new_port_id].shift = shift;
+			port_ccb->addr_table[*new_port_id].is_fill = 1;
+			port_ccb->addr_table[*new_port_id].shift = shift;
 			break;
 		}
 	}
 	puts("learning new udp nat rule");
-	memcpy(addr_table[*new_port_id].mac_addr,eth_hdr->s_addr.addr_bytes,6);
-	addr_table[*new_port_id].src_ip = ip_hdr->src_addr;
-	addr_table[*new_port_id].dst_ip = ip_hdr->dst_addr; 
-	addr_table[*new_port_id].port_id = udphdr->src_port;
+	memcpy(port_ccb->addr_table[*new_port_id].mac_addr,eth_hdr->s_addr.addr_bytes,6);
+	port_ccb->addr_table[*new_port_id].src_ip = ip_hdr->src_addr;
+	port_ccb->addr_table[*new_port_id].dst_ip = ip_hdr->dst_addr; 
+	port_ccb->addr_table[*new_port_id].port_id = udphdr->src_port;
 }
 
-void nat_tcp_learning(struct ether_hdr *eth_hdr, struct ipv4_hdr *ip_hdr, struct tcp_hdr *tcphdr, uint32_t *new_port_id)
+void nat_tcp_learning(struct ether_hdr *eth_hdr, struct ipv4_hdr *ip_hdr, struct tcp_hdr *tcphdr, uint32_t *new_port_id, tPPP_PORT *port_ccb)
 {
-	*new_port_id = ntohs(tcphdr->src_port + (ip_hdr->src_addr) / 10000);
+	*new_port_id = ntohs(tcphdr->src_port + (ip_hdr->src_addr) % 10000);
 	if (*new_port_id > 0xffff)
 		*new_port_id = *new_port_id / 0xffff + 1000;
 	for(int j=1000,shift=0; j<65535; j++) {
-		if (addr_table[*new_port_id].is_fill == 1) {
-			if (addr_table[*new_port_id].src_ip == ip_hdr->src_addr && addr_table[*new_port_id].dst_ip == ip_hdr->dst_addr)
+		if (port_ccb->addr_table[*new_port_id].is_fill == 1) {
+			if (port_ccb->addr_table[*new_port_id].src_ip == ip_hdr->src_addr && port_ccb->addr_table[*new_port_id].dst_ip == ip_hdr->dst_addr)
 				return;
 			shift++;
 			(*new_port_id)++;
 		}
 		else {
-			addr_table[*new_port_id].is_fill = 1;
-			addr_table[*new_port_id].shift = shift;
+			port_ccb->addr_table[*new_port_id].is_fill = 1;
+			port_ccb->addr_table[*new_port_id].shift = shift;
 			break;
 		}
 	}
 	puts("learning new tcp nat rule");
-	memcpy(addr_table[*new_port_id].mac_addr,eth_hdr->s_addr.addr_bytes,6);
-	addr_table[*new_port_id].src_ip = ip_hdr->src_addr;
-	addr_table[*new_port_id].dst_ip = ip_hdr->dst_addr; 
-	addr_table[*new_port_id].port_id = tcphdr->src_port;
+	memcpy(port_ccb->addr_table[*new_port_id].mac_addr,eth_hdr->s_addr.addr_bytes,6);
+	port_ccb->addr_table[*new_port_id].src_ip = ip_hdr->src_addr;
+	port_ccb->addr_table[*new_port_id].dst_ip = ip_hdr->dst_addr; 
+	port_ccb->addr_table[*new_port_id].port_id = tcphdr->src_port;
 }
 
 #pragma GCC diagnostic push  // require GCC 4.6
@@ -128,14 +126,17 @@ uint16_t get_checksum(const void *const addr, const size_t bytes)
 }
 #pragma GCC diagnostic pop   // require GCC 4.6
 
-void nat_rule_timer(__attribute__((unused)) struct rte_timer *tim, __attribute__((unused)) void *arg)
+void nat_rule_timer(__attribute__((unused)) struct rte_timer *tim, tPPP_PORT ppp_ports[])
 {
-	for(int i=0; i<65535; i++) {
-		if (addr_table[i].is_fill == 1) {
-			if (addr_table[i].is_alive > 0)
-				addr_table[i].is_alive--;
-			else
-				memset(&(addr_table[i]),0,sizeof(addr_table_t));
+	uint8_t user_id;
+	for(user_id=0; user_id<MAX_USER; user_id++) {
+		for(int i=0; i<65535; i++) {
+			if (ppp_ports[user_id].addr_table[i].is_fill == 1) {
+				if (ppp_ports[user_id].addr_table[i].is_alive > 0)
+					ppp_ports[user_id].addr_table[i].is_alive--;
+				else
+					memset(&(ppp_ports[user_id].addr_table[i]),0,sizeof(addr_table_t));
+			}
 		}
 	}
 }

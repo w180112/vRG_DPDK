@@ -25,6 +25,8 @@ static STATUS   A_zero_restart_count(__attribute__((unused)) struct rte_timer *t
 static STATUS 	A_send_padt(__attribute__((unused)) struct rte_timer *tim, __attribute__((unused)) tPPP_PORT *port_ccb);
 static STATUS 	A_create_close_to_lower_layer(__attribute__((unused)) struct rte_timer *tim, __attribute__((unused)) tPPP_PORT *port_ccb);
 
+extern tPPP_PORT				ppp_ports[MAX_USER];
+
 tPPP_STATE_TBL  ppp_fsm_tbl[2][121] = { 
 /*//////////////////////////////////////////////////////////////////////////////////
   	STATE   		EVENT           						      NEXT-STATE            HANDLER       
@@ -610,8 +612,10 @@ STATUS PPP_FSM(struct rte_timer *ppp, tPPP_PORT *port_ccb, U16 event)
     for(i=0; ppp_fsm_tbl[port_ccb->cp][i].state!=S_INVLD; i++)
         if (ppp_fsm_tbl[port_ccb->cp][i].state == port_ccb->ppp_phase[port_ccb->cp].state)
             break;
+#ifdef _DP_DBG
     DBG_PPP(DBGLVL1,port_ccb,"Current state is %s\n",PPP_state2str(ppp_fsm_tbl[port_ccb->cp][i].state));
     printf("control protocol = %d\n", port_ccb->cp);
+#endif
 
     if (ppp_fsm_tbl[port_ccb->cp][i].state == S_INVLD) {
         DBG_PPP(DBGLVL1,port_ccb,"Error! unknown state(%d) specified for the event(%d)\n",
@@ -681,7 +685,7 @@ STATUS A_this_layer_up(__attribute__((unused)) struct rte_timer *tim, __attribut
     else if (port_ccb->ppp_phase[port_ccb->cp].ppp_payload->ppp_protocol == htons(IPCP_PROTOCOL)) {
     	port_ccb->data_plane_start = TRUE;
     	port_ccb->phase = DATA_PHASE;
-    	rte_timer_reset(&(port_ccb->nat),rte_get_timer_hz(),PERIODICAL,3,(rte_timer_cb_t)nat_rule_timer,NULL);
+    	rte_timer_reset(&(port_ccb->nat),rte_get_timer_hz(),PERIODICAL,3,(rte_timer_cb_t)nat_rule_timer,ppp_ports);
     	puts("IPCP connection establish successfully.");
     	printf("Now we can start to send data via pppoe session id 0x%x.\n", htons(port_ccb->session_id));
     	printf("Our PPPoE client IP address is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 ", PPPoE server IP address is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 "\n", *(((uint8_t *)&(port_ccb->ipv4))), *(((uint8_t *)&(port_ccb->ipv4))+1), *(((uint8_t *)&(port_ccb->ipv4))+2), *(((uint8_t *)&(port_ccb->ipv4))+3), *(((uint8_t *)&(port_ccb->ipv4_gw))), *(((uint8_t *)&(port_ccb->ipv4_gw))+1), *(((uint8_t *)&(port_ccb->ipv4_gw))+2), *(((uint8_t *)&(port_ccb->ipv4_gw))+3));

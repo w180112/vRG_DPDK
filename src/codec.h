@@ -83,8 +83,8 @@ extern STATUS build_auth_ack_pap(unsigned char *buffer, tPPP_PORT *port_ccb, uin
 STATUS check_nak_reject(uint8_t flag,struct ethhdr *eth_hdr, pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp_lcp_header_t *ppp_lcp, ppp_lcp_options_t *ppp_lcp_options, uint16_t total_lcp_length);
 STATUS check_ipcp_nak_rej(uint8_t flag,struct ethhdr *eth_hdr, pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp_lcp_header_t *ppp_lcp, ppp_lcp_options_t *ppp_lcp_options, uint16_t total_lcp_length);
 
-STATUS build_padi(__attribute__((unused)) struct rte_timer *tim, tPPP_PORT *port_ccb, uint16_t *max_retransmit);
-STATUS build_padr(__attribute__((unused)) struct rte_timer *tim, tPPP_PORT *port_ccb, pppoe_phase_t *pppoe_phase);
+STATUS build_padi(__attribute__((unused)) struct rte_timer *tim, tPPP_PORT *port_ccb);
+STATUS build_padr(__attribute__((unused)) struct rte_timer *tim, tPPP_PORT *port_ccb);
 STATUS build_padt(tPPP_PORT *port_ccb);
 
 extern  U8			ppp_802_1_oui[];

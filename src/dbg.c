@@ -7,6 +7,7 @@
  **************************************************************************/
 
 #include    <common.h>
+#include 	<rte_byteorder.h>
 #include	"pppd.h"
 #include 	"fsm.h"
 #include    "dbg.h"

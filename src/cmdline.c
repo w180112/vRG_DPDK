@@ -40,7 +40,7 @@ STATUS parse_cmd(char *cmd, size_t cmd_len)
 		argvopt[argc-1][k] = cmd[i]; 
 	}
 
-	while ((opt = getopt_long(argc, argvopt, short_options, lgopts, &option_index)) != EOF) {
+	while ((opt = getopt_long(argc, (char * const *)argvopt, short_options, lgopts, &option_index)) != EOF) {
 		switch (opt) {
 		case 'h':
 			puts("usage: \n"

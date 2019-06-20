@@ -68,6 +68,13 @@ TODO:
 ChangeLogs:
 ===========
 
+2019/06/20
+----------
+
+1. Fix ICMP protocol checksum bug
+2. Fix user's nat info 
+3. Fix PPPoE discovery retransmition
+
 2019/06/13
 ----------
 

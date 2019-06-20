@@ -29,7 +29,7 @@
 #define CAP_VSI_DISCOV_PROTO	1
 #define CAP_802_1X_AUTH_REQ		1
 
-#define MAX_USER				1
+#define MAX_USER				2
 
 typedef struct {
 	U8		subt;
@@ -96,6 +96,7 @@ typedef struct pppoe_phase {
 	pppoe_header_t 		*pppoe_header;
 	pppoe_header_tag_t	*pppoe_header_tag;
 	uint8_t 			max_retransmit;
+	uint8_t				timer_counter;
 }pppoe_phase_t;
 
 typedef struct ppp_phase {
@@ -127,7 +128,7 @@ typedef struct {
 
 	U32					imsg_cnt;
 	U32					omsg_cnt;
-	U32					err_imsg_cnt;	
+	U32					err_imsg_cnt;
 	
 	tSUB_VAL			chassis_id;
 	tSUB_VAL			port_id;
@@ -141,6 +142,7 @@ typedef struct {
 	tMNG_ADDR  			mng_addr;
 
 	ppp_phase_t 		ppp_phase[2];
+	pppoe_phase_t		pppoe_phase;
 	int 				cp;	//cp is "control protocol", means we need to determine cp is LCP or NCP after parsing packet
 	uint16_t 			session_id;
 	uint16_t			user_num;
@@ -164,13 +166,13 @@ typedef struct {
 
 	BOOL				data_plane_start;
 
+	uint8_t 			vlan;
+
+	addr_table_t 		addr_table[65536];
+
 	struct rte_timer 	pppoe;
 	struct rte_timer 	ppp;
 	struct rte_timer 	nat;
-
-	uint8_t 			vlan;
-
-	addr_table_t 		addr_table[65535];
 }__rte_cache_aligned tPPP_PORT;
 
 extern tPPP_PORT		ppp_ports[MAX_USER];

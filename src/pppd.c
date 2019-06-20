@@ -107,9 +107,11 @@ int main(int argc, char **argv)
 			printf("Error getting info for port %i\n", portid);
 			return -1;
 		}
+#ifdef _DP_DBG
 		printf("Port %i driver: %s (ver: %s)\n", portid, info.driver, info.version);
 		printf("firmware-version: %s\n", info.fw_version);
 		printf("bus-info: %s\n", info.bus_info);
+#endif
 		if (PPP_PORT_INIT(portid) != 0)
 			rte_exit(EXIT_FAILURE, "Cannot init port %"PRIu8 "\n",portid);
 	}
@@ -246,7 +248,7 @@ int ppp_init(void)
 	tPPP_MBX			*mail[BURST_SIZE];
 	int 				cp;
 	uint16_t			event, session_index = 0;
-	uint16_t			burst_size, max_retransmit = MAX_RETRAN;
+	uint16_t			burst_size;
 	uint16_t			recv_type;
 	struct ethhdr 		eth_hdr;
 	pppoe_header_t 		pppoe_header;
@@ -256,9 +258,11 @@ int ppp_init(void)
 	
 	for(int i=0; i<MAX_USER; i++) {
 		ppp_ports[i].phase = PPPOE_PHASE;
-    	if (build_padi(&(ppp_ports[i].pppoe),&(ppp_ports[i]),&max_retransmit) == FALSE)
+		ppp_ports[i].pppoe_phase.max_retransmit = MAX_RETRAN;
+		ppp_ports[i].pppoe_phase.timer_counter = 0;
+    	if (build_padi(&(ppp_ports[i].pppoe),&(ppp_ports[i])) == FALSE)
     		goto out;
-    	rte_timer_reset(&(ppp_ports[i].pppoe),rte_get_timer_hz(),PERIODICAL,3,(rte_timer_cb_t)build_padi,&max_retransmit);
+    	rte_timer_reset(&(ppp_ports[i].pppoe),rte_get_timer_hz(),PERIODICAL,3,(rte_timer_cb_t)build_padi,&(ppp_ports[i]));
     }
 	for(;;){
 	    burst_size = control_plane_dequeue(mail);
@@ -284,12 +288,6 @@ int ppp_init(void)
 				if (PPP_decode_frame(mail[i],&eth_hdr,&pppoe_header,&ppp_payload,&ppp_lcp,ppp_lcp_options,&event,&(ppp_ports[session_index].ppp),&ppp_ports[session_index]) == FALSE)
 					continue;
 				if (eth_hdr.h_proto == htons(ETH_P_PPP_DIS)) {
-					pppoe_phase_t pppoe_phase;
-					pppoe_phase.eth_hdr = &eth_hdr;
-					pppoe_phase.pppoe_header = &pppoe_header;
-					pppoe_phase.pppoe_header_tag = (pppoe_header_tag_t *)((pppoe_header_t *)((struct ethhdr *)mail[i]->refp + 1) + 1);
-					pppoe_phase.max_retransmit = MAX_RETRAN;
-
 					switch(pppoe_header.code) {
 					case PADO:
 						for(session_index=0; session_index<MAX_USER; session_index++) {
@@ -298,19 +296,24 @@ int ppp_init(void)
 								if (ppp_ports[session_index].dst_mac[j] != 0)
 									break;
 							}
-							if (j==ETH_ALEN)
+							if (j == ETH_ALEN)
 								break;
     					}
     					if (session_index >= MAX_USER) {
     						puts("Too many pppoe users.\nDiscard.");
     						continue;
     					}
+    					ppp_ports[session_index].pppoe_phase.eth_hdr = &eth_hdr;
+						ppp_ports[session_index].pppoe_phase.pppoe_header = &pppoe_header;
+						ppp_ports[session_index].pppoe_phase.pppoe_header_tag = (pppoe_header_tag_t *)((pppoe_header_t *)((struct ethhdr *)mail[i]->refp + 1) + 1);
+						ppp_ports[session_index].pppoe_phase.max_retransmit = MAX_RETRAN;
+						ppp_ports[session_index].pppoe_phase.timer_counter = 0;
 						rte_timer_stop(&(ppp_ports[session_index].pppoe));
 						rte_memcpy(ppp_ports[session_index].src_mac,eth_hdr.h_dest,6);
 						rte_memcpy(ppp_ports[session_index].dst_mac,eth_hdr.h_source,6);
-						if (build_padr(&(ppp_ports[session_index].pppoe),&(ppp_ports[session_index]),&pppoe_phase) == FALSE)
+						if (build_padr(&(ppp_ports[session_index].pppoe),&(ppp_ports[session_index])) == FALSE)
 							goto out;
-						rte_timer_reset(&(ppp_ports[session_index].pppoe),rte_get_timer_hz(),PERIODICAL,3,(rte_timer_cb_t)build_padr,&pppoe_phase);
+						rte_timer_reset(&(ppp_ports[session_index].pppoe),rte_get_timer_hz(),PERIODICAL,3,(rte_timer_cb_t)build_padr,&(ppp_ports[session_index]));
 						continue;
 					case PADS:
 						for(session_index=0; session_index<MAX_USER; session_index++) {
@@ -318,6 +321,10 @@ int ppp_init(void)
 								break;
     					}
 						rte_timer_stop(&(ppp_ports[session_index].pppoe));
+						ppp_ports[session_index].pppoe_phase.eth_hdr = &eth_hdr;
+						ppp_ports[session_index].pppoe_phase.pppoe_header = &pppoe_header;
+						ppp_ports[session_index].pppoe_phase.pppoe_header_tag = (pppoe_header_tag_t *)((pppoe_header_t *)((struct ethhdr *)mail[i]->refp + 1) + 1);
+						ppp_ports[session_index].pppoe_phase.max_retransmit = MAX_RETRAN;
 						ppp_ports[session_index].session_id = pppoe_header.session_id;
 						ppp_ports[session_index].cp = 0;
     					for (int i=0; i<2; i++) {
@@ -338,6 +345,10 @@ int ppp_init(void)
     						puts("Out of range session id in PADT.");
     						continue;
     					}
+    					ppp_ports[session_index].pppoe_phase.eth_hdr = &eth_hdr;
+						ppp_ports[session_index].pppoe_phase.pppoe_header = &pppoe_header;
+						ppp_ports[session_index].pppoe_phase.pppoe_header_tag = (pppoe_header_tag_t *)((pppoe_header_t *)((struct ethhdr *)mail[i]->refp + 1) + 1);
+						ppp_ports[session_index].pppoe_phase.max_retransmit = MAX_RETRAN;
 						if (pppoe_header.length == 0) {
 							if (build_padt(&(ppp_ports[session_index])) == FALSE)
 								goto out;
@@ -357,9 +368,8 @@ int ppp_init(void)
 				ppp_ports[session_index].ppp_phase[0].ppp_lcp_options = ppp_lcp_options;
 				ppp_ports[session_index].ppp_phase[1].ppp_lcp_options = ppp_lcp_options;
 				if (ppp_payload.ppp_protocol == htons(AUTH_PROTOCOL)) {
-					if (ppp_lcp.code == AUTH_NAK) {
+					if (ppp_lcp.code == AUTH_NAK)
 						goto out;
-					}
 					else if (ppp_lcp.code == AUTH_ACK) {
 						ppp_ports[session_index].cp = 1;
 						PPP_FSM(&(ppp_ports[session_index].ppp),&ppp_ports[session_index],E_OPEN);
