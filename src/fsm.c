@@ -26,6 +26,8 @@ static STATUS 	A_send_padt(__attribute__((unused)) struct rte_timer *tim, __attr
 static STATUS 	A_create_close_to_lower_layer(__attribute__((unused)) struct rte_timer *tim, __attribute__((unused)) tPPP_PORT *port_ccb);
 
 extern tPPP_PORT				ppp_ports[MAX_USER];
+//extern struct rte_flow *generate_lan_flow(uint16_t port_id, uint16_t rx_q_udp, uint16_t rx_q_tcp, struct rte_flow_error *error);
+//extern struct rte_flow *generate_wan_flow(uint16_t port_id, uint16_t rx_q_udp, uint16_t rx_q_tcp, struct rte_flow_error *error);
 
 tPPP_STATE_TBL  ppp_fsm_tbl[2][121] = { 
 /*//////////////////////////////////////////////////////////////////////////////////
@@ -462,128 +464,128 @@ tPPP_STATE_TBL  ppp_fsm_tbl[2][121] = {
 { S_REQUEST_SENT, 	E_TIMEOUT_COUNTER_POSITIVE,						S_REQUEST_SENT, 	{ A_send_config_request, 0 }},
 
 /* may be with "PASSIVE" option, with this option, ppp will not exit but then just wait for a valid LCP packet from peer if there is not received form peer */
-{ S_REQUEST_SENT, E_TIMEOUT_COUNTER_EXPIRED,		S_STOPPED, 		{ A_this_layer_finish, 0 }},
+{ S_REQUEST_SENT,   E_TIMEOUT_COUNTER_EXPIRED,		                S_STOPPED, 		    { A_this_layer_finish, 0 }},
 
-{ S_REQUEST_SENT, E_RECV_GOOD_CONFIG_REQUEST,		S_ACK_SENT,		{ A_send_config_ack, 0 }},
+{ S_REQUEST_SENT,   E_RECV_GOOD_CONFIG_REQUEST,		                S_ACK_SENT,		    { A_send_config_ack, 0 }},
 
-{ S_REQUEST_SENT, E_RECV_BAD_CONFIG_REQUEST,		S_REQUEST_SENT,	{ A_send_config_nak_rej, 0 }},
+{ S_REQUEST_SENT,   E_RECV_BAD_CONFIG_REQUEST,		                S_REQUEST_SENT,	    { A_send_config_nak_rej, 0 }},
 
-{ S_REQUEST_SENT, E_RECV_CONFIG_ACK,				S_ACK_RECEIVED,	{ A_init_restart_count, 0 }},
+{ S_REQUEST_SENT,   E_RECV_CONFIG_ACK,				                S_ACK_RECEIVED,	    { A_init_restart_count, 0 }},
 
-{ S_REQUEST_SENT, E_RECV_CONFIG_NAK_REJ,			S_REQUEST_SENT,	{ A_init_restart_config, A_send_config_request, 0 }},
+{ S_REQUEST_SENT,   E_RECV_CONFIG_NAK_REJ,			                S_REQUEST_SENT,	    { A_init_restart_config, A_send_config_request, 0 }},
 
-{ S_REQUEST_SENT, E_RECV_TERMINATE_REQUEST,			S_REQUEST_SENT,	{ A_send_terminate_ack, 0 }},
+{ S_REQUEST_SENT,   E_RECV_TERMINATE_REQUEST,			            S_REQUEST_SENT,	    { A_send_terminate_ack, 0 }},
 
-{ S_REQUEST_SENT, E_RECV_TERMINATE_ACK,				S_REQUEST_SENT,	{ 0 }},
+{ S_REQUEST_SENT,   E_RECV_TERMINATE_ACK,				            S_REQUEST_SENT,	    { 0 }},
 
-{ S_REQUEST_SENT, E_RECV_UNKNOWN_CODE,				S_REQUEST_SENT,	{ A_send_code_reject, 0 }},
+{ S_REQUEST_SENT,   E_RECV_UNKNOWN_CODE,				            S_REQUEST_SENT,	    { A_send_code_reject, 0 }},
 
-{ S_REQUEST_SENT, E_RECV_GOOD_CODE_PROTOCOL_REJECT,	S_REQUEST_SENT,	{ 0 }},
+{ S_REQUEST_SENT,   E_RECV_GOOD_CODE_PROTOCOL_REJECT,	            S_REQUEST_SENT,	    { 0 }},
 
-{ S_REQUEST_SENT, E_RECV_BAD_CODE_PROTOCOL_REJECT,	S_STOPPED,		{ A_this_layer_finish, 0 }},
+{ S_REQUEST_SENT,   E_RECV_BAD_CODE_PROTOCOL_REJECT,	            S_STOPPED,		    { A_this_layer_finish, 0 }},
 
-{ S_REQUEST_SENT, E_RECV_ECHO_REPLY_REQUEST_DISCARD_REQUEST, S_REQUEST_SENT,	{ 0 }},
+{ S_REQUEST_SENT,   E_RECV_ECHO_REPLY_REQUEST_DISCARD_REQUEST,      S_REQUEST_SENT,	    { 0 }},
 
 /*---------------------------------------------------------------------------*/
-{ S_ACK_RECEIVED, E_DOWN,							S_STARTING, 	{ 0 }},
+{ S_ACK_RECEIVED,   E_DOWN,							                S_STARTING, 	    { 0 }},
 
-{ S_ACK_RECEIVED, E_OPEN,							S_ACK_RECEIVED, { 0 }},
+{ S_ACK_RECEIVED,   E_OPEN,							                S_ACK_RECEIVED,     { 0 }},
 
-{ S_ACK_RECEIVED, E_CLOSE,							S_CLOSING, 		{ A_init_restart_termin, A_send_terminate_request, 0 }},
+{ S_ACK_RECEIVED,   E_CLOSE,							            S_CLOSING, 		    { A_init_restart_termin, A_send_terminate_request, 0 }},
 
-{ S_ACK_RECEIVED, E_TIMEOUT_COUNTER_POSITIVE,		S_REQUEST_SENT, { A_send_config_request, 0 }},
+{ S_ACK_RECEIVED,   E_TIMEOUT_COUNTER_POSITIVE,		                S_REQUEST_SENT,     { A_send_config_request, 0 }},
 
 /* may be with "PASSIVE" option, with this option, ppp will not exit but then just wait for a valid LCP packet from peer if there is not received form peer */
-{ S_ACK_RECEIVED, E_TIMEOUT_COUNTER_EXPIRED,		S_STOPPED, 		{ A_this_layer_finish, 0 }},
+{ S_ACK_RECEIVED,   E_TIMEOUT_COUNTER_EXPIRED,		                S_STOPPED, 		    { A_this_layer_finish, 0 }},
 
-{ S_ACK_RECEIVED, E_RECV_GOOD_CONFIG_REQUEST,		S_OPENED,		{ A_send_config_ack, A_this_layer_up, 0 }},
+{ S_ACK_RECEIVED,   E_RECV_GOOD_CONFIG_REQUEST,		                S_OPENED,		    { A_send_config_ack, A_this_layer_up, 0 }},
 
-{ S_ACK_RECEIVED, E_RECV_BAD_CONFIG_REQUEST,		S_ACK_RECEIVED,	{ A_send_config_nak_rej, 0 }},
+{ S_ACK_RECEIVED,   E_RECV_BAD_CONFIG_REQUEST,		                S_ACK_RECEIVED,	    { A_send_config_nak_rej, 0 }},
 
 /* we should silently discard invalid ack/nak/rej packets and not affect transistions of the automaton 
  * so we just send a configure request packet and do nothing 
  * note: in RFC 1661 it rules we whould log this packet because it`s impossible that a correctly formed packet
          will arrive through a coincidentally-timed cross-connection, but we will skip to log in our implementation
  */
-{ S_ACK_RECEIVED, E_RECV_CONFIG_ACK,				S_REQUEST_SENT,	{ A_send_config_request, 0 }},
+{ S_ACK_RECEIVED,   E_RECV_CONFIG_ACK,				                S_REQUEST_SENT,	    { A_send_config_request, 0 }},
 
-{ S_ACK_RECEIVED, E_RECV_CONFIG_NAK_REJ,			S_REQUEST_SENT,	{ A_send_config_request, 0 }},
+{ S_ACK_RECEIVED,   E_RECV_CONFIG_NAK_REJ,			                S_REQUEST_SENT,	    { A_send_config_request, 0 }},
 
-{ S_ACK_RECEIVED, E_RECV_TERMINATE_REQUEST,			S_REQUEST_SENT,	{ A_send_terminate_ack, 0 }},
+{ S_ACK_RECEIVED,   E_RECV_TERMINATE_REQUEST,			            S_REQUEST_SENT,	    { A_send_terminate_ack, 0 }},
 
-{ S_ACK_RECEIVED, E_RECV_TERMINATE_ACK,				S_REQUEST_SENT,	{ 0 }},
+{ S_ACK_RECEIVED,   E_RECV_TERMINATE_ACK,				            S_REQUEST_SENT,	    { 0 }},
 
-{ S_ACK_RECEIVED, E_RECV_UNKNOWN_CODE,				S_ACK_RECEIVED,	{ A_send_code_reject, 0 }},
+{ S_ACK_RECEIVED,   E_RECV_UNKNOWN_CODE,				            S_ACK_RECEIVED,	    { A_send_code_reject, 0 }},
 
-{ S_ACK_RECEIVED, E_RECV_GOOD_CODE_PROTOCOL_REJECT,	S_REQUEST_SENT,	{ 0 }},
+{ S_ACK_RECEIVED,   E_RECV_GOOD_CODE_PROTOCOL_REJECT,	            S_REQUEST_SENT,	    { 0 }},
 
-{ S_ACK_RECEIVED, E_RECV_BAD_CODE_PROTOCOL_REJECT,	S_STOPPED,		{ A_this_layer_finish, 0 }},
+{ S_ACK_RECEIVED,   E_RECV_BAD_CODE_PROTOCOL_REJECT,	            S_STOPPED,		    { A_this_layer_finish, 0 }},
 
-{ S_ACK_RECEIVED, E_RECV_ECHO_REPLY_REQUEST_DISCARD_REQUEST, S_ACK_RECEIVED,	{ 0 }},
+{ S_ACK_RECEIVED,   E_RECV_ECHO_REPLY_REQUEST_DISCARD_REQUEST,      S_ACK_RECEIVED,	    { 0 }},
 
 /*---------------------------------------------------------------------------*/
-{ S_ACK_SENT, 	E_DOWN,								S_STARTING, 	{ 0 }},
+{ S_ACK_SENT, 	    E_DOWN,								            S_STARTING, 	    { 0 }},
 
-{ S_ACK_SENT, 	E_OPEN,								S_ACK_SENT, 	{ 0 }},
+{ S_ACK_SENT, 	    E_OPEN,								            S_ACK_SENT, 	    { 0 }},
 
-{ S_ACK_SENT, 	E_CLOSE,							S_CLOSING, 		{ A_init_restart_termin, A_send_terminate_request, 0 }},
+{ S_ACK_SENT, 	    E_CLOSE,							            S_CLOSING, 		    { A_init_restart_termin, A_send_terminate_request, 0 }},
 	
-{ S_ACK_SENT, 	E_TIMEOUT_COUNTER_POSITIVE,			S_ACK_SENT, 	{ A_send_config_request, 0 }},
+{ S_ACK_SENT, 	    E_TIMEOUT_COUNTER_POSITIVE,			            S_ACK_SENT, 	    { A_send_config_request, 0 }},
 
 /* may be with "PASSIVE" option, with this option, ppp will not exit but then just wait for a valid LCP packet from peer if there is not received form peer */
-{ S_ACK_SENT, 	E_TIMEOUT_COUNTER_EXPIRED,			S_STOPPED, 		{ A_this_layer_finish, 0 }},
+{ S_ACK_SENT, 	    E_TIMEOUT_COUNTER_EXPIRED,			            S_STOPPED, 		    { A_this_layer_finish, 0 }},
 
-{ S_ACK_SENT, 	E_RECV_GOOD_CONFIG_REQUEST,			S_ACK_SENT,		{ A_send_config_ack, 0 }},
+{ S_ACK_SENT, 	    E_RECV_GOOD_CONFIG_REQUEST,			            S_ACK_SENT,		    { A_send_config_ack, 0 }},
 
-{ S_ACK_SENT, 	E_RECV_BAD_CONFIG_REQUEST,			S_REQUEST_SENT,	{ A_send_config_nak_rej, 0 }},
+{ S_ACK_SENT, 	    E_RECV_BAD_CONFIG_REQUEST,			            S_REQUEST_SENT,	    { A_send_config_nak_rej, 0 }},
 
-{ S_ACK_SENT, 	E_RECV_CONFIG_ACK,					S_OPENED,		{ A_init_restart_count, A_this_layer_up, 0 }},
+{ S_ACK_SENT, 	    E_RECV_CONFIG_ACK,					            S_OPENED,		    { A_init_restart_count, A_this_layer_up, 0 }},
 
-{ S_ACK_SENT, 	E_RECV_CONFIG_NAK_REJ,				S_ACK_SENT,		{ A_init_restart_config, A_send_config_request, 0 }},
+{ S_ACK_SENT, 	    E_RECV_CONFIG_NAK_REJ,				            S_ACK_SENT,		    { A_init_restart_config, A_send_config_request, 0 }},
 
-{ S_ACK_SENT, 	E_RECV_TERMINATE_REQUEST,			S_REQUEST_SENT,	{ A_send_terminate_ack, 0 }},
+{ S_ACK_SENT, 	    E_RECV_TERMINATE_REQUEST,			            S_REQUEST_SENT,	    { A_send_terminate_ack, 0 }},
 
-{ S_ACK_SENT, 	E_RECV_TERMINATE_ACK,				S_ACK_SENT,		{ 0 }},
+{ S_ACK_SENT, 	    E_RECV_TERMINATE_ACK,				            S_ACK_SENT,		    { 0 }},
 
-{ S_ACK_SENT, 	E_RECV_UNKNOWN_CODE,				S_ACK_SENT,		{ A_send_code_reject, 0 }},
+{ S_ACK_SENT, 	    E_RECV_UNKNOWN_CODE,				            S_ACK_SENT,		    { A_send_code_reject, 0 }},
 
-{ S_ACK_SENT, 	E_RECV_GOOD_CODE_PROTOCOL_REJECT,	S_ACK_SENT,		{ 0 }},
+{ S_ACK_SENT, 	    E_RECV_GOOD_CODE_PROTOCOL_REJECT,	            S_ACK_SENT,		    { 0 }},
 
-{ S_ACK_SENT, 	E_RECV_BAD_CODE_PROTOCOL_REJECT,	S_STOPPED,		{ A_this_layer_finish, 0 }},
+{ S_ACK_SENT, 	    E_RECV_BAD_CODE_PROTOCOL_REJECT,	            S_STOPPED,		    { A_this_layer_finish, 0 }},
 
-{ S_ACK_SENT, 	E_RECV_ECHO_REPLY_REQUEST_DISCARD_REQUEST, S_ACK_SENT,	{ 0 }},
+{ S_ACK_SENT, 	    E_RECV_ECHO_REPLY_REQUEST_DISCARD_REQUEST,      S_ACK_SENT,	        { 0 }},
 
 /*---------------------------------------------------------------------------*/
-{ S_OPENED, 	E_DOWN,								S_STARTING, 	{ A_this_layer_down, 0 }},
+{ S_OPENED, 	    E_DOWN,								            S_STARTING, 	    { A_this_layer_down, 0 }},
 
-{ S_OPENED, 	E_OPEN,								S_OPENED, 		{ A_create_down_event, A_create_up_event, 0 }},
+{ S_OPENED, 	    E_OPEN,								            S_OPENED, 		    { A_create_down_event, A_create_up_event, 0 }},
 
-{ S_OPENED, 	E_CLOSE,							S_CLOSING, 		{ A_this_layer_down, A_init_restart_termin, A_send_terminate_request, 0 }},
+{ S_OPENED, 	    E_CLOSE,							            S_CLOSING, 		    { A_this_layer_down, A_init_restart_termin, A_send_terminate_request, 0 }},
 
-{ S_OPENED, 	E_RECV_GOOD_CONFIG_REQUEST,			S_ACK_SENT,		{ A_this_layer_down, A_send_config_request, A_send_config_ack, 0 }},
+{ S_OPENED, 	    E_RECV_GOOD_CONFIG_REQUEST,			            S_ACK_SENT,		    { A_this_layer_down, A_send_config_request, A_send_config_ack, 0 }},
 
-{ S_OPENED, 	E_RECV_BAD_CONFIG_REQUEST,			S_REQUEST_SENT,	{ A_this_layer_down, A_send_config_request, A_send_config_nak_rej, 0 }},
+{ S_OPENED, 	    E_RECV_BAD_CONFIG_REQUEST,			            S_REQUEST_SENT,	    { A_this_layer_down, A_send_config_request, A_send_config_nak_rej, 0 }},
 
 /* we should silently discard invalid ack/nak/rej packets and not affect transistions of the automaton 
  * so we just send a configure request packet and do nothing 
  * note: in RFC 1661 it rules we whould log this packet because it`s impossible that a correctly formed packet
          will arrive through a coincidentally-timed cross-connection, but we will skip to log in our implementation
  */
-{ S_OPENED, 	E_RECV_CONFIG_ACK,					S_REQUEST_SENT,	{ A_this_layer_down, A_send_config_request, 0 }},
+{ S_OPENED, 	    E_RECV_CONFIG_ACK,					            S_REQUEST_SENT,	    { A_this_layer_down, A_send_config_request, 0 }},
 	
-{ S_OPENED, 	E_RECV_CONFIG_NAK_REJ,				S_REQUEST_SENT,	{ A_this_layer_down, A_send_config_request, 0 }},
+{ S_OPENED, 	    E_RECV_CONFIG_NAK_REJ,				            S_REQUEST_SENT,	    { A_this_layer_down, A_send_config_request, 0 }},
 
-{ S_OPENED, 	E_RECV_TERMINATE_REQUEST,			S_STOPPING,		{ A_this_layer_down, A_zero_restart_count, A_send_terminate_ack, 0 }},
+{ S_OPENED, 	    E_RECV_TERMINATE_REQUEST,			            S_STOPPING,		    { A_this_layer_down, A_zero_restart_count, A_send_terminate_ack, 0 }},
 
-{ S_OPENED, 	E_RECV_TERMINATE_ACK,				S_REQUEST_SENT,	{ A_this_layer_down, A_send_config_request, 0 }},
+{ S_OPENED, 	    E_RECV_TERMINATE_ACK,				            S_REQUEST_SENT,	    { A_this_layer_down, A_send_config_request, 0 }},
 
-{ S_OPENED, 	E_RECV_UNKNOWN_CODE,				S_OPENED,		{ A_send_code_reject, 0 }},
+{ S_OPENED, 	    E_RECV_UNKNOWN_CODE,				            S_OPENED,		    { A_send_code_reject, 0 }},
 
-{ S_OPENED, 	E_RECV_GOOD_CODE_PROTOCOL_REJECT,	S_OPENED,		{ 0 }},
+{ S_OPENED, 	    E_RECV_GOOD_CODE_PROTOCOL_REJECT,	            S_OPENED,		    { 0 }},
 
-{ S_OPENED, 	E_RECV_BAD_CODE_PROTOCOL_REJECT,	S_STOPPING,		{ A_this_layer_down, A_init_restart_termin, A_send_terminate_request, 0 }},
+{ S_OPENED, 	    E_RECV_BAD_CODE_PROTOCOL_REJECT,	            S_STOPPING,		    { A_this_layer_down, A_init_restart_termin, A_send_terminate_request, 0 }},
 
-{ S_OPENED, 	E_RECV_ECHO_REPLY_REQUEST_DISCARD_REQUEST, S_OPENED,{ A_send_echo_reply, 0 }},
+{ S_OPENED, 	    E_RECV_ECHO_REPLY_REQUEST_DISCARD_REQUEST,      S_OPENED,           { A_send_echo_reply, 0 }},
 
 { S_INVLD, 0, 0, {0}}}
 };
@@ -601,7 +603,7 @@ STATUS PPP_FSM(struct rte_timer *ppp, tPPP_PORT *port_ccb, U16 event)
 {	
     register int  	i,j;
     int			    retval;
-    char 			      str1[30],str2[30];
+    char 			str1[30],str2[30];
 
     if (!port_ccb) {
         DBG_PPP(DBGLVL1,port_ccb,"Error! No port found for the event(%d)\n",event);
@@ -612,10 +614,10 @@ STATUS PPP_FSM(struct rte_timer *ppp, tPPP_PORT *port_ccb, U16 event)
     for(i=0; ppp_fsm_tbl[port_ccb->cp][i].state!=S_INVLD; i++)
         if (ppp_fsm_tbl[port_ccb->cp][i].state == port_ccb->ppp_phase[port_ccb->cp].state)
             break;
-#ifdef _DP_DBG
+    #ifdef _DP_DBG
     DBG_PPP(DBGLVL1,port_ccb,"Current state is %s\n",PPP_state2str(ppp_fsm_tbl[port_ccb->cp][i].state));
     printf("control protocol = %d\n", port_ccb->cp);
-#endif
+    #endif
 
     if (ppp_fsm_tbl[port_ccb->cp][i].state == S_INVLD) {
         DBG_PPP(DBGLVL1,port_ccb,"Error! unknown state(%d) specified for the event(%d)\n",
@@ -679,14 +681,21 @@ STATUS A_this_layer_up(__attribute__((unused)) struct rte_timer *tim, __attribut
     	if (build_auth_request_pap(buffer,port_ccb,&mulen) < 0)
     		return FALSE;
     	drv_xmit(buffer,mulen);
+        RTE_LOG(INFO,EAL,"LCP connection establish successfully.\n");
+        RTE_LOG(INFO,EAL,"Starting Authenticate.\n");
+        #ifdef _DP_DBG
     	puts("LCP connection establish successfully.");
     	puts("Starting Authenticate.");
+        #endif
     }
     else if (port_ccb->ppp_phase[port_ccb->cp].ppp_payload->ppp_protocol == htons(IPCP_PROTOCOL)) {
     	port_ccb->data_plane_start = TRUE;
     	port_ccb->phase = DATA_PHASE;
     	rte_timer_reset(&(port_ccb->nat),rte_get_timer_hz(),PERIODICAL,3,(rte_timer_cb_t)nat_rule_timer,ppp_ports);
+        RTE_LOG(INFO,EAL,"IPCP connection establish successfully.\n");
+        #ifdef _DP_DBG
     	puts("IPCP connection establish successfully.");
+        #endif
     	printf("Now we can start to send data via pppoe session id 0x%x.\n", htons(port_ccb->session_id));
     	printf("Our PPPoE client IP address is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 ", PPPoE server IP address is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 "\n", *(((uint8_t *)&(port_ccb->ipv4))), *(((uint8_t *)&(port_ccb->ipv4))+1), *(((uint8_t *)&(port_ccb->ipv4))+2), *(((uint8_t *)&(port_ccb->ipv4))+3), *(((uint8_t *)&(port_ccb->ipv4_gw))), *(((uint8_t *)&(port_ccb->ipv4_gw))+1), *(((uint8_t *)&(port_ccb->ipv4_gw))+2), *(((uint8_t *)&(port_ccb->ipv4_gw))+3));
     }
@@ -744,7 +753,10 @@ STATUS A_send_config_request(__attribute__((unused)) struct rte_timer *tim, __at
 
     if (port_ccb->ppp_phase[port_ccb->cp].timer_counter == 0) {
     	rte_timer_stop(tim);
+        RTE_LOG(INFO,EAL,"config request timeout.\n");
+        #ifdef _DP_DBG
     	puts("config request timeout.");
+        #endif
     	PPP_FSM(tim,port_ccb,E_TIMEOUT_COUNTER_EXPIRED);
     }
     if (build_config_request(buffer,port_ccb,&mulen) < 0)
@@ -786,7 +798,10 @@ STATUS A_send_terminate_request(__attribute__((unused)) struct rte_timer *tim, _
 
     if (port_ccb->ppp_phase[port_ccb->cp].timer_counter == 0) {
     	rte_timer_stop(tim);
+        RTE_LOG(INFO,EAL,"config request timeout.\n");
+        #ifdef _DP_DBG
     	puts("config request timeout.");
+        #endif
     	PPP_FSM(tim,port_ccb,E_TIMEOUT_COUNTER_EXPIRED);
     }
     if (build_terminate_request(buffer,port_ccb,&mulen) < 0)
@@ -866,7 +881,10 @@ STATUS A_send_padt(__attribute__((unused)) struct rte_timer *tim, __attribute__(
 
 STATUS A_create_close_to_lower_layer(__attribute__((unused)) struct rte_timer *tim, __attribute__((unused)) tPPP_PORT *port_ccb)
 {
+    RTE_LOG(INFO,EAL,"Notify lower layer to close connection.\n");
+    #ifdef
     puts("Notify lower layer to close connection.");
+    #endif
     port_ccb->cp = 0;
     port_ccb->phase--;
     PPP_FSM(tim,port_ccb,E_CLOSE);

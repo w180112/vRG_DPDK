@@ -27,6 +27,7 @@ extern tPPP_PORT				ppp_ports[MAX_USER];
 extern struct rte_mempool 		*mbuf_pool;
 extern struct rte_ring 			*rte_ring;
 extern struct rte_ring 			*decap;
+extern uint8_t					cp_recv_prod, cp_recv_cums;
 
 static uint16_t 				nb_rxd = RX_RING_SIZE;
 static uint16_t 				nb_txd = TX_RING_SIZE;
@@ -103,9 +104,10 @@ int ppp_recvd(void)
 	struct rte_mbuf 	*pkt[BURST_SIZE];
 	uint16_t 			ori_port_id, nb_rx;
 	ppp_payload_t 		*ppp_payload;
-	tPPP_MBX 			*mail = malloc(sizeof(tPPP_MBX));
+	tPPP_MBX 			*mail = malloc(sizeof(tPPP_MBX)*32);
 	int 				i;
 	uint32_t 			icmp_new_cksum;
+	char 				*cur;
 	
 	for(;;) {
 		nb_rx = rte_eth_rx_burst(1,0,pkt,BURST_SIZE);
@@ -122,11 +124,17 @@ int ppp_recvd(void)
 			}
 			ppp_payload = ((ppp_payload_t *)((char *)eth_hdr + sizeof(struct ether_hdr) + sizeof(pppoe_header_t)));
 			if (unlikely(eth_hdr->ether_type == rte_cpu_to_be_16(ETH_P_PPP_DIS) || (eth_hdr->ether_type == rte_cpu_to_be_16(ETH_P_PPP_SES) && (ppp_payload->ppp_protocol == rte_cpu_to_be_16(LCP_PROTOCOL) || ppp_payload->ppp_protocol == rte_cpu_to_be_16(AUTH_PROTOCOL) || ppp_payload->ppp_protocol == rte_cpu_to_be_16(IPCP_PROTOCOL))))) {
-				rte_memcpy(mail->refp,eth_hdr,single_pkt->data_len);
-				mail->type = IPC_EV_TYPE_DRV;
-				mail->len = single_pkt->data_len;
-				//enqueue eth_hdr single_pkt->data_len
-				rte_ring_enqueue_burst(rte_ring,(void **)&mail,1,NULL);
+				if (cp_recv_cums != ((cp_recv_prod + 1) % 32)) {
+					rte_memcpy((mail+cp_recv_prod)->refp,eth_hdr,single_pkt->data_len);
+					(mail + cp_recv_prod)->type = IPC_EV_TYPE_DRV;
+					(mail + cp_recv_prod)->len = single_pkt->data_len;
+					//enqueue eth_hdr single_pkt->data_len
+					cur = (char *)(mail + cp_recv_prod);
+					rte_ring_enqueue_burst(rte_ring,(void **)&cur,1,NULL);
+					cp_recv_prod++;
+					if (cp_recv_prod >= 32)
+						cp_recv_prod = 0;
+				}
 				rte_pktmbuf_free(single_pkt);
 				continue;
 			}
@@ -158,9 +166,9 @@ int ppp_recvd(void)
 					if (((icmp_new_cksum = icmp_cksum_diff + icmphdr->icmp_cksum) >> 16) != 0)
 						icmp_new_cksum = (icmp_new_cksum & 0xFFFF) + (icmp_new_cksum >> 16);
 					icmphdr->icmp_cksum = (uint16_t)icmp_new_cksum;
-#ifdef _DP_DBG
+					#ifdef _DP_DBG
 					puts("nat mapping at port 1");
-#endif
+					#endif
 					break;
 				case PROTO_TYPE_UDP:
 				case PROTO_TYPE_TCP:
@@ -271,8 +279,7 @@ void encapsulation_udp(struct rte_mbuf *single_pkt, struct ether_hdr *eth_hdr, s
 	pppoe_header_t 		*pppoe_header;
 
 	/* for nat */
-	single_pkt->ol_flags |= PKT_TX_IPV4 | PKT_TX_IP_CKSUM | PKT_TX_UDP_CKSUM;
-
+	
 	udphdr = (struct udp_hdr *)(rte_pktmbuf_mtod(single_pkt, unsigned char *) + sizeof(struct ether_hdr) + sizeof(struct ipv4_hdr));
 	nat_udp_learning(eth_hdr,ip_hdr,udphdr,&new_port_id,&ppp_ports[0]);
 	ip_hdr->src_addr = ppp_ports[0].ipv4;
@@ -308,8 +315,7 @@ void encapsulation_tcp(struct rte_mbuf *single_pkt, struct ether_hdr *eth_hdr, s
 	char 				*cur;
 	
 	/* for nat */
-	single_pkt->ol_flags |= PKT_TX_IPV4 | PKT_TX_IP_CKSUM | PKT_TX_TCP_CKSUM;
-
+	
 	tcphdr = (struct tcp_hdr *)(rte_pktmbuf_mtod(single_pkt, unsigned char *) + sizeof(struct ether_hdr) + sizeof(struct ipv4_hdr));
 	nat_tcp_learning(eth_hdr,ip_hdr,tcphdr,&new_port_id,&ppp_ports[0]);
 	ip_hdr->src_addr = ppp_ports[0].ipv4;
@@ -351,7 +357,7 @@ int gateway(void)
 	int 				i;
 	pppoe_header_t 		*pppoe_header;
 	uint16_t 			nb_tx, nb_rx;
-	uint32_t			lan_ip = rte_cpu_to_be_32(0xc0a80001); //192.168.0.1
+	uint32_t			lan_ip = rte_cpu_to_be_32(0xc0a80101); //192.168.1.1
 
 	rte_eth_macaddr_get(0,(struct ether_addr *)mac_addr);
 	while(ppp_ports[0].data_plane_start == FALSE)
@@ -426,9 +432,9 @@ int gateway(void)
 						single_pkt->data_len += 8;
 						
 						pkt[total_tx++] = single_pkt;
-#ifdef _DP_DBG
+						#ifdef _DP_DBG
 						puts("nat icmp at port 0");
-#endif
+						#endif
 					}
 					else {
 						memcpy(eth_hdr->d_addr.addr_bytes,eth_hdr->s_addr.addr_bytes,6);
@@ -455,18 +461,18 @@ int gateway(void)
 					pkt[total_tx++] = single_pkt;
 				}
 				else {
-#ifdef _DP_DBG
+					#ifdef _DP_DBG
 					puts("unknown L4 packet recv on gateway LAN port queue");
 					printf("protocol = %x\n", ip_hdr->next_proto_id);
-#endif
+					#endif
 					rte_pktmbuf_free(single_pkt);
 				}
 			}
 			else {
-#ifdef _DP_DBG
+				#ifdef _DP_DBG
 				puts("unknown ether type recv on gateway LAN port queue");
 				printf("ether type = %x\n", rte_be_to_cpu_16(eth_hdr->ether_type));
-#endif
+				#endif
 				rte_pktmbuf_free(single_pkt);
 				continue;
 			}

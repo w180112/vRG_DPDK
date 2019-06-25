@@ -12,9 +12,9 @@
 #include 				<rte_cycles.h>
 #include 				<rte_lcore.h>
 #include 				<rte_timer.h>
-#include 				<rte_ethdev.h>
 #include 				<rte_ether.h>
 #include 				<rte_log.h>
+#include				<eal_private.h>
 #include 				<linux/ethtool.h>
 
 #include				<rte_memcpy.h>
@@ -35,6 +35,8 @@ U32						ppp_ttl;
 U32						ppp_interval;
 U16						ppp_init_delay;
 uint8_t					ppp_max_msg_per_query;
+
+uint8_t					cp_recv_cums = 0, cp_recv_prod = 0;
 
 U8 						PORT_BIT_MAP(tPPP_PORT ports[]);
 tPPP_PORT				ppp_ports[MAX_USER]; //port is 1's based
@@ -68,8 +70,8 @@ int main(int argc, char **argv)
 	if (ret < 0)
 		rte_exit(EXIT_FAILURE, "rte initlize fail.");
 
-	fp = fopen("./pppoeclient.log","a+");
-
+	fp = fopen("./pppoeclient.log","w+");
+	eal_log_set_default(fp);
 	if (rte_lcore_count() < 6)
 		rte_exit(EXIT_FAILURE, "We need at least 6 cores.\n");
 	if (rte_eth_dev_count_avail() < 2)
@@ -107,11 +109,11 @@ int main(int argc, char **argv)
 			printf("Error getting info for port %i\n", portid);
 			return -1;
 		}
-#ifdef _DP_DBG
+		#ifdef _DP_DBG
 		printf("Port %i driver: %s (ver: %s)\n", portid, info.driver, info.version);
 		printf("firmware-version: %s\n", info.fw_version);
 		printf("bus-info: %s\n", info.bus_info);
-#endif
+		#endif
 		if (PPP_PORT_INIT(portid) != 0)
 			rte_exit(EXIT_FAILURE, "Cannot init port %"PRIu8 "\n",portid);
 	}
@@ -170,18 +172,6 @@ int control_plane(void)
 void PPP_bye(void)
 {
     printf("bye!\n");
-    free(wan_mac);
-    rte_ring_free(rte_ring);
-    fclose(fp);
-    exit(0);
-}
-
-/*---------------------------------------------------------
- * ppp_int : signal handler for INTR-C only
- *--------------------------------------------------------*/
-void PPP_int(void)
-{
-    printf("pppoe client interupt!\n");
     for(int i=0; i<MAX_USER; i++) { 
     	switch(ppp_ports[i].phase) {
     		case PPPOE_PHASE: 
@@ -201,6 +191,19 @@ void PPP_int(void)
     			;
     	}
     }
+}
+
+/*---------------------------------------------------------
+ * ppp_int : signal handler for INTR-C only
+ *--------------------------------------------------------*/
+void PPP_int(void)
+{
+    printf("pppoe client interupt!\n");
+	free(wan_mac);
+    rte_ring_free(rte_ring);
+    fclose(fp);
+	printf("bye!\n");
+	exit(0);
 }
 
 /**************************************************************
@@ -264,11 +267,14 @@ int ppp_init(void)
     		goto out;
     	rte_timer_reset(&(ppp_ports[i].pppoe),rte_get_timer_hz(),PERIODICAL,3,(rte_timer_cb_t)build_padi,&(ppp_ports[i]));
     }
-	for(;;){
+	for(;;) {
 	    burst_size = control_plane_dequeue(mail);
-	    for(int i=0; i<burst_size; i++) {
+		cp_recv_cums += burst_size;
+		if (cp_recv_cums > 32)
+			cp_recv_cums -= 32;
+		for(int i=0; i<burst_size; i++) {
 	    	recv_type = *(uint16_t *)mail[i];
-			switch(recv_type){
+			switch(recv_type) {
 			case IPC_EV_TYPE_TMR:
 				break;
 			case IPC_EV_TYPE_DRV:
@@ -278,15 +284,19 @@ int ppp_init(void)
 					for(session_index=0; session_index<MAX_USER; session_index++) {
 						if (((pppoe_header_t *)((char *)mail[i]->refp + sizeof(struct ether_hdr)))->session_id == ppp_ports[session_index].session_id)
 							break;
-    				}
+					}
     				if (session_index == MAX_USER) {
+						RTE_LOG(INFO,EAL,"Too many pppoe users.\nDiscard.\n");
+						#ifdef _DP_DBG
     					puts("recv not our PPP packet");
+						#endif
     					continue;
     				}
-    			}
+				}
 #pragma GCC diagnostic pop   // require GCC 4.6
-				if (PPP_decode_frame(mail[i],&eth_hdr,&pppoe_header,&ppp_payload,&ppp_lcp,ppp_lcp_options,&event,&(ppp_ports[session_index].ppp),&ppp_ports[session_index]) == FALSE)
+				if (PPP_decode_frame(mail[i],&eth_hdr,&pppoe_header,&ppp_payload,&ppp_lcp,ppp_lcp_options,&event,&(ppp_ports[session_index].ppp),&ppp_ports[session_index]) == FALSE) {
 					continue;
+				}
 				if (eth_hdr.h_proto == htons(ETH_P_PPP_DIS)) {
 					switch(pppoe_header.code) {
 					case PADO:
@@ -300,7 +310,10 @@ int ppp_init(void)
 								break;
     					}
     					if (session_index >= MAX_USER) {
+							RTE_LOG(INFO,EAL,"Too many pppoe users.\nDiscard.\n");
+							#ifdef _DP_DBG
     						puts("Too many pppoe users.\nDiscard.");
+							#endif
     						continue;
     					}
     					ppp_ports[session_index].pppoe_phase.eth_hdr = &eth_hdr;
@@ -342,7 +355,10 @@ int ppp_init(void)
 								break;
     					}
     					if (session_index == MAX_USER) {
+							RTE_LOG(INFO,EAL,"Out of range session id in PADT.\n");
+							#ifdef _DP_DBG
     						puts("Out of range session id in PADT.");
+							#endif
     						continue;
     					}
     					ppp_ports[session_index].pppoe_phase.eth_hdr = &eth_hdr;
@@ -353,15 +369,25 @@ int ppp_init(void)
 							if (build_padt(&(ppp_ports[session_index])) == FALSE)
 								goto out;
 						}
+						#ifdef _DP_DBG
 						printf("Session 0x%x connection disconnected.\n", rte_be_to_cpu_16(ppp_ports[session_index].session_id));
-						if ((--total_user) == 0)
-							goto out;
+						#endif
+						RTE_LOG(INFO,EAL,"Session 0x%x connection disconnected.\n",rte_be_to_cpu_16(ppp_ports[session_index].session_id));
+						if ((--total_user) == 0) {
+							free(wan_mac);
+                            rte_ring_free(rte_ring);
+                            fclose(fp);
+							exit(0);
+						}
 						continue;		
 					case PADM:
-						RTE_LOG(INFO,EAL,"recv active discovery message");
+						RTE_LOG(INFO,EAL,"recv active discovery message\n");
 						continue;
 					default:
+						RTE_LOG(INFO,EAL,"Unknown PPPoE discovery type.\n");
+						#ifdef _DP_DBG
 						puts("Unknown PPPoE discovery type.");
+						#endif
 						continue;
 					}
 				}
@@ -386,8 +412,8 @@ int ppp_init(void)
 				break;
 			default:
 		    	;
-		    }
-		    mail[i] = NULL;
+			}
+			mail[i] = NULL;
 		}
     }
 out:

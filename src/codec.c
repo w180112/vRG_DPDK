@@ -41,6 +41,7 @@ STATUS PPP_decode_frame(tPPP_MBX *mail, struct ethhdr *eth_hdr, pppoe_header_t *
 	rte_memcpy(ppp_payload,tmp_ppp_payload,sizeof(ppp_payload_t));
 	rte_memcpy(ppp_lcp,tmp_ppp_lcp,sizeof(ppp_lcp_header_t));
 	rte_memcpy(ppp_lcp_options,tmp_ppp_lcp+1,htons(ppp_lcp->length)-4);
+	
 	mulen = mail->len;
 
     mulen -= 14; //DA-MAC[6] + SA-MAC[6] + ETH-TYPE[2]
@@ -92,7 +93,10 @@ STATUS PPP_decode_frame(tPPP_MBX *mail, struct ethhdr *eth_hdr, pppoe_header_t *
 					if (cur->type == MAGIC_NUM) {
 						for(int i=cur->length-3; i>0; i--) {
 							if (*(((uint8_t *)&(port_ccb->magic_num)) + i) != cur->val[i]) {
+								RTE_LOG(INFO,EAL,"recv ppp LCP magic number error.\n");
+								#ifdef _DP_DBG
 								puts("recv ppp LCP magic number error");
+								#endif
 								return FALSE;
 							}
 						}
@@ -148,7 +152,10 @@ STATUS PPP_decode_frame(tPPP_MBX *mail, struct ethhdr *eth_hdr, pppoe_header_t *
 		ppp_pap_ack_nak_t ppp_pap_ack_nak, *tmp_ppp_pap_ack_nak = (ppp_pap_ack_nak_t *)(tmp_ppp_lcp + 1);
 		rte_memcpy(&ppp_pap_ack_nak,tmp_ppp_pap_ack_nak,tmp_ppp_pap_ack_nak->msg_length + sizeof(uint8_t));
 		if (ppp_lcp->code == AUTH_ACK) {
+			RTE_LOG(INFO,EAL,"auth success.\n");
+			#ifdef _DP_DBG
 			puts("auth success.");
+			#endif
 			port_ccb->phase = IPCP_PHASE;
 			return TRUE;
 		}
@@ -164,7 +171,10 @@ STATUS PPP_decode_frame(tPPP_MBX *mail, struct ethhdr *eth_hdr, pppoe_header_t *
     		tmp_port_ccb.cp = 0;
     		tmp_port_ccb.ppp = port_ccb->ppp;
     		PPP_FSM(&(tmp_port_ccb.ppp),&tmp_port_ccb,E_CLOSE);
+			RTE_LOG(INFO,EAL,"auth fail.\n");
+			#ifdef _DP_DBG
 			puts("auth fail.");
+			#endif
 			return FALSE;
 		}
 		else if (ppp_lcp->code == AUTH_REQUEST) {
@@ -182,12 +192,18 @@ STATUS PPP_decode_frame(tPPP_MBX *mail, struct ethhdr *eth_hdr, pppoe_header_t *
     		if (build_auth_ack_pap(buffer,&tmp_port_ccb,&mulen) < 0)
         		return FALSE;
 			drv_xmit(buffer,mulen);
+			RTE_LOG(INFO,EAL,"recv pap request.\n");
+			#ifdef _DP_DBG
 			puts("recv pap request");
+			#endif
 			return FALSE;
 		}
 	}
 	else {
+		RTE_LOG(INFO,EAL,"unknown PPP protocol.\n");
+		#ifdef _DP_DBG
 		puts("unknown PPP protocol");
+		#endif
 		return FALSE;
 	}
 	
@@ -372,7 +388,10 @@ STATUS build_padi(__attribute__((unused)) struct rte_timer *tim, tPPP_PORT *port
 	pppoe_header_tag_t 	pppoe_header_tag;
 
 	if (port_ccb->pppoe_phase.timer_counter >= port_ccb->pppoe_phase.max_retransmit) {
+		RTE_LOG(INFO,EAL,"timeout when sending PADI\n");
+		#ifdef _DP_DBG
 		puts("timeout when sending PADI");
+		#endif
 		kill(getpid(),SIGTERM);
 	}
 	for(int i=0; i<6; i++) {
@@ -409,7 +428,10 @@ STATUS build_padr(__attribute__((unused)) struct rte_timer *tim, tPPP_PORT *port
 	pppoe_header_tag_t *tmp_pppoe_header_tag = (pppoe_header_tag_t *)((pppoe_header_t *)((struct ethhdr *)buffer + 1) + 1);
 
 	if (port_ccb->pppoe_phase.timer_counter >= port_ccb->pppoe_phase.max_retransmit) {
+		RTE_LOG(INFO,EAL,"timeout when sending PADR\n");
+		#ifdef _DP_DBG
 		puts("timeout when sending PADR");
+		#endif
 		kill(getpid(),SIGTERM);
 	}
 	rte_memcpy(port_ccb->pppoe_phase.eth_hdr->h_source,port_ccb->src_mac,6);
@@ -436,10 +458,16 @@ STATUS build_padr(__attribute__((unused)) struct rte_timer *tim, tPPP_PORT *port
 					rte_memcpy(cur->value,port_ccb->pppoe_phase.pppoe_header_tag->value,ntohs(cur->length));
 				break;
 			case GENERIC_ERROR:
+				RTE_LOG(INFO,EAL,"PPPoE discover generic error.\n");
+				#ifdef _DP_DBG
 				puts("PPPoE discover generic error");
+				#endif
 				return FALSE;
 			default:
-				perror("Unknown PPPOE tag value"); 
+				RTE_LOG(INFO,EAL,"Unknown PPPOE tag value\n");
+				#ifdef _DP_DBG
+				puts("Unknown PPPOE tag value"); 
+				#endif
 		}
 		if (ntohs(port_ccb->pppoe_phase.pppoe_header_tag->type) == END_OF_LIST)
 			break;
@@ -505,7 +533,7 @@ STATUS build_config_request(unsigned char *buffer, tPPP_PORT *port_ccb, uint16_t
 	/* build ppp protocol and lcp header. */
  	pppoe_header->ver_type = VER_TYPE;
  	pppoe_header->code = 0;
- 	/* We don't need to convert seesion id to little endian at first */
+ 	/* We don't convert seesion id to little endian at first */
  	pppoe_header->session_id = port_ccb->session_id; 
 
  	ppp_lcp->code = CONFIG_REQUEST;
@@ -537,7 +565,7 @@ STATUS build_config_request(unsigned char *buffer, tPPP_PORT *port_ccb, uint16_t
  		ppp_lcp->length += 4;
 
  		cur = (ppp_lcp_options_t *)((char *)(cur + 1) + sizeof(max_recv_unit));
- 		/* option, auth*/
+ 		/* option, auth */
  		if (port_ccb->is_pap_auth == TRUE) {
  			cur->type = AUTH;
  			cur->length = 0x4;
@@ -568,8 +596,10 @@ STATUS build_config_request(unsigned char *buffer, tPPP_PORT *port_ccb, uint16_t
  	rte_memcpy(buffer+14+sizeof(pppoe_header_t)+sizeof(ppp_payload_t),ppp_lcp,sizeof(ppp_lcp_header_t));
  	rte_memcpy(buffer+14+sizeof(pppoe_header_t)+sizeof(ppp_payload_t)+sizeof(ppp_lcp_header_t),ppp_lcp_options,htons(ppp_lcp->length) - sizeof(ppp_lcp_header_t));
 
+	RTE_LOG(INFO,EAL,"config request built.\n");
+	#ifdef _DP_DBG
  	puts("config request built.");
- 	PRINT_MESSAGE(buffer,*mulen);
+	#endif
  	return TRUE;
 }
 
@@ -595,7 +625,10 @@ STATUS build_config_ack(unsigned char* buffer, tPPP_PORT *port_ccb, uint16_t *mu
  	rte_memcpy(buffer+14+sizeof(pppoe_header_t)+sizeof(ppp_payload_t),ppp_lcp,sizeof(ppp_lcp_header_t));
  	rte_memcpy(buffer+14+sizeof(pppoe_header_t)+sizeof(ppp_payload_t)+sizeof(ppp_lcp_header_t),ppp_lcp_options,htons(ppp_lcp->length) - sizeof(ppp_lcp_header_t));
 
+	RTE_LOG(INFO,EAL,"config ack built.\n");
+	#ifdef _DP_DBG
  	puts("config ack built.");
+	#endif
  	return TRUE;
 }
 
@@ -619,7 +652,10 @@ STATUS build_config_nak_rej(unsigned char* buffer, tPPP_PORT *port_ccb, uint16_t
  	rte_memcpy(buffer+14+sizeof(pppoe_header_t)+sizeof(ppp_payload_t),ppp_lcp,sizeof(ppp_lcp_header_t));
  	rte_memcpy(buffer+14+sizeof(pppoe_header_t)+sizeof(ppp_payload_t)+sizeof(ppp_lcp_header_t),ppp_lcp_options,ntohs(ppp_lcp->length) - sizeof(ppp_lcp_header_t));
 
+	RTE_LOG(INFO,EAL,"config nak/rej built.\n");
+	#ifdef _DP_DBG
  	puts("config nak/rej built.");
+	#endif 
  	return TRUE;
 }
 
@@ -668,7 +704,10 @@ STATUS build_terminate_ack(unsigned char* buffer, tPPP_PORT *port_ccb, uint16_t 
  	rte_memcpy(buffer+14+sizeof(pppoe_header_t),ppp_payload,sizeof(ppp_payload_t));
  	rte_memcpy(buffer+14+sizeof(pppoe_header_t)+sizeof(ppp_payload_t),ppp_lcp,sizeof(ppp_lcp_header_t));
  	
+	RTE_LOG(INFO,EAL,"terminate ack built.\n");
+	#ifdef _DP_DBG
  	puts("terminate ack built.");
+	#endif
  	return TRUE;
 }
 
@@ -687,7 +726,7 @@ STATUS build_terminate_request(unsigned char* buffer, tPPP_PORT *port_ccb, uint1
 
  	pppoe_header->ver_type = VER_TYPE;
  	pppoe_header->code = 0;
- 	/* We don't need to convert seesion id to little endian at first */
+ 	/* We don't convert seesion id to little endian at first */
  	pppoe_header->session_id = port_ccb->session_id;
 
  	if (port_ccb->cp == 0) 
@@ -711,8 +750,10 @@ STATUS build_terminate_request(unsigned char* buffer, tPPP_PORT *port_ccb, uint1
  	rte_memcpy(buffer+14+sizeof(pppoe_header_t),ppp_payload,sizeof(ppp_payload_t));
  	rte_memcpy(buffer+14+sizeof(pppoe_header_t)+sizeof(ppp_payload_t),ppp_lcp,sizeof(ppp_lcp_header_t));
  	
+	RTE_LOG(INFO,EAL,"terminate request built.\n");
+	#ifdef _DP_DBG
 	puts("build terminate request.");
-
+	#endif
  	return TRUE;
 }
 
@@ -759,7 +800,10 @@ STATUS build_auth_request_pap(unsigned char* buffer, tPPP_PORT *port_ccb, uint16
  	rte_memcpy(buffer+14+sizeof(pppoe_header_t)+sizeof(ppp_payload_t)+sizeof(ppp_lcp_header_t)+sizeof(uint8_t)+peer_id_length,&peer_passwd_length,sizeof(uint8_t));
  	rte_memcpy(buffer+14+sizeof(pppoe_header_t)+sizeof(ppp_payload_t)+sizeof(ppp_lcp_header_t)+sizeof(uint8_t)+peer_id_length+sizeof(uint8_t),port_ccb->passwd,peer_passwd_length);
  	
+	RTE_LOG(INFO,EAL,"pap request built.\n");
+	#ifdef _DP_DBG
  	puts("pap request built.");
+	#endif 
  	return TRUE;
 }
 
@@ -799,6 +843,9 @@ STATUS build_auth_ack_pap(unsigned char *buffer, tPPP_PORT *port_ccb, uint16_t *
  	rte_memcpy(buffer+14+sizeof(pppoe_header_t)+sizeof(ppp_payload_t),&ppp_pap_header,sizeof(ppp_lcp_header_t));
  	rte_memcpy(buffer+14+sizeof(pppoe_header_t)+sizeof(ppp_payload_t)+sizeof(ppp_lcp_header_t),&ppp_pap_ack_nak,sizeof(ppp_pap_ack_nak.msg_length)+ppp_pap_ack_nak.msg_length);
  	
+	RTE_LOG(INFO,EAL,"pap ack built.\n");
+	#ifdef _DP_DBG
  	puts("pap ack built.");
+	#endif
  	return TRUE;
 }
