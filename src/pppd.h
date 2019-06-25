@@ -29,7 +29,7 @@
 #define CAP_VSI_DISCOV_PROTO	1
 #define CAP_802_1X_AUTH_REQ		1
 
-#define MAX_USER				2
+#define MAX_USER				1
 
 typedef struct {
 	U8		subt;
