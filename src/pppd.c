@@ -148,6 +148,7 @@ int main(int argc, char **argv)
 	while(prompt == FALSE)
 		usleep(1000);
 	sleep(1);
+	puts("type ? or help to show all available commands");
 	cl = cmdline_stdin_new(ctx, "\npppoeclient> ");
 	if (cl == NULL)
 		rte_exit(EXIT_FAILURE, "Cannot create cmdline instance\n");

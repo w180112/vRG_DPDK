@@ -17,29 +17,31 @@ Git clone this repository
 
 	# git clone https://github.com/w180112/PPPoE_Client_DPDK.git
 
-Type 
+Type
 
-	# cd PPPoE_Client_DPDK/src
+	# cd PPPoE_Client_DPDK
 
-and 
+and
 
-	# make 
+	# ./install.sh
 
 to compile
 
-Then 
+Then
 
-	# ./pppoeclient <user id> <password> <dpdk eal options>
+	# ./src/pppoeclient <user id> <password> <dpdk eal options>
 
-e.g. 
+e.g.
 
-	# ./pppoeclient asdf zxcv -l 0-5 -n 4
+	# ./src/pppoeclient asdf zxcv -l 0-5 -n 4
 
 In this project we need 2 DPDK ethernet ports, the first is used to receive packets from/send packets to LAN port and the second is used to receive packets from/send packets to WAN port.
 
-To remove the binary file 
+After Sessions established, there is a CLI. User can input "?" command to show available commands so far.
 
-	# make clean 
+To remove the binary files
+
+	# ./uninstall.sh
 
 Note: 
 =====
@@ -63,10 +65,16 @@ TODO:
 	1.VLAN support
 	2.Some LCP exception
 	3.Multiple users/devices data plane support
-	4.Command line interface
+	4.Add disconnect and connnect commands 
 
 ChangeLogs:
 ===========
+
+2019/06/29
+----------
+
+1. Support link status check
+2. Add CLI
 
 2019/06/23
 ----------

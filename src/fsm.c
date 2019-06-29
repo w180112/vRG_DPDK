@@ -896,7 +896,9 @@ STATUS A_create_down_event(__attribute__((unused)) struct rte_timer *tim, __attr
 
 STATUS A_zero_restart_count(__attribute__((unused)) struct rte_timer *tim, __attribute__((unused)) tPPP_PORT *port_ccb)
 {
+    #ifdef _DP_DBG
     printf("zero restart count\n");
+    #endif
 
     return TRUE;
 }
