@@ -13,20 +13,21 @@ int rte_ethtool_get_drvinfo(uint16_t port_id, struct ethtool_drvinfo *drvinfo)
 	const struct rte_pci_device *pci_dev;
 	const struct rte_bus *bus = NULL;
 	int n;
-	int ret;
 
 	if (drvinfo == NULL)
 		return -EINVAL;
 
 	RTE_ETH_VALID_PORTID_OR_ERR_RET(port_id, -ENODEV);
-
-	ret = rte_eth_dev_fw_version_get(port_id, drvinfo->fw_version,
+				  
+	#ifdef _DP_DBG
+	int ret = rte_eth_dev_fw_version_get(port_id, drvinfo->fw_version,
 			      sizeof(drvinfo->fw_version));
 	if (ret < 0)
 		printf("firmware version get error: (%s)\n", strerror(-ret));
 	else if (ret > 0)
 		printf("Insufficient fw version buffer size, "
 		       "the minimum size should be %d\n", ret);
+	#endif
 
 	memset(&dev_info, 0, sizeof(dev_info));
 	rte_eth_dev_info_get(port_id, &dev_info);
@@ -35,7 +36,6 @@ int rte_ethtool_get_drvinfo(uint16_t port_id, struct ethtool_drvinfo *drvinfo)
 		dev_info.driver_name);
 	snprintf(drvinfo->version, sizeof(drvinfo->version), "%s",
 		rte_version());
-	/* TODO: replace bus_info by rte_devargs.name */
 	if (dev_info.device)
 		bus = rte_bus_find_by_device(dev_info.device);
 	if (bus && !strcmp(bus->name, "pci")) {

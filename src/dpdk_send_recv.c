@@ -11,6 +11,7 @@
 #include <rte_icmp.h>
 #include <rte_udp.h>
 #include <rte_tcp.h>
+#include <rte_timer.h>
 #include <pthread.h>
 #include <string.h>
 #include <stdio.h>
@@ -36,12 +37,15 @@ static const struct rte_eth_conf port_conf_default = {
 	.rxmode = { .max_rx_pkt_len = ETHER_MAX_LEN, }, 
 	.txmode = { .offloads = DEV_TX_OFFLOAD_IPV4_CKSUM | 
 							DEV_TX_OFFLOAD_UDP_CKSUM | 
-							DEV_TX_OFFLOAD_TCP_CKSUM, }
+							DEV_TX_OFFLOAD_TCP_CKSUM, },
+	.intr_conf = {
+        .lsc = 1, /**< link status interrupt feature enabled */ },
 };
 extern void 		nat_icmp_learning(struct ether_hdr *eth_hdr, struct ipv4_hdr *ip_hdr, struct icmp_hdr *icmphdr, uint32_t *new_port_id, tPPP_PORT *port_ccb);
 extern void 		nat_udp_learning(struct ether_hdr *eth_hdr, struct ipv4_hdr *ip_hdr, struct udp_hdr *udphdr, uint32_t *new_port_id, tPPP_PORT *port_ccb);
 extern void 		nat_tcp_learning(struct ether_hdr *eth_hdr, struct ipv4_hdr *ip_hdr, struct tcp_hdr *tcphdr, uint32_t *new_port_id, tPPP_PORT *port_ccb);
 extern uint16_t 	get_checksum(const void *const addr, const size_t bytes);
+extern STATUS 		PPP_FSM(struct rte_timer *ppp, tPPP_PORT *port_ccb, U16 event);
 int 				PPP_PORT_INIT(uint16_t port);
 int 				ppp_recvd(void);
 void 				encapsulation_udp(struct rte_mbuf *single_pkt, struct ether_hdr *eth_hdr, struct ipv4_hdr *ip_hdr);
@@ -50,6 +54,7 @@ int 				control_plane_dequeue(tPPP_MBX **mail);
 int 				decapsulation(void);
 int 				gateway(void);
 void 				drv_xmit(U8 *mu, U16 mulen);
+static int			lsi_event_callback(uint16_t port_id, enum rte_eth_event_type type, void *param);
 
 int PPP_PORT_INIT(uint16_t port)
 {
@@ -71,6 +76,8 @@ int PPP_PORT_INIT(uint16_t port)
 	retval = rte_eth_dev_adjust_nb_rx_tx_desc(port, &nb_rxd,&nb_txd);
 	if (retval < 0)
 		rte_exit(EXIT_FAILURE,"Cannot adjust number of descriptors: err=%d, ""port=%d\n", retval, port);
+
+	rte_eth_dev_callback_register(port,RTE_ETH_EVENT_INTR_LSC,(rte_eth_dev_cb_fn)lsi_event_callback, NULL);
 
 	/* Allocate and set up 1 RX queue per Ethernet port. */
 	for(q=0; q<rx_rings; q++) {
@@ -138,7 +145,7 @@ int ppp_recvd(void)
 				rte_pktmbuf_free(single_pkt);
 				continue;
 			}
-			eth_hdr->ether_type = rte_cpu_to_be_16(FRAME_TYPE_IP);
+			eth_hdr->ether_type = rte_cpu_to_be_16(FRAME_TYPE_IP);//ppp_payload->ppp_protocol;
 			rte_memcpy(&tmp_eth_hdr,eth_hdr,sizeof(struct ether_hdr));
 			rte_memcpy((char *)eth_hdr+8,&tmp_eth_hdr,sizeof(struct ether_hdr));
 			single_pkt->data_off += 8;
@@ -426,7 +433,7 @@ int gateway(void)
 						pppoe_header->code = 0;
 						pppoe_header->session_id = ppp_ports[0].session_id;
 						pppoe_header->length = rte_cpu_to_be_16((single_pkt->pkt_len) - 14 + 2);
-						*((uint16_t *)(cur+14+sizeof(pppoe_header_t))) = rte_cpu_to_be_16(IP_PROTOCOL);//protocol;
+						*((uint16_t *)(cur+14+sizeof(pppoe_header_t))) = rte_cpu_to_be_16(IP_PROTOCOL);
 						single_pkt->data_off -= 8;
 						single_pkt->pkt_len += 8;
 						single_pkt->data_len += 8;
@@ -499,4 +506,38 @@ void drv_xmit(U8 *mu, U16 mulen)
 	pkt->data_len = mulen;
 	pkt->pkt_len = mulen;
 	rte_eth_tx_burst(1,1,&pkt,1);
+}
+
+static int
+lsi_event_callback(uint16_t port_id, enum rte_eth_event_type type, void *param)
+{
+	struct rte_eth_link link;
+	tPPP_MBX			*mail = (tPPP_MBX *)malloc(sizeof(tPPP_MBX));
+
+	RTE_SET_USED(param);
+
+	printf("\n\nIn registered callback...\n");
+	printf("Event type: %s\n", type == RTE_ETH_EVENT_INTR_LSC ? "LSC interrupt" : "unknown event");
+	rte_eth_link_get_nowait(port_id, &link);
+	if (link.link_status) {
+		printf("Port %d Link Up - speed %u Mbps - %s\n\n",
+				port_id, (unsigned)link.link_speed,
+			(link.link_duplex == ETH_LINK_FULL_DUPLEX) ?
+				("full-duplex") : ("half-duplex"));
+		mail->refp[0] = LINK_UP;
+		mail->type = IPC_EV_TYPE_REG;
+		mail->len = 1;
+		//enqueue up event to main thread
+		rte_ring_enqueue_burst(rte_ring,(void **)&mail,1,NULL);
+	} 
+	else {
+		printf("Port %d Link Down\n\n", port_id);
+		mail->refp[0] = LINK_DOWN;
+		mail->type = IPC_EV_TYPE_REG;
+		mail->len = 1;
+		//enqueue up event to main thread
+		rte_ring_enqueue_burst(rte_ring,(void **)&mail,1,NULL);
+	}
+
+	return 0;
 }

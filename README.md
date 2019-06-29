@@ -8,7 +8,7 @@ In nowadays high speed virtualized nerwork, tranditional network mechanism has n
 System required:
 ================
 
-Intel DPDK 18.11, Linux kernel > 3.10, at least 4G ram, 6 cpu cores.
+Intel DPDK 18.11.2, Linux kernel > 3.10, at least 4G ram, 6 cpu cores.
 
 How to use:
 ===========

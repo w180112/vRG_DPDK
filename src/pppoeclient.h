@@ -72,4 +72,13 @@
 #define MAX_RECV			1492
 #define MAX_RETRAN			10
 
+#define CLI_QUIT            0x0
+#define CLI_DISCONNECT      0x1
+#define CLI_CONNECT         0x2
+
+#define LINK_DOWN           0x0
+#define LINK_UP             0x1 
+
+#define CLI_DISCONNECT_ALL  0x0
+
 #endif

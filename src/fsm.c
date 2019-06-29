@@ -26,6 +26,7 @@ static STATUS 	A_send_padt(__attribute__((unused)) struct rte_timer *tim, __attr
 static STATUS 	A_create_close_to_lower_layer(__attribute__((unused)) struct rte_timer *tim, __attribute__((unused)) tPPP_PORT *port_ccb);
 
 extern tPPP_PORT				ppp_ports[MAX_USER];
+extern BOOL                     prompt;
 //extern struct rte_flow *generate_lan_flow(uint16_t port_id, uint16_t rx_q_udp, uint16_t rx_q_tcp, struct rte_flow_error *error);
 //extern struct rte_flow *generate_wan_flow(uint16_t port_id, uint16_t rx_q_udp, uint16_t rx_q_tcp, struct rte_flow_error *error);
 
@@ -643,7 +644,10 @@ STATUS PPP_FSM(struct rte_timer *ppp, tPPP_PORT *port_ccb, U16 event)
     if (port_ccb->ppp_phase[port_ccb->cp].state != ppp_fsm_tbl[port_ccb->cp][i].next_state) {
         strcpy(str1,PPP_state2str(port_ccb->ppp_phase[port_ccb->cp].state));
         strcpy(str2,PPP_state2str(ppp_fsm_tbl[port_ccb->cp][i].next_state));
+        #ifdef _DP_DBG
         DBG_PPP(DBGLVL1,port_ccb,"state changed from %s to %s\n",str1,str2);
+        #endif
+        RTE_LOG(INFO,EAL,"Session 0x%x LCP state changed from %s to %s.\n", htons(port_ccb->session_id), str1, str2);
         port_ccb->ppp_phase[port_ccb->cp].state = ppp_fsm_tbl[port_ccb->cp][i].next_state;
     }
     
@@ -681,8 +685,8 @@ STATUS A_this_layer_up(__attribute__((unused)) struct rte_timer *tim, __attribut
     	if (build_auth_request_pap(buffer,port_ccb,&mulen) < 0)
     		return FALSE;
     	drv_xmit(buffer,mulen);
-        RTE_LOG(INFO,EAL,"LCP connection establish successfully.\n");
-        RTE_LOG(INFO,EAL,"Starting Authenticate.\n");
+        RTE_LOG(INFO,EAL,"Session 0x%x LCP connection establish successfully.\n", htons(port_ccb->session_id));
+        RTE_LOG(INFO,EAL,"Session 0x%x starting Authenticate.\n", htons(port_ccb->session_id));
         #ifdef _DP_DBG
     	puts("LCP connection establish successfully.");
     	puts("Starting Authenticate.");
@@ -692,12 +696,15 @@ STATUS A_this_layer_up(__attribute__((unused)) struct rte_timer *tim, __attribut
     	port_ccb->data_plane_start = TRUE;
     	port_ccb->phase = DATA_PHASE;
     	rte_timer_reset(&(port_ccb->nat),rte_get_timer_hz(),PERIODICAL,3,(rte_timer_cb_t)nat_rule_timer,ppp_ports);
-        RTE_LOG(INFO,EAL,"IPCP connection establish successfully.\n");
+        RTE_LOG(INFO,EAL,"Session 0x%x IPCP connection establish successfully.\n", htons(port_ccb->session_id));
         #ifdef _DP_DBG
     	puts("IPCP connection establish successfully.");
         #endif
+        RTE_LOG(INFO,EAL,"Now we can start to send data via pppoe session id 0x%x.\n", htons(port_ccb->session_id));
+        RTE_LOG(INFO,EAL,"Our PPPoE client IP address is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 ", PPPoE server IP address is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 "\n", *(((uint8_t *)&(port_ccb->ipv4))), *(((uint8_t *)&(port_ccb->ipv4))+1), *(((uint8_t *)&(port_ccb->ipv4))+2), *(((uint8_t *)&(port_ccb->ipv4))+3), *(((uint8_t *)&(port_ccb->ipv4_gw))), *(((uint8_t *)&(port_ccb->ipv4_gw))+1), *(((uint8_t *)&(port_ccb->ipv4_gw))+2), *(((uint8_t *)&(port_ccb->ipv4_gw))+3));
     	printf("Now we can start to send data via pppoe session id 0x%x.\n", htons(port_ccb->session_id));
     	printf("Our PPPoE client IP address is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 ", PPPoE server IP address is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 "\n", *(((uint8_t *)&(port_ccb->ipv4))), *(((uint8_t *)&(port_ccb->ipv4))+1), *(((uint8_t *)&(port_ccb->ipv4))+2), *(((uint8_t *)&(port_ccb->ipv4))+3), *(((uint8_t *)&(port_ccb->ipv4_gw))), *(((uint8_t *)&(port_ccb->ipv4_gw))+1), *(((uint8_t *)&(port_ccb->ipv4_gw))+2), *(((uint8_t *)&(port_ccb->ipv4_gw))+3));
+        prompt = TRUE;
     }
 
     return TRUE;
@@ -714,21 +721,37 @@ STATUS A_this_layer_up(__attribute__((unused)) struct rte_timer *tim, __attribut
  ***********************************************************************/
 STATUS A_this_layer_down(__attribute__((unused)) struct rte_timer *tim, __attribute__((unused)) tPPP_PORT *port_ccb)
 {
-    printf("this layer down\n");
+    if (port_ccb->cp == 1) {
+        #ifdef _DP_DBG
+        printf("IPCP layer is down\n");
+        #endif
+        PPP_FSM(tim,port_ccb,E_CLOSE);
+        port_ccb->data_plane_start = FALSE;
+    }
+    else if (port_ccb->cp == 0) {
+        #ifdef _DP_DBG
+        printf("LCP layer is down\n");
+        #endif
+    }
 
     return TRUE;
 }
 
 STATUS A_init_restart_count(__attribute__((unused)) struct rte_timer *tim, __attribute__((unused)) tPPP_PORT *port_ccb)
 {
+    #ifdef _DP_DBG
     printf("init restart count\n");
-    
+    #endif
+
     return TRUE;
 }
 
 STATUS A_init_restart_config(__attribute__((unused)) struct rte_timer *tim, __attribute__((unused)) tPPP_PORT *port_ccb)
 {
+    RTE_LOG(INFO,EAL,"Session 0x%x init config req timer start.\n", htons(port_ccb->session_id));
+    #ifdef _DP_DBG
     printf("init config req timer start\n");
+    #endif
     rte_timer_stop(tim);
     port_ccb->ppp_phase[port_ccb->cp].timer_counter = 9;
 	rte_timer_reset(tim,3*rte_get_timer_hz(),PERIODICAL,3,(rte_timer_cb_t)A_send_config_request,port_ccb);
@@ -738,7 +761,10 @@ STATUS A_init_restart_config(__attribute__((unused)) struct rte_timer *tim, __at
 
 STATUS A_init_restart_termin(__attribute__((unused)) struct rte_timer *tim, __attribute__((unused)) tPPP_PORT *port_ccb)
 {
+    RTE_LOG(INFO,EAL,"Session 0x%x init termin req timer start.\n", htons(port_ccb->session_id));
+    #ifdef _DP_DBG
     printf("init termin req timer start\n");
+    #endif
     rte_timer_stop(tim);
     port_ccb->ppp_phase[port_ccb->cp].timer_counter = 9;
 	rte_timer_reset(tim,3*rte_get_timer_hz(),PERIODICAL,3,(rte_timer_cb_t)A_send_terminate_request,port_ccb);
@@ -753,7 +779,7 @@ STATUS A_send_config_request(__attribute__((unused)) struct rte_timer *tim, __at
 
     if (port_ccb->ppp_phase[port_ccb->cp].timer_counter == 0) {
     	rte_timer_stop(tim);
-        RTE_LOG(INFO,EAL,"config request timeout.\n");
+        RTE_LOG(INFO,EAL,"Session 0x%x config request timeout.\n", htons(port_ccb->session_id));
         #ifdef _DP_DBG
     	puts("config request timeout.");
         #endif
@@ -798,9 +824,9 @@ STATUS A_send_terminate_request(__attribute__((unused)) struct rte_timer *tim, _
 
     if (port_ccb->ppp_phase[port_ccb->cp].timer_counter == 0) {
     	rte_timer_stop(tim);
-        RTE_LOG(INFO,EAL,"config request timeout.\n");
+        RTE_LOG(INFO,EAL,"Session 0x%x terminate request timeout.\n", htons(port_ccb->session_id));
         #ifdef _DP_DBG
-    	puts("config request timeout.");
+    	puts("termin request timeout.");
         #endif
     	PPP_FSM(tim,port_ccb,E_TIMEOUT_COUNTER_EXPIRED);
     }
@@ -850,14 +876,19 @@ STATUS A_send_echo_reply(__attribute__((unused)) struct rte_timer *tim, __attrib
 
 STATUS A_create_up_event(__attribute__((unused)) struct rte_timer *tim, __attribute__((unused)) tPPP_PORT *port_ccb)
 {
+    #ifdef _DP_DBG
     printf("create up event\n");
+    #endif 
 
     return TRUE;
 }
 
 STATUS A_create_down_event(__attribute__((unused)) struct rte_timer *tim, __attribute__((unused)) tPPP_PORT *port_ccb)
 {
+    #ifdef _DP_DBG
     printf("create down event\n");
+    #endif
+
     PPP_FSM(tim,port_ccb,E_DOWN);
 
     return TRUE;
@@ -881,8 +912,8 @@ STATUS A_send_padt(__attribute__((unused)) struct rte_timer *tim, __attribute__(
 
 STATUS A_create_close_to_lower_layer(__attribute__((unused)) struct rte_timer *tim, __attribute__((unused)) tPPP_PORT *port_ccb)
 {
-    RTE_LOG(INFO,EAL,"Notify lower layer to close connection.\n");
-    #ifdef
+    RTE_LOG(INFO,EAL,"Session 0x%x notify lower layer to close connection.\n", htons(port_ccb->session_id));
+    #ifdef _DP_DBG
     puts("Notify lower layer to close connection.");
     #endif
     port_ccb->cp = 0;
