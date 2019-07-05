@@ -183,6 +183,7 @@ int 				ppp_init(void);
 
 int 				pppdInit(void);
 void 				PPP_bye(void);
+void 				PPP_ter(void);
 void 				PPP_int(void);
 int 				control_plane(void);
 

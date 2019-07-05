@@ -88,7 +88,7 @@ static void cmd_quit_parsed(__attribute__((unused)) void *parsed_result,
 	
 	mail->type = IPC_EV_TYPE_CLI;
 	mail->len = 1;
-	//enqueue up event to main thread
+	//enqueue cli quit event event to main thread
 	rte_ring_enqueue_burst(rte_ring,(void **)&mail,1,NULL);
 }
 

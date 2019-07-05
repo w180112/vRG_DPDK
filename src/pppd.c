@@ -27,7 +27,6 @@
 #include 				"pppd.h"
 #include				"fsm.h"
 #include 				"dpdk_send_recv.h"
-#include 				"flow_rules.h"
 #include 				"dbg.h"
 #include				"cmds.h"
 
@@ -44,7 +43,6 @@ uint8_t					ppp_max_msg_per_query;
 
 uint8_t					cp_recv_cums = 0, cp_recv_prod = 0;
 
-U8 						PORT_BIT_MAP(tPPP_PORT ports[]);
 tPPP_PORT				ppp_ports[MAX_USER]; //port is 1's based
 
 struct rte_mempool 		*mbuf_pool;
@@ -55,10 +53,9 @@ extern int 				rte_ethtool_get_drvinfo(uint16_t port_id, struct ethtool_drvinfo 
 extern STATUS			PPP_FSM(struct rte_timer *ppp, tPPP_PORT *port_ccb, U16 event);
 
 unsigned char 			*wan_mac;
-struct rte_flow 		*flow;
 int 					log_type;
 FILE 					*fp;
-BOOL					prompt, signal_term = FALSE;
+volatile BOOL			prompt = FALSE, signal_term = FALSE;
 struct cmdline 			*cl;
 
 int main(int argc, char **argv)
@@ -168,8 +165,21 @@ int control_plane(void)
 }
 
 /*---------------------------------------------------------
- * ppp_bye : signal handler for INTR-C only
+ * ppp_bye : signal handler for SIGTERM only
  *--------------------------------------------------------*/
+
+void PPP_ter(void)
+{
+	tPPP_MBX *mail = (tPPP_MBX *)malloc(sizeof(tPPP_MBX));
+
+    mail->type = CLI_QUIT;
+	
+	mail->type = IPC_EV_TYPE_CLI;
+	mail->len = 1;
+	//enqueue cli quit event to main thread
+	rte_ring_enqueue_burst(rte_ring,(void **)&mail,1,NULL);
+}
+
 void PPP_bye(void)
 {
     printf("bye!\n");
@@ -419,6 +429,8 @@ int ppp_init(void)
 				break;
 			case IPC_EV_TYPE_CLI:
 				switch (mail[i]->refp[0]) {
+					/* TODO: user disconnect and connect command */
+					#if 0
 					case CLI_DISCONNECT:
 						if (mail[i]->refp[1] == CLI_DISCONNECT_ALL) {
 							for(int i=0; i<MAX_USER; i++) {
@@ -437,8 +449,9 @@ int ppp_init(void)
 						break;
 					case CLI_CONNECT:
 						break;
+					#endif
 					case CLI_QUIT:
-						kill(getpid(), SIGTERM);;
+						PPP_bye();
 						break;
 					default:
 						;
