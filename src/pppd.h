@@ -29,7 +29,7 @@
 #define CAP_VSI_DISCOV_PROTO	1
 #define CAP_802_1X_AUTH_REQ		1
 
-#define MAX_USER				1
+#define MAX_USER				2
 
 typedef struct {
 	U8		subt;
@@ -55,6 +55,32 @@ typedef struct {
 	U8		oid_len;
 	U32		oids[128];
 } tMNG_ADDR;
+
+/* VLAN header structure definition.
+ * We use bit feild here, but bit field order is uncertain.
+ * It depends on compiler implementation.
+ * In GCC, bit field is bind with endianess.
+ * https://rednaxelafx.iteye.com/blog/257760
+ * http://www.programmer-club.com.tw/ShowSameTitleN/general/6887.html
+ * http://pl-learning-blog.logdown.com/posts/1077056-usually-terror-words-o-muhammad-c-ch13-reading-notes-unfinished
+ */
+typedef struct vlan_header {
+	union tci_header {
+		uint16_t tci_value;
+		struct tci_bit {
+			#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+			uint16_t vlan_id:12;
+			uint16_t DEI:1;
+			uint16_t priority:3;
+			#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+			uint16_t priority:3;
+			uint16_t DEI:1;
+			uint16_t vlan_id:12;
+			#endif
+		}tci_struct;
+	}tci_union;
+	uint16_t next_proto;
+}vlan_header_t;
 
 typedef struct pppoe_header {
 	uint8_t ver_type;
@@ -93,6 +119,7 @@ typedef struct ppp_lcp_options {
 
 typedef struct pppoe_phase {
 	struct ethhdr 		*eth_hdr;
+	vlan_header_t		*vlan_header;
 	pppoe_header_t 		*pppoe_header;
 	pppoe_header_tag_t	*pppoe_header_tag;
 	uint8_t 			max_retransmit;
@@ -102,6 +129,7 @@ typedef struct pppoe_phase {
 typedef struct ppp_phase {
 	U8 					state;
 	struct ethhdr 		*eth_hdr;
+	vlan_header_t		*vlan_header;
 	pppoe_header_t 		*pppoe_header;
 	ppp_payload_t 		*ppp_payload;
 	ppp_lcp_header_t 	*ppp_lcp;
@@ -146,6 +174,7 @@ typedef struct {
 	int 				cp;	//cp is "control protocol", means we need to determine cp is LCP or NCP after parsing packet
 	uint16_t 			session_id;
 	uint16_t			user_num;
+	uint16_t 			vlan;
 	uint8_t				phase;
 
 	unsigned char 		src_mac[6];
@@ -165,8 +194,6 @@ typedef struct {
 	unsigned char 		*passwd;
 
 	BOOL				data_plane_start;
-
-	uint8_t 			vlan;
 
 	addr_table_t 		addr_table[65536];
 

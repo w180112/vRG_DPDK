@@ -899,7 +899,7 @@ STATUS A_zero_restart_count(__attribute__((unused)) struct rte_timer *tim, __att
     #ifdef _DP_DBG
     printf("zero restart count\n");
     #endif
-
+    
     return TRUE;
 }
 

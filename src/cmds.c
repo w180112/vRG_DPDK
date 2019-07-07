@@ -88,7 +88,7 @@ static void cmd_quit_parsed(__attribute__((unused)) void *parsed_result,
 	
 	mail->type = IPC_EV_TYPE_CLI;
 	mail->len = 1;
-	//enqueue cli quit event event to main thread
+	//enqueue cli quit event to main thread
 	rte_ring_enqueue_burst(rte_ring,(void **)&mail,1,NULL);
 }
 
@@ -118,6 +118,7 @@ static void cmd_help_parsed(__attribute__((unused)) void *parsed_result,
 	cmdline_printf(cl,"usage: \n"
 		 			  "info is to show all pppoe users' info\n"
 					  "help to show usage commands\n"
+					  //"disconnect to disconnect all sessions\n"
 					  "quit to quit entire process\n");
 }
 

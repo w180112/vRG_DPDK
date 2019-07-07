@@ -46,10 +46,10 @@ To remove the binary files
 Note: 
 =====
 	1.We only support 3 LCP options, PAP authentication, Magic Number, Max receive unit so far.
-	2.User can now set the default gateway address 192.168.1.1 to end device after PPPoE link established.
+	2.User can now set the default gateway address 192.168.2.1 to end device after PPPoE link established.
 	3.The master branch contains NAT feature. If you don't want any NAT translation, switch to non_nat branch by typing git checkout non_nat.
-	4.User can assign how many sessions will be established, we support maximum 3 sessions so far. Default is 1 session.
-	5.Data plant now only support 1 session and will increase in the future.
+	4.User can assign how many sessions will be established, we have test upto maximum 2 sessions so far.
+	5.In data plane, user 1 uses single tag vlan 1, user 2 uses single tag vlan 2. All data plane packets received at gateway should include the single tag vlan.
 
 Test environment: 
 =================
@@ -62,13 +62,18 @@ Test environment:
 TODO: 
 =====
 
-	1.VLAN support
-	2.Some LCP exception
-	3.Multiple users/devices data plane support
-	4.Add disconnect and connnect commands 
+	1.Some LCP exception
+	2.Add disconnect and connnect commands
+	3.Support Intel 700 series NIC to make uplink checksum offload and support DPDK flow API
 
 ChangeLogs:
 ===========
+
+2019/07/07
+----------
+
+1. Support single tag vlan transmission
+2. support multiple users in data plane
 
 2019/06/29
 ----------

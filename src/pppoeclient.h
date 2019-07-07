@@ -8,6 +8,7 @@
 
 #define ETH_P_PPP_DIS 		0x8863
 #define ETH_P_PPP_SES		0x8864
+#define VLAN                0x8100
 
 #define PPPOE_PHASE			0x1
 #define LCP_PHASE			0x2

@@ -36,7 +36,6 @@
 #define 				BURST_SIZE 		32
 
 BOOL					ppp_testEnable = FALSE;
-U32						ppp_ttl;
 U32						ppp_interval;
 U16						ppp_init_delay;
 uint8_t					ppp_max_msg_per_query;
@@ -142,8 +141,7 @@ int main(int argc, char **argv)
 	rte_eal_remote_launch((lcore_function_t *)gateway,NULL,4);
 	rte_eal_remote_launch((lcore_function_t *)control_plane,NULL,5);
 	/* TODO: command line interface */
-	while(prompt == FALSE)
-		usleep(1000);
+	while(prompt == FALSE);
 	sleep(1);
 	puts("type ? or help to show all available commands");
 	cl = cmdline_stdin_new(ctx, "\npppoeclient> ");
@@ -167,12 +165,11 @@ int control_plane(void)
 /*---------------------------------------------------------
  * ppp_bye : signal handler for SIGTERM only
  *--------------------------------------------------------*/
-
 void PPP_ter(void)
 {
 	tPPP_MBX *mail = (tPPP_MBX *)malloc(sizeof(tPPP_MBX));
 
-    mail->type = CLI_QUIT;
+    mail->refp[0] = CLI_QUIT;
 	
 	mail->type = IPC_EV_TYPE_CLI;
 	mail->len = 1;
@@ -239,6 +236,8 @@ int pppdInit(void)
 		ppp_ports[i].ppp_phase[0].state = S_INIT;
 		ppp_ports[i].ppp_phase[1].state = S_INIT;
 		ppp_ports[i].port = 0;
+		ppp_ports[i].user_num = i;
+		ppp_ports[i].vlan = i + 1;
 		
 		ppp_ports[i].imsg_cnt =
 		ppp_ports[i].err_imsg_cnt =
@@ -254,8 +253,7 @@ int pppdInit(void)
 	}
     
 	sleep(1);
-	ppp_testEnable = TRUE; //to let driver ppp msg come in ...
-	DBG_PPP(DBGLVL1,NULL,"============ ppp init successfully ==============\n");
+	DBG_PPP(DBGLVL1,NULL,"============ pppoe init successfully ==============\n");
 	return 0;
 }
             
@@ -275,6 +273,7 @@ int ppp_init(void)
 	uint16_t			burst_size;
 	uint16_t			recv_type;
 	struct ethhdr 		eth_hdr;
+	vlan_header_t		vlan_header;
 	pppoe_header_t 		pppoe_header;
 	ppp_payload_t		ppp_payload;
 	ppp_lcp_header_t	ppp_lcp;
@@ -301,23 +300,13 @@ int ppp_init(void)
 			case IPC_EV_TYPE_DRV:
 #pragma GCC diagnostic push  // require GCC 4.6
 #pragma GCC diagnostic ignored "-Wstrict-aliasing"
-				if (((struct ether_hdr *)((char *)mail[i]->refp))->ether_type == htons(ETH_P_PPP_SES)) {
-					for(session_index=0; session_index<MAX_USER; session_index++) {
-						if (((pppoe_header_t *)((char *)mail[i]->refp + sizeof(struct ether_hdr)))->session_id == ppp_ports[session_index].session_id)
-							break;
-					}
-    				if (session_index == MAX_USER) {
-						RTE_LOG(INFO,EAL,"Too many pppoe users.\nDiscard.\n");
-						#ifdef _DP_DBG
-    					puts("recv not our PPP packet");
-						#endif
-    					continue;
-    				}
-				}
+				session_index = ((vlan_header_t *)(((struct ether_hdr *)mail[i]->refp) + 1))->tci_union.tci_value;
+				session_index = rte_be_to_cpu_16(session_index);
+				session_index = (session_index & 0xFFF) / 10 - 1;
 #pragma GCC diagnostic pop   // require GCC 4.6
-				if (PPP_decode_frame(mail[i],&eth_hdr,&pppoe_header,&ppp_payload,&ppp_lcp,ppp_lcp_options,&event,&(ppp_ports[session_index].ppp),&ppp_ports[session_index]) == FALSE)
+				if (PPP_decode_frame(mail[i],&eth_hdr,&vlan_header,&pppoe_header,&ppp_payload,&ppp_lcp,ppp_lcp_options,&event,&(ppp_ports[session_index].ppp),&ppp_ports[session_index]) == FALSE)
 					continue;
-				if (eth_hdr.h_proto == htons(ETH_P_PPP_DIS)) {
+				if (vlan_header.next_proto == htons(ETH_P_PPP_DIS)) {
 					switch(pppoe_header.code) {
 					case PADO:
 						for(session_index=0; session_index<MAX_USER; session_index++) {
@@ -337,31 +326,25 @@ int ppp_init(void)
     						continue;
     					}
     					ppp_ports[session_index].pppoe_phase.eth_hdr = &eth_hdr;
+						ppp_ports[session_index].pppoe_phase.vlan_header = &vlan_header;
 						ppp_ports[session_index].pppoe_phase.pppoe_header = &pppoe_header;
-						ppp_ports[session_index].pppoe_phase.pppoe_header_tag = (pppoe_header_tag_t *)((pppoe_header_t *)((struct ethhdr *)mail[i]->refp + 1) + 1);
+						ppp_ports[session_index].pppoe_phase.pppoe_header_tag = (pppoe_header_tag_t *)((pppoe_header_t *)((vlan_header_t *)((struct ethhdr *)mail[i]->refp + 1) + 1) + 1);
 						ppp_ports[session_index].pppoe_phase.max_retransmit = MAX_RETRAN;
 						ppp_ports[session_index].pppoe_phase.timer_counter = 0;
 						rte_timer_stop(&(ppp_ports[session_index].pppoe));
-						rte_memcpy(ppp_ports[session_index].src_mac,eth_hdr.h_dest,6);
-						rte_memcpy(ppp_ports[session_index].dst_mac,eth_hdr.h_source,6);
+						rte_memcpy(ppp_ports[session_index].src_mac,eth_hdr.h_dest,ETH_ALEN);
+						rte_memcpy(ppp_ports[session_index].dst_mac,eth_hdr.h_source,ETH_ALEN);
 						if (build_padr(&(ppp_ports[session_index].pppoe),&(ppp_ports[session_index])) == FALSE)
 							goto out;
 						rte_timer_reset(&(ppp_ports[session_index].pppoe),rte_get_timer_hz(),PERIODICAL,3,(rte_timer_cb_t)build_padr,&(ppp_ports[session_index]));
 						continue;
 					case PADS:
-						for(session_index=0; session_index<MAX_USER; session_index++) {
-							if (ppp_ports[session_index].session_id == 0)
-								break;
-    					}
 						rte_timer_stop(&(ppp_ports[session_index].pppoe));
-						ppp_ports[session_index].pppoe_phase.eth_hdr = &eth_hdr;
-						ppp_ports[session_index].pppoe_phase.pppoe_header = &pppoe_header;
-						ppp_ports[session_index].pppoe_phase.pppoe_header_tag = (pppoe_header_tag_t *)((pppoe_header_t *)((struct ethhdr *)mail[i]->refp + 1) + 1);
-						ppp_ports[session_index].pppoe_phase.max_retransmit = MAX_RETRAN;
 						ppp_ports[session_index].session_id = pppoe_header.session_id;
 						ppp_ports[session_index].cp = 0;
     					for (int i=0; i<2; i++) {
     						ppp_ports[session_index].ppp_phase[i].eth_hdr = &eth_hdr;
+							ppp_ports[session_index].ppp_phase[i].vlan_header = &vlan_header;
     						ppp_ports[session_index].ppp_phase[i].pppoe_header = &pppoe_header;
     						ppp_ports[session_index].ppp_phase[i].ppp_payload = &ppp_payload;
     						ppp_ports[session_index].ppp_phase[i].ppp_lcp = &ppp_lcp;
@@ -451,7 +434,7 @@ int ppp_init(void)
 						break;
 					#endif
 					case CLI_QUIT:
-						PPP_bye();
+						kill(getpid(), SIGTERM);
 						break;
 					default:
 						;
