@@ -1,0 +1,9 @@
+language: C
+sudo: false
+script: ./install
+
+compiler:
+  - gcc
+
+os:
+  - linux
