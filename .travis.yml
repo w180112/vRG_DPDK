@@ -1,9 +1,14 @@
 language: C
 sudo: false
-script: ./install
+
+branches:
+  only:
+  - master
 
 compiler:
   - gcc
 
 os:
   - linux
+
+script: ./install.sh
