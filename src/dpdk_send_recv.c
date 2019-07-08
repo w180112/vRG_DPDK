@@ -152,7 +152,7 @@ int ppp_recvd(void)
 				rte_pktmbuf_free(single_pkt);
 				continue;
 			}
-			vlan_header->next_proto = rte_cpu_to_be_16(FRAME_TYPE_IP);//ppp_payload->ppp_protocol;
+			vlan_header->next_proto = rte_cpu_to_be_16(FRAME_TYPE_IP);
 			rte_memcpy(&tmp_eth_hdr,eth_hdr,sizeof(struct ether_hdr));
 			rte_memcpy(&tmp_vlan_header,vlan_header,sizeof(struct ether_hdr));
 			rte_memcpy((char *)eth_hdr+8,&tmp_eth_hdr,sizeof(struct ether_hdr));
@@ -352,7 +352,6 @@ void encapsulation_tcp(struct rte_mbuf *single_pkt, struct ether_hdr *eth_hdr, v
 	rte_memcpy(eth_hdr->s_addr.addr_bytes,ppp_ports[user_index].src_mac,ETH_ALEN);
 	rte_memcpy(eth_hdr->d_addr.addr_bytes,ppp_ports[user_index].dst_mac,ETH_ALEN);
 
-	//protocol = eth_hdr->ether_type;
 	vlan_header->next_proto = rte_cpu_to_be_16(ETH_P_PPP_SES);
 	cur = (char *)eth_hdr - 8;
 	rte_memcpy(cur,eth_hdr,sizeof(struct ether_hdr));
@@ -362,7 +361,7 @@ void encapsulation_tcp(struct rte_mbuf *single_pkt, struct ether_hdr *eth_hdr, v
 	pppoe_header->code = 0;
 	pppoe_header->session_id = ppp_ports[user_index].session_id;
 	pppoe_header->length = rte_cpu_to_be_16((single_pkt->pkt_len) - 18 + 2);
-	*((uint16_t *)(cur+sizeof(struct ether_hdr)+sizeof(vlan_header_t)+sizeof(pppoe_header_t))) = rte_cpu_to_be_16(IP_PROTOCOL);//protocol;
+	*((uint16_t *)(cur+sizeof(struct ether_hdr)+sizeof(vlan_header_t)+sizeof(pppoe_header_t))) = rte_cpu_to_be_16(IP_PROTOCOL);
 	single_pkt->data_off -= 8;
 	single_pkt->pkt_len += 8;
 	single_pkt->data_len += 8;

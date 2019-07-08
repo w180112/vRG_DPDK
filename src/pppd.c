@@ -302,7 +302,13 @@ int ppp_init(void)
 #pragma GCC diagnostic ignored "-Wstrict-aliasing"
 				session_index = ((vlan_header_t *)(((struct ether_hdr *)mail[i]->refp) + 1))->tci_union.tci_value;
 				session_index = rte_be_to_cpu_16(session_index);
-				session_index = (session_index & 0xFFF) / 10 - 1;
+				session_index = (session_index & 0xFFF) - 1;
+				if (session_index >= MAX_USER) {
+					#ifdef _DP_DBG
+					puts("Recv not our PPPoE packet.\nDiscard.");
+					#endif
+					continue;
+				}
 #pragma GCC diagnostic pop   // require GCC 4.6
 				if (PPP_decode_frame(mail[i],&eth_hdr,&vlan_header,&pppoe_header,&ppp_payload,&ppp_lcp,ppp_lcp_options,&event,&(ppp_ports[session_index].ppp),&ppp_ports[session_index]) == FALSE)
 					continue;
