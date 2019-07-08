@@ -23,7 +23,7 @@ extra_packages: &extra_packages
   - *required_packages
   - [libbsd-dev, libpcap-dev, libcrypto++-dev, libjansson4]
 
-before_install: ./.ci/${TRAVIS_OS_NAME}-setup.sh
+before_install: ./src/lib/dpdk-stable-18.11.2/.ci/${TRAVIS_OS_NAME}-setup.sh
 
 env:
   - DEF_LIB="static"
