@@ -23,7 +23,13 @@ Type
 
 	# cd PPPoE_Client_DPDK
 
-and
+For first time build, please use boot.sh
+
+	# ./boot.sh
+
+to compile
+
+For second time build, please use install.sh
 
 	# ./install.sh
 
