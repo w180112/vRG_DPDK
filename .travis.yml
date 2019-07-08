@@ -11,4 +11,7 @@ compiler:
 os:
   - linux
 
+before_install:
+  - sudo apt-get install -y libnuma-dev
+
 script: ./install.sh
