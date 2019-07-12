@@ -24,6 +24,7 @@
 #include <rte_debug.h>
 #include <rte_mempool.h>
 #include <rte_string_fns.h>
+#include <rte_byteorder.h>
 
 #include <cmdline_rdline.h>
 #include <cmdline_parse.h>
@@ -35,6 +36,8 @@
 #include "pppoeclient.h"
 
 extern struct rte_ring *rte_ring;
+extern nic_vendor_t 	vendor[];
+extern uint8_t			vendor_id;
 
 typedef struct cli_to_main_msg {
 	uint8_t type;
@@ -51,9 +54,21 @@ static void cmd_info_parsed(__attribute__((unused)) void *parsed_result,
 		struct cmdline *cl,
 		__attribute__((unused)) void *data)
 {
+	if (vendor_id == 0)
+		cmdline_printf(cl,"We are using unexcepted driver\n");
+	else if {
+		for(int i=0; vendor[i].vendor!=NULL; i++) {
+			if (vendor_id == vendor[i].vendor_id) {
+				cmdline_printf(cl,"We are using %s driver\n", vendor[i].vendor);
+				break;
+			}
+		}
+	}
+	
 	for(int i=0; i<MAX_USER; i++) {
-		cmdline_printf(cl,"user %d account is %s, password is %s\n", i, ppp_ports[i].user_id, ppp_ports[i].passwd);
-		cmdline_printf(cl,"lan mac addr is %x:%x:%x:%x:%x:%x\n", ppp_ports[i].lan_mac[0], ppp_ports[i].lan_mac[1], ppp_ports[i].lan_mac[2], ppp_ports[i].lan_mac[3], ppp_ports[i].lan_mac[4], ppp_ports[i].lan_mac[5]);
+		cmdline_printf(cl,"User %d account is %s, password is %s\n", i, ppp_ports[i].user_id, ppp_ports[i].passwd);
+		cmdline_printf(cl,"LAN mac addr is %x:%x:%x:%x:%x:%x\n", ppp_ports[i].lan_mac[0], ppp_ports[i].lan_mac[1], ppp_ports[i].lan_mac[2], ppp_ports[i].lan_mac[3], ppp_ports[i].lan_mac[4], ppp_ports[i].lan_mac[5]);
+		cmdline_printf(cl,"Session ID is 0x%x, VLAN ID is 0x%x\n", rte_be_to_cpu_16(ppp_ports[i].session_id), ppp_ports[i].vlan);
 		cmdline_printf(cl,"IP addr is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 "\n", *(((uint8_t *)&(ppp_ports[i].ipv4))), *(((uint8_t *)&(ppp_ports[i].ipv4))+1), *(((uint8_t *)&(ppp_ports[i].ipv4))+2), *(((uint8_t *)&(ppp_ports[i].ipv4))+3));
 	}
 }

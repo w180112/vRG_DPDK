@@ -12,6 +12,7 @@
 #include <common.h>
 #include <rte_timer.h>
 #include <rte_memory.h>
+#include <rte_ether.h>
 
 #define ETH_MTU					1500
 #define TEST_PORT_ID			1
@@ -30,6 +31,10 @@
 #define CAP_802_1X_AUTH_REQ		1
 
 #define MAX_USER				2
+
+#define MLX5					1
+#define IXGBE					2
+#define VMXNET3					3
 
 typedef struct {
 	U8		subt;
@@ -118,7 +123,7 @@ typedef struct ppp_lcp_options {
 }ppp_lcp_options_t;
 
 typedef struct pppoe_phase {
-	struct ethhdr 		*eth_hdr;
+	struct ether_hdr 	*eth_hdr;
 	vlan_header_t		*vlan_header;
 	pppoe_header_t 		*pppoe_header;
 	pppoe_header_tag_t	*pppoe_header_tag;
@@ -128,7 +133,7 @@ typedef struct pppoe_phase {
 
 typedef struct ppp_phase {
 	U8 					state;
-	struct ethhdr 		*eth_hdr;
+	struct ether_hdr 	*eth_hdr;
 	vlan_header_t		*vlan_header;
 	pppoe_header_t 		*pppoe_header;
 	ppp_payload_t 		*ppp_payload;
@@ -222,5 +227,10 @@ typedef struct {
 	U8          	refp[ETH_MTU];
 	int	        	len;
 } tPPP_MBX;
+
+typedef struct nic_vendor {
+	const char 		*vendor;
+	uint8_t			vendor_id;
+}nic_vendor_t;
 
 #endif

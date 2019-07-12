@@ -41,15 +41,17 @@ U16						ppp_init_delay;
 uint8_t					ppp_max_msg_per_query;
 
 uint8_t					cp_recv_cums = 0, cp_recv_prod = 0;
+uint8_t					vendor_id = 0;
 
 tPPP_PORT				ppp_ports[MAX_USER]; //port is 1's based
 
 struct rte_mempool 		*mbuf_pool;
-struct rte_ring 		*rte_ring, *decap;
+struct rte_ring 		*rte_ring, *decap_udp, *decap_tcp, *encap_udp, *encap_tcp;
 
 extern int 				timer_loop(__attribute__((unused)) void *arg);
 extern int 				rte_ethtool_get_drvinfo(uint16_t port_id, struct ethtool_drvinfo *drvinfo);
 extern STATUS			PPP_FSM(struct rte_timer *ppp, tPPP_PORT *port_ccb, U16 event);
+BOOL 					is_valid(char *token, char *next);
 
 unsigned char 			*wan_mac;
 int 					log_type;
@@ -57,42 +59,64 @@ FILE 					*fp;
 volatile BOOL			prompt = FALSE, signal_term = FALSE;
 struct cmdline 			*cl;
 
+nic_vendor_t vendor[] = {
+	{ "net_mlx5", MLX5 },
+	{ "net_ixgbe", IXGBE },
+	{ "net_vmxnet3", VMXNET3 },
+	{ NULL, 0 }
+};
+
 int main(int argc, char **argv)
 {
 	uint16_t 				portid;
 	uint16_t 				user_id_length, passwd_length;
 	struct ethtool_drvinfo 	info;
 	
-	if (argc < 7) {
+	if (argc < 5) {
 		puts("Too less parameter.");
-		puts("Type ./pppoeclient <username> <password> <eal_options>");
+		puts("Type ./pppoeclient <eal_options>");
 		return ERROR;
 	}
-
-	int ret = rte_eal_init(argc-3,argv+3);
+	int ret = rte_eal_init(argc,argv);
 	if (ret < 0)
 		rte_exit(EXIT_FAILURE, "rte initlize fail.");
 
 	fp = fopen("./pppoeclient.log","w+");
 	eal_log_set_default(fp);
-	if (rte_lcore_count() < 6)
-		rte_exit(EXIT_FAILURE, "We need at least 6 cores.\n");
+	if (rte_lcore_count() < 9)
+		rte_exit(EXIT_FAILURE, "We need at least 7 cores.\n");
 	if (rte_eth_dev_count_avail() < 2)
 		rte_exit(EXIT_FAILURE, "We need at least 2 eth ports.\n");
-
-	/* init users and ports info */
-	for(int i=0; i<MAX_USER; i++) {
-		user_id_length = strlen(argv[1]);
-		passwd_length = strlen(argv[2]);
-		rte_eth_macaddr_get(0,(struct ether_addr *)ppp_ports[i].lan_mac);
-		ppp_ports[i].user_id = (unsigned char *)malloc(user_id_length+1);
-		ppp_ports[i].passwd = (unsigned char *)malloc(passwd_length+1);
-		rte_memcpy(ppp_ports[i].user_id,argv[1],user_id_length);
-		rte_memcpy(ppp_ports[i].passwd,argv[2],passwd_length);
-		ppp_ports[i].user_id[user_id_length] = '\0';
-		ppp_ports[i].passwd[passwd_length] = '\0';
-	}
 	
+	/* init users and ports info */
+	{
+		FILE *account = fopen("pap-setup","r");
+    	if (!account) {
+        	perror("file doesnt exist");
+        	return -1;
+    	}
+		char tok[] = " ", user_info[MAX_USER][256];
+		uint16_t user_id = 0;
+		for(int i=0; fgets(user_info[i],256,account) != NULL; i++) {
+       		char *token, *next;
+        	token=strtok_r(user_info[i],tok,&next);
+        	if (!next)
+				continue;
+			if (!is_valid(token,next))
+				continue;
+			rte_eth_macaddr_get(0,(struct ether_addr *)ppp_ports[user_id].lan_mac);
+			user_id_length = strlen(token);
+			passwd_length = strlen(next);
+			ppp_ports[user_id].user_id = (unsigned char *)malloc(user_id_length+1);
+			ppp_ports[user_id].passwd = (unsigned char *)malloc(passwd_length+1);
+			rte_memcpy(ppp_ports[user_id].user_id,token,user_id_length);
+			rte_memcpy(ppp_ports[user_id].passwd,next,passwd_length);
+			ppp_ports[user_id].user_id[user_id_length] = '\0';
+			ppp_ports[user_id].passwd[passwd_length-1] = '\0';
+			user_id++;
+    	}
+    	fclose(account);
+	}
 	wan_mac = (unsigned char *)malloc(ETH_ALEN);
 	rte_eth_macaddr_get(1,(struct ether_addr *)wan_mac);
 
@@ -103,7 +127,10 @@ int main(int argc, char **argv)
 	if (mbuf_pool == NULL)
 		rte_exit(EXIT_FAILURE, "Cannot create mbuf pool\n");
 	rte_ring = rte_ring_create("state_machine",RING_SIZE,rte_socket_id(),0);
-	decap = rte_ring_create("decapsulation",RING_SIZE,rte_socket_id(),0);
+	decap_tcp = rte_ring_create("decapsulation_tcp",RING_SIZE,rte_socket_id(),0);
+	decap_udp = rte_ring_create("decapsulation_udp",RING_SIZE,rte_socket_id(),0);
+	encap_tcp = rte_ring_create("encapsulation_tcp",RING_SIZE,rte_socket_id(),0);
+	encap_udp = rte_ring_create("encapsulation_udp",RING_SIZE,rte_socket_id(),0);
 
 	/* Initialize all ports. */
 	RTE_ETH_FOREACH_DEV(portid) {
@@ -111,6 +138,10 @@ int main(int argc, char **argv)
 		if (rte_ethtool_get_drvinfo(portid, &info)) {
 			printf("Error getting info for port %i\n", portid);
 			return -1;
+		}
+		for(int i=0; !vendor[i].vendor; i++) {
+			if (strcmp((const char *)info.driver,vendor[i].vendor) == 0)
+				vendor_id = vendor[i].vendor_id;
 		}
 		#ifdef _DP_DBG
 		printf("Port %i driver: %s (ver: %s)\n", portid, info.driver, info.version);
@@ -136,10 +167,13 @@ int main(int argc, char **argv)
 	}
 	
 	rte_eal_remote_launch((lcore_function_t *)ppp_recvd,NULL,1);
-	rte_eal_remote_launch((lcore_function_t *)decapsulation,NULL,2);
-	rte_eal_remote_launch((lcore_function_t *)timer_loop,NULL,3);
-	rte_eal_remote_launch((lcore_function_t *)gateway,NULL,4);
-	rte_eal_remote_launch((lcore_function_t *)control_plane,NULL,5);
+	rte_eal_remote_launch((lcore_function_t *)decapsulation_tcp,NULL,2);
+	rte_eal_remote_launch((lcore_function_t *)decapsulation_udp,NULL,3);
+	rte_eal_remote_launch((lcore_function_t *)timer_loop,NULL,4);
+	rte_eal_remote_launch((lcore_function_t *)gateway,NULL,5);
+	rte_eal_remote_launch((lcore_function_t *)encapsulation_tcp,NULL,6);
+	rte_eal_remote_launch((lcore_function_t *)encapsulation_udp,NULL,7);
+	rte_eal_remote_launch((lcore_function_t *)control_plane,NULL,8);
 	/* TODO: command line interface */
 	while(prompt == FALSE);
 	sleep(1);
@@ -272,7 +306,7 @@ int ppp_init(void)
 	uint16_t			event, session_index = 0;
 	uint16_t			burst_size;
 	uint16_t			recv_type;
-	struct ethhdr 		eth_hdr;
+	struct ether_hdr 	eth_hdr;
 	vlan_header_t		vlan_header;
 	pppoe_header_t 		pppoe_header;
 	ppp_payload_t		ppp_payload;
@@ -285,7 +319,7 @@ int ppp_init(void)
 		ppp_ports[i].pppoe_phase.timer_counter = 0;
     	if (build_padi(&(ppp_ports[i].pppoe),&(ppp_ports[i])) == FALSE)
     		goto out;
-    	rte_timer_reset(&(ppp_ports[i].pppoe),rte_get_timer_hz(),PERIODICAL,3,(rte_timer_cb_t)build_padi,&(ppp_ports[i]));
+    	rte_timer_reset(&(ppp_ports[i].pppoe),rte_get_timer_hz(),PERIODICAL,4,(rte_timer_cb_t)build_padi,&(ppp_ports[i]));
     }
 	for(;;) {
 		burst_size = control_plane_dequeue(mail);
@@ -312,12 +346,12 @@ int ppp_init(void)
 #pragma GCC diagnostic pop   // require GCC 4.6
 				if (PPP_decode_frame(mail[i],&eth_hdr,&vlan_header,&pppoe_header,&ppp_payload,&ppp_lcp,ppp_lcp_options,&event,&(ppp_ports[session_index].ppp),&ppp_ports[session_index]) == FALSE)
 					continue;
-				if (vlan_header.next_proto == htons(ETH_P_PPP_DIS)) {
+				if (vlan_header.next_proto == rte_cpu_to_be_16(ETH_P_PPP_DIS)) {
 					switch(pppoe_header.code) {
 					case PADO:
 						for(session_index=0; session_index<MAX_USER; session_index++) {
 							int j;
-							for (j=0; j<ETH_ALEN; j++) {
+							for(j=0; j<ETH_ALEN; j++) {
 								if (ppp_ports[session_index].dst_mac[j] != 0)
 									break;
 							}
@@ -334,15 +368,15 @@ int ppp_init(void)
     					ppp_ports[session_index].pppoe_phase.eth_hdr = &eth_hdr;
 						ppp_ports[session_index].pppoe_phase.vlan_header = &vlan_header;
 						ppp_ports[session_index].pppoe_phase.pppoe_header = &pppoe_header;
-						ppp_ports[session_index].pppoe_phase.pppoe_header_tag = (pppoe_header_tag_t *)((pppoe_header_t *)((vlan_header_t *)((struct ethhdr *)mail[i]->refp + 1) + 1) + 1);
+						ppp_ports[session_index].pppoe_phase.pppoe_header_tag = (pppoe_header_tag_t *)((pppoe_header_t *)((vlan_header_t *)((struct ether_hdr *)mail[i]->refp + 1) + 1) + 1);
 						ppp_ports[session_index].pppoe_phase.max_retransmit = MAX_RETRAN;
 						ppp_ports[session_index].pppoe_phase.timer_counter = 0;
 						rte_timer_stop(&(ppp_ports[session_index].pppoe));
-						rte_memcpy(ppp_ports[session_index].src_mac,eth_hdr.h_dest,ETH_ALEN);
-						rte_memcpy(ppp_ports[session_index].dst_mac,eth_hdr.h_source,ETH_ALEN);
+						rte_memcpy(ppp_ports[session_index].src_mac,eth_hdr.d_addr.addr_bytes,ETH_ALEN);
+						rte_memcpy(ppp_ports[session_index].dst_mac,eth_hdr.s_addr.addr_bytes,ETH_ALEN);
 						if (build_padr(&(ppp_ports[session_index].pppoe),&(ppp_ports[session_index])) == FALSE)
 							goto out;
-						rte_timer_reset(&(ppp_ports[session_index].pppoe),rte_get_timer_hz(),PERIODICAL,3,(rte_timer_cb_t)build_padr,&(ppp_ports[session_index]));
+						rte_timer_reset(&(ppp_ports[session_index].pppoe),rte_get_timer_hz(),PERIODICAL,4,(rte_timer_cb_t)build_padr,&(ppp_ports[session_index]));
 						continue;
 					case PADS:
 						rte_timer_stop(&(ppp_ports[session_index].pppoe));
@@ -372,7 +406,7 @@ int ppp_init(void)
     					}
     					ppp_ports[session_index].pppoe_phase.eth_hdr = &eth_hdr;
 						ppp_ports[session_index].pppoe_phase.pppoe_header = &pppoe_header;
-						ppp_ports[session_index].pppoe_phase.pppoe_header_tag = (pppoe_header_tag_t *)((pppoe_header_t *)((struct ethhdr *)mail[i]->refp + 1) + 1);
+						ppp_ports[session_index].pppoe_phase.pppoe_header_tag = (pppoe_header_tag_t *)((pppoe_header_t *)((struct ether_hdr *)mail[i]->refp + 1) + 1);
 						ppp_ports[session_index].pppoe_phase.max_retransmit = MAX_RETRAN;
 						if (pppoe_header.length == 0) {
 							if (build_padt(&(ppp_ports[session_index])) == FALSE)
@@ -403,7 +437,7 @@ int ppp_init(void)
 				}
 				ppp_ports[session_index].ppp_phase[0].ppp_lcp_options = ppp_lcp_options;
 				ppp_ports[session_index].ppp_phase[1].ppp_lcp_options = ppp_lcp_options;
-				if (ppp_payload.ppp_protocol == htons(AUTH_PROTOCOL)) {
+				if (ppp_payload.ppp_protocol == rte_cpu_to_be_16(AUTH_PROTOCOL)) {
 					if (ppp_lcp.code == AUTH_NAK)
 						goto out;
 					else if (ppp_lcp.code == AUTH_ACK) {
@@ -412,7 +446,7 @@ int ppp_init(void)
 						continue;
 					}
 				}
-				cp = (ppp_payload.ppp_protocol == htons(IPCP_PROTOCOL)) ? 1 : 0;
+				cp = (ppp_payload.ppp_protocol == rte_cpu_to_be_16(IPCP_PROTOCOL)) ? 1 : 0;
 				ppp_ports[session_index].cp = cp;
 				PPP_FSM(&(ppp_ports[session_index].ppp),&ppp_ports[session_index],event);
 				break;
@@ -473,4 +507,17 @@ int ppp_init(void)
 out:
 	kill(getpid(), SIGTERM);
 	return ERROR;
+}
+
+BOOL is_valid(char *token, char *next)
+{
+	for(int i=0; i<strlen(token); i++)	{
+		if (*token < 0x30 || (*token > 0x39 && *token < 0x41) || (*token > 0x5B && *token < 0x60) || *token > 0x7B)
+		return FALSE;
+	}
+	for(int i=0; i<strlen(next); i++)	{
+		if (*next < 0x30 || (*next > 0x39 && *next < 0x41) || (*next > 0x5B && *next < 0x60) || *next > 0x7B)
+		return FALSE;
+	}
+	return TRUE;
 }
