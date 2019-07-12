@@ -56,7 +56,7 @@ static void cmd_info_parsed(__attribute__((unused)) void *parsed_result,
 {
 	if (vendor_id == 0)
 		cmdline_printf(cl,"We are using unexcepted driver\n");
-	else if {
+	else {
 		for(int i=0; vendor[i].vendor!=NULL; i++) {
 			if (vendor_id == vendor[i].vendor_id) {
 				cmdline_printf(cl,"We are using %s driver\n", vendor[i].vendor);
