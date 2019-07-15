@@ -2,6 +2,7 @@
 #include "dbg.h"
 #include <rte_timer.h>
 #include <rte_ether.h>
+#include <rte_malloc.h>
 #include <rte_memcpy.h>
 #include <rte_log.h>
 #include <rte_byteorder.h>
@@ -320,7 +321,7 @@ STATUS decode_ipcp(pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp
  *******************************************************************************************/
 STATUS check_ipcp_nak_rej(uint8_t flag, pppoe_header_t *pppoe_header, __attribute__((unused)) ppp_payload_t *ppp_payload, ppp_lcp_header_t *ppp_lcp, ppp_lcp_options_t *ppp_lcp_options, uint16_t total_lcp_length)
 {
-	ppp_lcp_options_t *tmp_buf = (ppp_lcp_options_t *)malloc(MSG_BUF*sizeof(char));
+	ppp_lcp_options_t *tmp_buf = (ppp_lcp_options_t *)rte_malloc(NULL,MSG_BUF*sizeof(char),0);
 	ppp_lcp_options_t *tmp_cur = tmp_buf;
 	int bool = 0;
 	uint16_t tmp_total_length = 4;
@@ -354,17 +355,17 @@ STATUS check_ipcp_nak_rej(uint8_t flag, pppoe_header_t *pppoe_header, __attribut
 		pppoe_header->length = rte_cpu_to_be_16((ppp_lcp->length) + sizeof(ppp_payload_t));
 		ppp_lcp->length = rte_cpu_to_be_16(ppp_lcp->length);
 		ppp_lcp->code = flag;
-		free(tmp_buf);
+		rte_free(tmp_buf);
 
 		return 1;
 	}
-	free(tmp_buf);
+	rte_free(tmp_buf);
 	return 0;
 }
 
 STATUS check_nak_reject(uint8_t flag, pppoe_header_t *pppoe_header, __attribute__((unused)) ppp_payload_t *ppp_payload, ppp_lcp_header_t *ppp_lcp, ppp_lcp_options_t *ppp_lcp_options, uint16_t total_lcp_length)
 {
-	ppp_lcp_options_t *tmp_buf = (ppp_lcp_options_t *)malloc(MSG_BUF*sizeof(char));
+	ppp_lcp_options_t *tmp_buf = (ppp_lcp_options_t *)rte_malloc(NULL,MSG_BUF*sizeof(char),0);
 	ppp_lcp_options_t *tmp_cur = tmp_buf;
 	int 			  bool = 0;
 	uint16_t 		  tmp_total_length = 4;
@@ -400,11 +401,11 @@ STATUS check_nak_reject(uint8_t flag, pppoe_header_t *pppoe_header, __attribute_
 		pppoe_header->length = rte_cpu_to_be_16((ppp_lcp->length) + sizeof(ppp_payload_t));
 		ppp_lcp->length = rte_cpu_to_be_16(ppp_lcp->length);
 		ppp_lcp->code = flag;
-		free(tmp_buf);
+		rte_free(tmp_buf);
 
 		return 1;
 	}
-	free(tmp_buf);
+	rte_free(tmp_buf);
 	return 0;
 }
 

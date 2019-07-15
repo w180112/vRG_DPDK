@@ -148,32 +148,12 @@ typedef struct addr_table {
 	uint32_t		src_ip;
 	uint32_t		dst_ip;
 	uint16_t		port_id;
-	uint32_t		shift;
-	int8_t 			is_fill;
-	uint8_t			is_alive;
+	uint8_t 		is_fill:1;
+	uint8_t			is_alive:7;
 }__rte_cache_aligned addr_table_t;
 
 //========= The structure of port ===========
 typedef struct {
-	BOOL				enable;
-	U8					query_cnt;
-	U16					port;
-
-	U32					imsg_cnt;
-	U32					omsg_cnt;
-	U32					err_imsg_cnt;
-	
-	tSUB_VAL			chassis_id;
-	tSUB_VAL			port_id;
-		
-	U32					ttl;
-	char				port_desc[80];
-	char				sys_name[80];
-	char				sys_desc[255];
-	
-	tSYS_CAP			sys_cap;
-	tMNG_ADDR  			mng_addr;
-
 	ppp_phase_t 		ppp_phase[2];
 	pppoe_phase_t		pppoe_phase;
 	int 				cp;	//cp is "control protocol", means we need to determine cp is LCP or NCP after parsing packet

@@ -12,6 +12,7 @@
 #include 				<rte_cycles.h>
 #include 				<rte_lcore.h>
 #include 				<rte_timer.h>
+#include				<rte_malloc.h>
 #include 				<rte_ether.h>
 #include 				<rte_log.h>
 #include				<eal_private.h>
@@ -84,10 +85,11 @@ int main(int argc, char **argv)
 	fp = fopen("./pppoeclient.log","w+");
 	eal_log_set_default(fp);
 	if (rte_lcore_count() < 9)
-		rte_exit(EXIT_FAILURE, "We need at least 7 cores.\n");
+		rte_exit(EXIT_FAILURE, "We need at least 9 cores.\n");
 	if (rte_eth_dev_count_avail() < 2)
 		rte_exit(EXIT_FAILURE, "We need at least 2 eth ports.\n");
 	
+	rte_prefetch2(ppp_ports);
 	/* init users and ports info */
 	{
 		FILE *account = fopen("pap-setup","r");
@@ -107,17 +109,17 @@ int main(int argc, char **argv)
 			rte_eth_macaddr_get(0,(struct ether_addr *)ppp_ports[user_id].lan_mac);
 			user_id_length = strlen(token);
 			passwd_length = strlen(next);
-			ppp_ports[user_id].user_id = (unsigned char *)malloc(user_id_length+1);
-			ppp_ports[user_id].passwd = (unsigned char *)malloc(passwd_length+1);
+			ppp_ports[user_id].user_id = (unsigned char *)rte_malloc(NULL,user_id_length+1,0);
+			ppp_ports[user_id].passwd = (unsigned char *)rte_malloc(NULL,passwd_length+1,0);
 			rte_memcpy(ppp_ports[user_id].user_id,token,user_id_length);
 			rte_memcpy(ppp_ports[user_id].passwd,next,passwd_length);
 			ppp_ports[user_id].user_id[user_id_length] = '\0';
-			ppp_ports[user_id].passwd[passwd_length-1] = '\0';
+			ppp_ports[user_id].passwd[passwd_length] = '\0';
 			user_id++;
     	}
     	fclose(account);
 	}
-	wan_mac = (unsigned char *)malloc(ETH_ALEN);
+	wan_mac = (unsigned char *)rte_malloc(NULL,ETH_ALEN,0);
 	rte_eth_macaddr_get(1,(struct ether_addr *)wan_mac);
 
 	/* Creates a new mempool in memory to hold the mbufs. */
@@ -174,7 +176,7 @@ int main(int argc, char **argv)
 	rte_eal_remote_launch((lcore_function_t *)encapsulation_tcp,NULL,6);
 	rte_eal_remote_launch((lcore_function_t *)encapsulation_udp,NULL,7);
 	rte_eal_remote_launch((lcore_function_t *)control_plane,NULL,8);
-	/* TODO: command line interface */
+	
 	while(prompt == FALSE);
 	sleep(1);
 	puts("type ? or help to show all available commands");
@@ -201,7 +203,7 @@ int control_plane(void)
  *--------------------------------------------------------*/
 void PPP_ter(void)
 {
-	tPPP_MBX *mail = (tPPP_MBX *)malloc(sizeof(tPPP_MBX));
+	tPPP_MBX *mail = (tPPP_MBX *)rte_malloc(NULL,sizeof(tPPP_MBX),0);
 
     mail->refp[0] = CLI_QUIT;
 	
@@ -218,7 +220,7 @@ void PPP_bye(void)
     for(int i=0; i<MAX_USER; i++) { 
     	switch(ppp_ports[i].phase) {
     		case PPPOE_PHASE:
-				free(wan_mac);
+				rte_free(wan_mac);
             	rte_ring_free(rte_ring);
                 fclose(fp);
 				cmdline_stdin_exit(cl);
@@ -247,7 +249,7 @@ void PPP_bye(void)
 void PPP_int(void)
 {
     printf("pppoe client interupt!\n");
-	free(wan_mac);
+	rte_free(wan_mac);
     rte_ring_free(rte_ring);
     fclose(fp);
 	cmdline_stdin_exit(cl);
@@ -265,17 +267,11 @@ int pppdInit(void)
     
     //--------- default of all ports ----------
     for(int i=0; i<MAX_USER; i++) {
-		ppp_ports[i].enable = TRUE;
-		ppp_ports[i].query_cnt = 1;
 		ppp_ports[i].ppp_phase[0].state = S_INIT;
 		ppp_ports[i].ppp_phase[1].state = S_INIT;
-		ppp_ports[i].port = 0;
 		ppp_ports[i].user_num = i;
 		ppp_ports[i].vlan = i + 1;
-		
-		ppp_ports[i].imsg_cnt =
-		ppp_ports[i].err_imsg_cnt =
-		ppp_ports[i].omsg_cnt = 0;
+
 		ppp_ports[i].ipv4 = 0;
 		ppp_ports[i].ipv4_gw = 0;
 		ppp_ports[i].primary_dns = 0;
@@ -311,7 +307,7 @@ int ppp_init(void)
 	pppoe_header_t 		pppoe_header;
 	ppp_payload_t		ppp_payload;
 	ppp_lcp_header_t	ppp_lcp;
-	ppp_lcp_options_t	*ppp_lcp_options = (ppp_lcp_options_t *)malloc(40*sizeof(char));
+	ppp_lcp_options_t	*ppp_lcp_options = (ppp_lcp_options_t *)rte_malloc(NULL,40*sizeof(char),0);
 	
 	for(int i=0; i<MAX_USER; i++) {
 		ppp_ports[i].phase = PPPOE_PHASE;
@@ -417,7 +413,7 @@ int ppp_init(void)
 						#endif
 						RTE_LOG(INFO,EAL,"Session 0x%x connection disconnected.\n",rte_be_to_cpu_16(ppp_ports[session_index].session_id));
 						if ((--total_user) == 0 && signal_term == TRUE) {
-							free(wan_mac);
+							rte_free(wan_mac);
                             rte_ring_free(rte_ring);
                             fclose(fp);
 							cmdline_stdin_exit(cl);
@@ -479,7 +475,7 @@ int ppp_init(void)
 					default:
 						;
 				}
-				free(mail[i]);
+				rte_free(mail[i]);
 				break;
 			case IPC_EV_TYPE_REG:
 				if (mail[i]->refp[0] == LINK_DOWN) {
@@ -496,7 +492,7 @@ int ppp_init(void)
 						PPP_FSM(&(ppp_ports[i].ppp),&ppp_ports[i],E_UP);
 					}
 				}
-				free(mail[i]);
+				rte_free(mail[i]);
 				break;
 			default:
 		    	;
@@ -511,13 +507,13 @@ out:
 
 BOOL is_valid(char *token, char *next)
 {
-	for(int i=0; i<strlen(token); i++)	{
-		if (*token < 0x30 || (*token > 0x39 && *token < 0x41) || (*token > 0x5B && *token < 0x60) || *token > 0x7B)
-		return FALSE;
+	for(uint i=0; i<strlen(token); i++)	{
+		if (*(token+i) < 0x30 || (*(token+i) > 0x39 && *(token+i) < 0x41) || (*(token+i) > 0x5B && *(token+i) < 0x60) || *(token+i) > 0x7B)
+			return FALSE;
 	}
-	for(int i=0; i<strlen(next); i++)	{
-		if (*next < 0x30 || (*next > 0x39 && *next < 0x41) || (*next > 0x5B && *next < 0x60) || *next > 0x7B)
-		return FALSE;
+	for(uint i=0; i<strlen(next); i++)	{
+		if (*(next+i) < 0x30 || (*(next+i) > 0x39 && *(next+i) < 0x41) || (*(next+i) > 0x5B && *(next+i) < 0x60) || *(next+i) > 0x7B)
+			return FALSE;
 	}
 	return TRUE;
 }

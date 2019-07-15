@@ -15,6 +15,7 @@
 #include <rte_memory.h>
 #include <rte_eal.h>
 #include <rte_atomic.h>
+#include <rte_malloc.h>
 #include <rte_branch_prediction.h>
 #include <rte_launch.h>
 #include <rte_log.h>
@@ -96,7 +97,7 @@ static void cmd_quit_parsed(__attribute__((unused)) void *parsed_result,
 			    __attribute__((unused)) struct cmdline *cl,
 			    __attribute__((unused)) void *data)
 {
-	tPPP_MBX *mail = (tPPP_MBX *)malloc(sizeof(tPPP_MBX));
+	tPPP_MBX *mail = (tPPP_MBX *)rte_malloc(NULL,sizeof(tPPP_MBX),0);
 	cli_to_main_msg_t *msg = (cli_to_main_msg_t *)mail->refp;
 
     msg->type = CLI_QUIT;

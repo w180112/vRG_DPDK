@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.1] - 2019/07/12
+## [1.1] - 2019/07/15
 
 1. Add VLAN info in CLI info cmd
 2. Performance Enhancement

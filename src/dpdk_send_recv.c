@@ -2,6 +2,7 @@
 #include <inttypes.h>
 #include <rte_eal.h>
 #include <rte_ethdev.h>
+#include <rte_malloc.h>
 #include <rte_cycles.h>
 #include <rte_lcore.h>
 #include <rte_mbuf.h>
@@ -41,9 +42,9 @@ static const struct rte_eth_conf port_conf_default = {
 	.intr_conf = {
         .lsc = 1, /**< link status interrupt feature enabled */ },
 };
-extern void 		nat_icmp_learning(struct ether_hdr *eth_hdr, struct ipv4_hdr *ip_hdr, struct icmp_hdr *icmphdr, uint32_t *new_port_id, tPPP_PORT *port_ccb);
-extern void 		nat_udp_learning(struct ether_hdr *eth_hdr, struct ipv4_hdr *ip_hdr, struct udp_hdr *udphdr, uint32_t *new_port_id, tPPP_PORT *port_ccb);
-extern void 		nat_tcp_learning(struct ether_hdr *eth_hdr, struct ipv4_hdr *ip_hdr, struct tcp_hdr *tcphdr, uint32_t *new_port_id, tPPP_PORT *port_ccb);
+extern void 		nat_icmp_learning(struct ether_hdr *eth_hdr, struct ipv4_hdr *ip_hdr, struct icmp_hdr *icmphdr, uint32_t *new_port_id, addr_table_t addr_table[]);
+extern void 		nat_udp_learning(struct ether_hdr *eth_hdr, struct ipv4_hdr *ip_hdr, struct udp_hdr *udphdr, uint32_t *new_port_id, addr_table_t addr_table[]);
+extern void 		nat_tcp_learning(struct ether_hdr *eth_hdr, struct ipv4_hdr *ip_hdr, struct tcp_hdr *tcphdr, uint32_t *new_port_id, addr_table_t addr_table[]);
 extern uint16_t 	get_checksum(const void *const addr, const size_t bytes);
 extern STATUS 		PPP_FSM(struct rte_timer *ppp, tPPP_PORT *port_ccb, U16 event);
 int 				PPP_PORT_INIT(uint16_t port);
@@ -113,7 +114,7 @@ int ppp_recvd(void)
 	struct rte_mbuf 	*pkt[BURST_SIZE];
 	uint16_t 			ori_port_id, nb_rx;
 	ppp_payload_t 		*ppp_payload;
-	tPPP_MBX 			*mail = malloc(sizeof(tPPP_MBX)*32);
+	tPPP_MBX 			*mail = rte_malloc(NULL,sizeof(tPPP_MBX)*32,65536);
 	int 				i;
 	uint32_t 			icmp_new_cksum;
 	char 				*cur;
@@ -317,7 +318,7 @@ int control_plane_dequeue(tPPP_MBX **mail)
 		if (likely(burst_size == 0))
 			continue;
 		break;
-	}
+		}
 	return burst_size;
 }
 
@@ -356,7 +357,7 @@ int encapsulation_udp(void)
 			//single_pkt->ol_flags |= PKT_TX_IPV4 | PKT_TX_IP_CKSUM | PKT_TX_UDP_CKSUM;
 
 			udphdr = (struct udp_hdr *)(rte_pktmbuf_mtod(single_pkt, unsigned char *) + sizeof(struct ether_hdr) + sizeof(vlan_header_t) + sizeof(struct ipv4_hdr));
-			nat_udp_learning(eth_hdr,ip_hdr,udphdr,&new_port_id,&ppp_ports[user_index]);
+			nat_udp_learning(eth_hdr,ip_hdr,udphdr,&new_port_id,ppp_ports[user_index].addr_table);
 			ip_hdr->src_addr = ppp_ports[user_index].ipv4;
 			udphdr->src_port = rte_cpu_to_be_16(new_port_id);
 			ppp_ports[user_index].addr_table[new_port_id].is_alive = 10;
@@ -424,7 +425,7 @@ int encapsulation_tcp(void)
 			//single_pkt->ol_flags |= PKT_TX_IPV4 | PKT_TX_IP_CKSUM | PKT_TX_TCP_CKSUM;
 
 			tcphdr = (struct tcp_hdr *)(rte_pktmbuf_mtod(single_pkt, unsigned char *) + sizeof(struct ether_hdr) + sizeof(vlan_header_t) + sizeof(struct ipv4_hdr));
-			nat_tcp_learning(eth_hdr,ip_hdr,tcphdr,&new_port_id,&ppp_ports[user_index]);
+			nat_tcp_learning(eth_hdr,ip_hdr,tcphdr,&new_port_id,ppp_ports[user_index].addr_table);
 			ip_hdr->src_addr = ppp_ports[user_index].ipv4;
 			tcphdr->src_port = rte_cpu_to_be_16(new_port_id);
 			ppp_ports[user_index].addr_table[new_port_id].is_alive = 10;
@@ -526,7 +527,7 @@ int gateway(void)
 						uint32_t 			new_port_id;
 						uint32_t			icmp_new_cksum;
 
-						nat_icmp_learning(eth_hdr,ip_hdr,icmphdr,&new_port_id,&ppp_ports[user_index]);
+						nat_icmp_learning(eth_hdr,ip_hdr,icmphdr,&new_port_id,ppp_ports[user_index].addr_table);
 						ip_hdr->src_addr = ppp_ports[user_index].ipv4;
 						icmphdr->icmp_ident = rte_cpu_to_be_16(new_port_id);
 						ppp_ports[user_index].addr_table[new_port_id].is_alive = 10;
@@ -624,7 +625,7 @@ static int
 lsi_event_callback(uint16_t port_id, enum rte_eth_event_type type, void *param)
 {
 	struct rte_eth_link link;
-	tPPP_MBX			*mail = (tPPP_MBX *)malloc(sizeof(tPPP_MBX));
+	tPPP_MBX			*mail = (tPPP_MBX *)rte_malloc(NULL,sizeof(tPPP_MBX),2048);
 
 	RTE_SET_USED(param);
 
