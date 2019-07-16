@@ -180,7 +180,7 @@ int main(int argc, char **argv)
 	while(prompt == FALSE);
 	sleep(1);
 	puts("type ? or help to show all available commands");
-	cl = cmdline_stdin_new(ctx, "\npppoeclient> ");
+	cl = cmdline_stdin_new(ctx, "pppoeclient> ");
 	if (cl == NULL)
 		rte_exit(EXIT_FAILURE, "Cannot create cmdline instance\n");
 	cmdline_interact(cl);
@@ -293,9 +293,6 @@ int pppdInit(void)
  ***************************************************************/
 int ppp_init(void)
 {
-	//tIPC_PRIM			*ipc_prim;
-	//tPPP_MSG			imsg;
-	//tPPP_PORT			*ccb;
 	uint8_t 			total_user = MAX_USER;
 	tPPP_MBX			*mail[BURST_SIZE];
 	int 				cp;

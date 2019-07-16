@@ -156,15 +156,15 @@ typedef struct addr_table {
 typedef struct {
 	ppp_phase_t 		ppp_phase[2];
 	pppoe_phase_t		pppoe_phase;
-	int 				cp;	//cp is "control protocol", means we need to determine cp is LCP or NCP after parsing packet
+	uint8_t 			cp:1;	//cp is "control protocol", means we need to determine cp is LCP or NCP after parsing packet
+	uint8_t				phase:7;
 	uint16_t 			session_id;
 	uint16_t			user_num;
 	uint16_t 			vlan;
-	uint8_t				phase;
 
-	unsigned char 		src_mac[6];
-	unsigned char 		dst_mac[6];
-	unsigned char 		lan_mac[6];
+	unsigned char 		src_mac[ETHER_ADDR_LEN];
+	unsigned char 		dst_mac[ETHER_ADDR_LEN];
+	unsigned char 		lan_mac[ETHER_ADDR_LEN];
 
 	uint32_t    		ipv4;
 	uint32_t			ipv4_gw;

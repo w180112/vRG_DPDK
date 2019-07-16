@@ -611,7 +611,7 @@ STATUS build_config_request(unsigned char *buffer, tPPP_PORT *port_ccb, uint16_t
 	vlan_header->tci_union.tci_value = vlan_header->tci_union.tci_value;
 	#endif
 
-	/* build ppp protocol and lcp header. */
+	/* build ppp protocol and ppp header. */
  	pppoe_header->ver_type = VER_TYPE;
  	pppoe_header->code = 0;
  	/* We don't convert seesion id to little endian at first */
@@ -681,7 +681,6 @@ STATUS build_config_request(unsigned char *buffer, tPPP_PORT *port_ccb, uint16_t
 	RTE_LOG(INFO,EAL,"Session 0x%x config request built.\n", rte_cpu_to_be_16(port_ccb->session_id));
 	#ifdef _DP_DBG
  	puts("config request built.");
- 	//PRINT_MESSAGE(buffer,*mulen);
 	#endif
  	return TRUE;
 }
@@ -770,7 +769,6 @@ STATUS build_echo_reply(unsigned char* buffer, tPPP_PORT *port_ccb, uint16_t *mu
  	rte_memcpy(buffer+14+sizeof(vlan_header_t)+sizeof(pppoe_header_t)+sizeof(ppp_payload_t),ppp_lcp,sizeof(ppp_lcp_header_t));
  	rte_memcpy(buffer+14+sizeof(vlan_header_t)+sizeof(pppoe_header_t)+sizeof(ppp_payload_t)+sizeof(ppp_lcp_header_t),&(port_ccb->magic_num),4);
  	
- 	//puts("echo reply built.");
  	return TRUE;
 }
 
@@ -917,6 +915,16 @@ STATUS build_auth_request_pap(unsigned char* buffer, tPPP_PORT *port_ccb, uint16
  	return TRUE;
 }
 
+/**
+ * build_auth_ack_pap
+ *
+ * purpose: For Spirent test center, in pap, we will receive pap request packet.
+ * input: 	*buffer - packet buffer,
+ * 		    *port_ccb,
+ * 			*mulen - packet length
+ * output: 	TRUE/FALSE
+ * return: 	packet buffer
+ */
 STATUS build_auth_ack_pap(unsigned char *buffer, tPPP_PORT *port_ccb, uint16_t *mulen)
 {
 	ppp_lcp_header_t 		ppp_pap_header;
