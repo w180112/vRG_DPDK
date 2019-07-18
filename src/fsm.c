@@ -298,7 +298,7 @@ tPPP_STATE_TBL  ppp_fsm_tbl[2][121] = {
 	
 { S_OPENED, 		E_RECV_CONFIG_NAK_REJ,							S_REQUEST_SENT,		{ A_this_layer_down, A_send_config_request, 0 }},
 
-{ S_OPENED, 		E_RECV_TERMINATE_REQUEST,						S_STOPPING,			{ A_this_layer_down, A_zero_restart_count, A_send_terminate_ack, 0 }},
+{ S_OPENED, 		E_RECV_TERMINATE_REQUEST,						S_STOPPING,			{ A_this_layer_down, A_init_restart_termin, A_send_terminate_request, A_send_terminate_ack, 0 }},
 
 { S_OPENED, 		E_RECV_TERMINATE_ACK,							S_REQUEST_SENT,		{ A_this_layer_down, A_send_config_request, 0 }},
 
@@ -729,6 +729,7 @@ STATUS A_this_layer_down(__attribute__((unused)) struct rte_timer *tim, __attrib
         port_ccb->data_plane_start = FALSE;
     }
     else if (port_ccb->cp == 0) {
+        PPP_FSM(tim,port_ccb,E_CLOSE);
         #ifdef _DP_DBG
         printf("LCP layer is down\n");
         #endif

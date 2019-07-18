@@ -52,7 +52,7 @@ To remove the binary files
 1. We only support 3 LCP options, PAP authentication, Magic Number, Max receive unit so far.
 2. User can now set the default gateway address 192.168.2.1 to end device after PPPoE link established.
 3. The master branch contains NAT feature. If you don't want any NAT translation, switch to non_nat branch by typing git checkout non_nat.
-4. User can assign how many sessions will be established, we have test upto maximum 2 sessions so far.
+4. User can assign how many sessions will be established, the maximum support sessions are 4094, but we have test 2 sessions so far.
 5. In data plane, user 1 uses single tag vlan 1, user 2 uses single tag vlan 2. All data plane packets received at gateway should include the single tag vlan. If you don't need to run in VLAN environment, just switch to non_vlan branch.
 6. Each user's account and password are stored in ***pap-setup*** file.
 
@@ -61,7 +61,11 @@ To remove the binary files
 1. CentOS 7.6 and Ubuntu 18.04 KVM with Mellanox CX4 Lx and Intel X520 NIC SR-I/OV virtual function driver
 2. AMD Ryzen 2700, 32GB ram desktop / Dell R630, E5 2630v3, 32GB ram
 3. Successfully test control plane and data plane with CHT(Chunghwa Telecom Co., Ltd.) BRAS PPPoE server and Spirent test center
-4. Intel DPDK 18.11.2 and GCC compiler
+4. Intel DPDK 18.11.2 and GCC version 4.8.5 compiler
+
+## Example usage:
+
+![image](https://github.com/w180112/PPPoE_Client_DPDK/blob/master/topo.png)
 
 ## TODO:
 

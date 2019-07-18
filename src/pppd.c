@@ -108,7 +108,7 @@ int main(int argc, char **argv)
 				continue;
 			rte_eth_macaddr_get(0,(struct ether_addr *)ppp_ports[user_id].lan_mac);
 			user_id_length = strlen(token);
-			passwd_length = strlen(next);
+			passwd_length = strlen(next) - 1;
 			ppp_ports[user_id].user_id = (unsigned char *)rte_malloc(NULL,user_id_length+1,0);
 			ppp_ports[user_id].passwd = (unsigned char *)rte_malloc(NULL,passwd_length+1,0);
 			rte_memcpy(ppp_ports[user_id].user_id,token,user_id_length);
@@ -117,6 +117,8 @@ int main(int argc, char **argv)
 			ppp_ports[user_id].passwd[passwd_length] = '\0';
 			user_id++;
     	}
+		if (user_id < MAX_USER)
+			rte_exit(EXIT_FAILURE, "User account and password not enough.");
     	fclose(account);
 	}
 	wan_mac = (unsigned char *)rte_malloc(NULL,ETH_ALEN,0);
@@ -142,8 +144,10 @@ int main(int argc, char **argv)
 			return -1;
 		}
 		for(int i=0; !vendor[i].vendor; i++) {
-			if (strcmp((const char *)info.driver,vendor[i].vendor) == 0)
+			if (strcmp((const char *)info.driver,vendor[i].vendor) == 0) {
 				vendor_id = vendor[i].vendor_id;
+				break;
+			}
 		}
 		#ifdef _DP_DBG
 		printf("Port %i driver: %s (ver: %s)\n", portid, info.driver, info.version);
@@ -180,7 +184,7 @@ int main(int argc, char **argv)
 	while(prompt == FALSE);
 	sleep(1);
 	puts("type ? or help to show all available commands");
-	cl = cmdline_stdin_new(ctx, "pppoeclient> ");
+	cl = cmdline_stdin_new(ctx, "\npppoeclient> ");
 	if (cl == NULL)
 		rte_exit(EXIT_FAILURE, "Cannot create cmdline instance\n");
 	cmdline_interact(cl);
@@ -222,6 +226,10 @@ void PPP_bye(void)
     		case PPPOE_PHASE:
 				rte_free(wan_mac);
             	rte_ring_free(rte_ring);
+				rte_ring_free(decap_tcp);
+				rte_ring_free(decap_udp);
+				rte_ring_free(encap_tcp);
+				rte_ring_free(encap_udp);
                 fclose(fp);
 				cmdline_stdin_exit(cl);
 				exit(0);
@@ -251,6 +259,10 @@ void PPP_int(void)
     printf("pppoe client interupt!\n");
 	rte_free(wan_mac);
     rte_ring_free(rte_ring);
+	rte_ring_free(decap_tcp);
+	rte_ring_free(decap_udp);
+	rte_ring_free(encap_tcp);
+	rte_ring_free(encap_udp);
     fclose(fp);
 	cmdline_stdin_exit(cl);
 	printf("bye!\n");
@@ -271,7 +283,7 @@ int pppdInit(void)
 		ppp_ports[i].ppp_phase[1].state = S_INIT;
 		ppp_ports[i].user_num = i;
 		ppp_ports[i].vlan = i + 1;
-
+		
 		ppp_ports[i].ipv4 = 0;
 		ppp_ports[i].ipv4_gw = 0;
 		ppp_ports[i].primary_dns = 0;
@@ -303,8 +315,8 @@ int ppp_init(void)
 	vlan_header_t		vlan_header;
 	pppoe_header_t 		pppoe_header;
 	ppp_payload_t		ppp_payload;
-	ppp_lcp_header_t	ppp_lcp;
-	ppp_lcp_options_t	*ppp_lcp_options = (ppp_lcp_options_t *)rte_malloc(NULL,40*sizeof(char),0);
+	ppp_header_t		ppp_lcp;
+	ppp_options_t		*ppp_options = (ppp_options_t *)rte_malloc(NULL,40*sizeof(char),0);
 	
 	for(int i=0; i<MAX_USER; i++) {
 		ppp_ports[i].phase = PPPOE_PHASE;
@@ -337,7 +349,7 @@ int ppp_init(void)
 					continue;
 				}
 #pragma GCC diagnostic pop   // require GCC 4.6
-				if (PPP_decode_frame(mail[i],&eth_hdr,&vlan_header,&pppoe_header,&ppp_payload,&ppp_lcp,ppp_lcp_options,&event,&(ppp_ports[session_index].ppp),&ppp_ports[session_index]) == FALSE)
+				if (PPP_decode_frame(mail[i],&eth_hdr,&vlan_header,&pppoe_header,&ppp_payload,&ppp_lcp,ppp_options,&event,&(ppp_ports[session_index].ppp),&ppp_ports[session_index]) == FALSE)					
 					continue;
 				if (vlan_header.next_proto == rte_cpu_to_be_16(ETH_P_PPP_DIS)) {
 					switch(pppoe_header.code) {
@@ -381,7 +393,7 @@ int ppp_init(void)
     						ppp_ports[session_index].ppp_phase[i].pppoe_header = &pppoe_header;
     						ppp_ports[session_index].ppp_phase[i].ppp_payload = &ppp_payload;
     						ppp_ports[session_index].ppp_phase[i].ppp_lcp = &ppp_lcp;
-    						ppp_ports[session_index].ppp_phase[i].ppp_lcp_options = ppp_lcp_options;
+    						ppp_ports[session_index].ppp_phase[i].ppp_options = ppp_options;
    						}
     					PPP_FSM(&(ppp_ports[session_index].ppp),&ppp_ports[session_index],E_OPEN);
 						continue;
@@ -401,10 +413,7 @@ int ppp_init(void)
 						ppp_ports[session_index].pppoe_phase.pppoe_header = &pppoe_header;
 						ppp_ports[session_index].pppoe_phase.pppoe_header_tag = (pppoe_header_tag_t *)((pppoe_header_t *)((struct ether_hdr *)mail[i]->refp + 1) + 1);
 						ppp_ports[session_index].pppoe_phase.max_retransmit = MAX_RETRAN;
-						if (pppoe_header.length == 0) {
-							if (build_padt(&(ppp_ports[session_index])) == FALSE)
-								goto out;
-						}
+						
 						#ifdef _DP_DBG
 						printf("Session 0x%x connection disconnected.\n", rte_be_to_cpu_16(ppp_ports[session_index].session_id));
 						#endif
@@ -412,6 +421,10 @@ int ppp_init(void)
 						if ((--total_user) == 0 && signal_term == TRUE) {
 							rte_free(wan_mac);
                             rte_ring_free(rte_ring);
+							rte_ring_free(decap_tcp);
+							rte_ring_free(decap_udp);
+							rte_ring_free(encap_tcp);
+							rte_ring_free(encap_udp);
                             fclose(fp);
 							cmdline_stdin_exit(cl);
 							exit(0);
@@ -428,8 +441,8 @@ int ppp_init(void)
 						continue;
 					}
 				}
-				ppp_ports[session_index].ppp_phase[0].ppp_lcp_options = ppp_lcp_options;
-				ppp_ports[session_index].ppp_phase[1].ppp_lcp_options = ppp_lcp_options;
+				ppp_ports[session_index].ppp_phase[0].ppp_options = ppp_options;
+				ppp_ports[session_index].ppp_phase[1].ppp_options = ppp_options;
 				if (ppp_payload.ppp_protocol == rte_cpu_to_be_16(AUTH_PROTOCOL)) {
 					if (ppp_lcp.code == AUTH_NAK)
 						goto out;

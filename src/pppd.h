@@ -101,11 +101,11 @@ typedef struct pppoe_header_tag {
   	uint8_t value[0];
 } pppoe_header_tag_t;
 
-typedef struct ppp_lcp_header {
+typedef struct ppp_header {
 	uint8_t code;
 	uint8_t identifier;
 	uint16_t length;
-}ppp_lcp_header_t;
+}ppp_header_t;
 
 typedef struct ppp_pap_ack_nak {
 	uint8_t msg_length;
@@ -116,11 +116,11 @@ typedef struct ppp_payload {
 	uint16_t ppp_protocol;
 }ppp_payload_t;
 
-typedef struct ppp_lcp_options {
+typedef struct ppp_options {
 	uint8_t type;
 	uint8_t length;
 	uint8_t val[0];
-}ppp_lcp_options_t;
+}ppp_options_t;
 
 typedef struct pppoe_phase {
 	struct ether_hdr 	*eth_hdr;
@@ -137,8 +137,8 @@ typedef struct ppp_phase {
 	vlan_header_t		*vlan_header;
 	pppoe_header_t 		*pppoe_header;
 	ppp_payload_t 		*ppp_payload;
-	ppp_lcp_header_t 	*ppp_lcp;
-	ppp_lcp_options_t 	*ppp_lcp_options;
+	ppp_header_t 		*ppp_lcp;
+	ppp_options_t 		*ppp_options;
 	uint8_t 			max_retransmit;
 	uint8_t				timer_counter;
 }ppp_phase_t;
@@ -148,8 +148,8 @@ typedef struct addr_table {
 	uint32_t		src_ip;
 	uint32_t		dst_ip;
 	uint16_t		port_id;
-	uint8_t 		is_fill:1;
-	uint8_t			is_alive:7;
+	uint16_t 		is_fill:1;
+	uint16_t		is_alive:15;
 }__rte_cache_aligned addr_table_t;
 
 //========= The structure of port ===========

@@ -18,91 +18,12 @@
 #include <string.h>
 #include <stdio.h>
 #include <assert.h>
+#include <rte_atomic.h>
+#include <rte_memcpy.h>
 #include "pppd.h"
 
-void 		nat_icmp_learning(struct ether_hdr *eth_hdr, struct ipv4_hdr *ip_hdr, struct icmp_hdr *icmphdr, uint32_t *new_port_id, addr_table_t addr_table[]);
-void 		nat_udp_learning(struct ether_hdr *eth_hdr, struct ipv4_hdr *ip_hdr, struct udp_hdr *udphdr, uint32_t *new_port_id, addr_table_t addr_table[]);
-void 		nat_tcp_learning(struct ether_hdr *eth_hdr, struct ipv4_hdr *ip_hdr, struct tcp_hdr *tcphdr, uint32_t *new_port_id, addr_table_t addr_table[]);
 void 		nat_rule_timer(__attribute__((unused)) struct rte_timer *tim, tPPP_PORT ppp_ports[]);
 uint16_t 	get_checksum(const void *const addr, const size_t bytes);
-
-void nat_icmp_learning(struct ether_hdr *eth_hdr, struct ipv4_hdr *ip_hdr, struct icmp_hdr *icmphdr, uint32_t *new_port_id, addr_table_t addr_table[])
-{
-	*new_port_id = ntohs(icmphdr->icmp_ident + (ip_hdr->src_addr) % 10000);
-	if (*new_port_id > 0xffff)
-		*new_port_id = *new_port_id / 0xffff + 1000;
-	for(int j=1000,shift=0; j<65535; j++) {
-		if (addr_table[*new_port_id].is_fill == 1) {
-			if (addr_table[*new_port_id].src_ip == ip_hdr->src_addr && addr_table[*new_port_id].dst_ip == ip_hdr->dst_addr )
-				return;
-			shift++;
-			(*new_port_id)++;
-		}
-		else {
-			addr_table[*new_port_id].is_fill = 1;
-			break;
-		}
-	}
-	#ifdef _DP_DBG
-	puts("learning new icmp nat rule");
-	#endif
-	rte_memcpy(addr_table[*new_port_id].mac_addr,eth_hdr->s_addr.addr_bytes,6);
-	addr_table[*new_port_id].src_ip = ip_hdr->src_addr;
-	addr_table[*new_port_id].dst_ip = ip_hdr->dst_addr; 
-	addr_table[*new_port_id].port_id = icmphdr->icmp_ident;
-}
-
-void nat_udp_learning(struct ether_hdr *eth_hdr, struct ipv4_hdr *ip_hdr, struct udp_hdr *udphdr, uint32_t *new_port_id, addr_table_t addr_table[])
-{
-	*new_port_id = ntohs(udphdr->src_port + (ip_hdr->src_addr) % 10000);
-	if (*new_port_id > 0xffff)
-		*new_port_id = *new_port_id / 0xffff + 1000;
-	for(int j=1000,shift=0; j<65535; j++) {
-		if (addr_table[*new_port_id].is_fill == 1) {
-			if (addr_table[*new_port_id].src_ip == ip_hdr->src_addr && addr_table[*new_port_id].dst_ip == ip_hdr->dst_addr)
-				return;
-			shift++;
-			(*new_port_id)++;
-		}
-		else {
-			addr_table[*new_port_id].is_fill = 1;
-			break;
-		}
-	}
-	#ifdef _DP_DBG
-	puts("learning new udp nat rule");
-	#endif
-	rte_memcpy(addr_table[*new_port_id].mac_addr,eth_hdr->s_addr.addr_bytes,6);
-	addr_table[*new_port_id].src_ip = ip_hdr->src_addr;
-	addr_table[*new_port_id].dst_ip = ip_hdr->dst_addr; 
-	addr_table[*new_port_id].port_id = udphdr->src_port;
-}
-
-void nat_tcp_learning(struct ether_hdr *eth_hdr, struct ipv4_hdr *ip_hdr, struct tcp_hdr *tcphdr, uint32_t *new_port_id, addr_table_t addr_table[])
-{
-	*new_port_id = ntohs(tcphdr->src_port + (ip_hdr->src_addr) % 10000);
-	if (*new_port_id > 0xffff)
-		*new_port_id = *new_port_id / 0xffff + 1000;
-	for(int j=1000,shift=0; j<65535; j++) {
-		if (addr_table[*new_port_id].is_fill == 1) {
-			if (addr_table[*new_port_id].src_ip == ip_hdr->src_addr && addr_table[*new_port_id].dst_ip == ip_hdr->dst_addr)
-				return;
-			shift++;
-			(*new_port_id)++;
-		}
-		else {
-			addr_table[*new_port_id].is_fill = 1;
-			break;
-		}
-	}
-	#ifdef _DP_DBG
-	puts("learning new tcp nat rule");
-	#endif
-	rte_memcpy(addr_table[*new_port_id].mac_addr,eth_hdr->s_addr.addr_bytes,6);
-	addr_table[*new_port_id].src_ip = ip_hdr->src_addr;
-	addr_table[*new_port_id].dst_ip = ip_hdr->dst_addr; 
-	addr_table[*new_port_id].port_id = tcphdr->src_port;
-}
 
 #pragma GCC diagnostic push  // require GCC 4.6
 #pragma GCC diagnostic ignored "-Wcast-qual"
@@ -132,14 +53,14 @@ uint16_t get_checksum(const void *const addr, const size_t bytes)
 
 void nat_rule_timer(__attribute__((unused)) struct rte_timer *tim, tPPP_PORT ppp_ports[])
 {
-	uint8_t user_id;
+	uint16_t user_id;
 	for(user_id=0; user_id<MAX_USER; user_id++) {
 		for(int i=0; i<65535; i++) {
 			if (ppp_ports[user_id].addr_table[i].is_fill == 1) {
 				if (ppp_ports[user_id].addr_table[i].is_alive > 0)
 					ppp_ports[user_id].addr_table[i].is_alive--;
 				else
-					memset(&(ppp_ports[user_id].addr_table[i]),0,sizeof(addr_table_t));
+					ppp_ports[user_id].addr_table[i].is_fill = 0;
 			}
 		}
 	}

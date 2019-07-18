@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include <rte_memcpy.h>
 #include "pppoeclient.h"
+#include "nat.h"
 
 #define RX_RING_SIZE 128
 
@@ -42,9 +43,6 @@ static const struct rte_eth_conf port_conf_default = {
 	.intr_conf = {
         .lsc = 1, /**< link status interrupt feature enabled */ },
 };
-extern void 		nat_icmp_learning(struct ether_hdr *eth_hdr, struct ipv4_hdr *ip_hdr, struct icmp_hdr *icmphdr, uint32_t *new_port_id, addr_table_t addr_table[]);
-extern void 		nat_udp_learning(struct ether_hdr *eth_hdr, struct ipv4_hdr *ip_hdr, struct udp_hdr *udphdr, uint32_t *new_port_id, addr_table_t addr_table[]);
-extern void 		nat_tcp_learning(struct ether_hdr *eth_hdr, struct ipv4_hdr *ip_hdr, struct tcp_hdr *tcphdr, uint32_t *new_port_id, addr_table_t addr_table[]);
 extern uint16_t 	get_checksum(const void *const addr, const size_t bytes);
 extern STATUS 		PPP_FSM(struct rte_timer *ppp, tPPP_PORT *port_ccb, U16 event);
 int 				PPP_PORT_INIT(uint16_t port);
