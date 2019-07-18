@@ -3,7 +3,7 @@
 [![BSD license](https://img.shields.io/badge/License-BSD-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 [![Build Status](https://travis-ci.org/w180112/PPPoE_Client_DPDK.svg?branch=master)](https://travis-ci.org/w180112/PPPoE_Client_DPDK)
 
-In nowadays high speed virtualized nerwork, tranditional network mechanism has no longer satisfied our requirement. In home network virtualization many data plane features, e.g.: NAT and PPPoE, will be de-coupled to cloud NFV infrastructure. However, the perfoemance of data plane is always the main point of our concern. Therefore, we design a system that make PPPoE client can be used in virtualization and high speed network.
+In nowadays high speed virtualized nerwork, tranditional network mechanism has no longer satisfied our requirement. In home network virtualization many data plane features, e.g.: NAT and PPPoE, will be de-coupled to cloud NFV infrastructure. However, the perfoemance of data plane is always the main point of our concern. Therefore, we design a system that make PPPoE client and NAT can be used in virtualization and high speed network.
 
 ## System required:
 
@@ -39,7 +39,7 @@ e.g.
 
 	# ./src/pppoeclient -l 0-8 -n 4
 
-In this project we need 2 DPDK ethernet ports, the first is used to receive packets from/send packets to LAN port and the second is used to receive packets from/send packets to WAN port.
+In this project 2 DPDK ethernet ports are needed, the first is used to receive packets from/send packets to LAN port and the second is used to receive packets from/send packets to WAN port.
 
 After Sessions established, there is a CLI. User can input "?" command to show available commands.
 
@@ -47,12 +47,14 @@ To remove the binary files
 
 	# ./uninstall.sh
 
+For hugepages, NIC binding and other system configuration, please refer to Intel DPDK documentation: [DPDK doc](http://doc.dpdk.org/guides/linux_gsg/)
+
 ## Note:
 
-1. We only support 3 LCP options, PAP authentication, Magic Number, Max receive unit so far.
+1. The vRG system only support 3 LCP options, PAP authentication, Magic Number, Max receive unit so far.
 2. User can now set the default gateway address 192.168.2.1 to end device after PPPoE link established.
 3. The master branch contains NAT feature. If you don't want any NAT translation, switch to non_nat branch by typing git checkout non_nat.
-4. User can assign how many sessions will be established, the maximum support sessions are 4094, but we have test 2 sessions so far.
+4. User can assign how many sessions will be established, the maximum support sessions are 4094, but only 2 sessions have been tested so far.
 5. In data plane, user 1 uses single tag vlan 1, user 2 uses single tag vlan 2. All data plane packets received at gateway should include the single tag vlan. If you don't need to run in VLAN environment, just switch to non_vlan branch.
 6. Each user's account and password are stored in ***pap-setup*** file.
 
