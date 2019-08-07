@@ -31,6 +31,7 @@ extern struct rte_mempool 		*mbuf_pool;
 extern struct rte_ring 			*rte_ring;
 extern struct rte_ring 			*decap_udp, *decap_tcp, *encap_udp, *encap_tcp;
 extern uint8_t					cp_recv_prod, cp_recv_cums;
+extern uint8_t					vendor_id;
 
 static uint16_t 				nb_rxd = RX_RING_SIZE;
 static uint16_t 				nb_txd = TX_RING_SIZE;
@@ -64,6 +65,8 @@ int PPP_PORT_INIT(uint16_t port)
 	int retval;
 	uint16_t q;
 
+	if (vendor_id > 2)
+		port_conf_default.intr_conf.lsc = 0;
 	if (!rte_eth_dev_is_valid_port(port))
 		return -1;
 	rte_eth_dev_info_get(port, &dev_info);

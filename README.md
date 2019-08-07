@@ -1,9 +1,9 @@
-# PPPoE client Implementation using DPDK
+# PPPoE client and NAT implementation using DPDK
 
 [![BSD license](https://img.shields.io/badge/License-BSD-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 [![Build Status](https://travis-ci.org/w180112/PPPoE_Client_DPDK.svg?branch=master)](https://travis-ci.org/w180112/PPPoE_Client_DPDK)
 
-In nowadays high speed virtualized nerwork, tranditional network mechanism has no longer satisfied our requirement. In home network virtualization many data plane features, e.g.: NAT and PPPoE, will be de-coupled to cloud NFV infrastructure. However, the perfoemance of data plane is always the main point of our concern. Therefore, we design a system that make PPPoE client and NAT can be used in virtualization and high speed network.
+In nowadays high speed virtualized nerwork, tranditional network mechanism has no longer satisfied our requirement. In home network virtualization many data plane features, e.g.: NAT and PPPoE, will be de-coupled to cloud NFV infrastructure. However, the perfoemance of data plane is always the main point of our concern. Therefore, a vRG system that make PPPoE client and NAT can be used in virtualization is purposed. By the powerful DPDK, all packets can be forwarded in high speed network.
 
 ## System required:
 
@@ -55,14 +55,14 @@ For hugepages, NIC binding and other system configuration, please refer to Intel
 2. User can now set the default gateway address 192.168.2.1 to end device after PPPoE link established.
 3. The master branch contains NAT feature. If you don't want any NAT translation, switch to non_nat branch by typing git checkout non_nat.
 4. User can assign how many sessions will be established, the maximum support sessions are 4094, but only 2 sessions have been tested so far.
-5. In data plane, user 1 uses single tag vlan 1, user 2 uses single tag vlan 2. All data plane packets received at gateway should include the single tag vlan. If you don't need to run in VLAN environment, just switch to non_vlan branch.
+5. In data plane, user 1 uses single tag vlan 1, user 2 uses single tag vlan 2. All data plane packets received at gateway should include a single tag vlan. If you don't need to run in VLAN environment, just switch to non_vlan branch.
 6. Each user's account and password are stored in ***pap-setup*** file.
 
 ## Test environment:
 
 1. CentOS 7.6 and Ubuntu 18.04 KVM with Mellanox CX4 Lx and Intel X520 NIC SR-I/OV virtual function driver
 2. AMD Ryzen 2700, 32GB ram desktop / Dell R630, E5 2630v3, 32GB ram
-3. Successfully test control plane and data plane with CHT(Chunghwa Telecom Co., Ltd.) BRAS PPPoE server and Spirent test center
+3. Successfully test control plane and data plane with CHT(Chunghwa Telecom Co., Ltd.) BRAS, open source RP-PPPoE and Spirent test center PPPoE server
 4. Intel DPDK 18.11.2 and GCC version 4.8.5 compiler
 
 ## Example usage:

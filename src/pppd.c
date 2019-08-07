@@ -64,6 +64,7 @@ nic_vendor_t vendor[] = {
 	{ "net_mlx5", MLX5 },
 	{ "net_ixgbe", IXGBE },
 	{ "net_vmxnet3", VMXNET3 },
+	{ "net_ixgbevf", IXGBEVF },
 	{ NULL, 0 }
 };
 
@@ -521,7 +522,7 @@ BOOL is_valid(char *token, char *next)
 		if (*(token+i) < 0x30 || (*(token+i) > 0x39 && *(token+i) < 0x41) || (*(token+i) > 0x5B && *(token+i) < 0x60) || *(token+i) > 0x7B)
 			return FALSE;
 	}
-	for(uint i=0; i<strlen(next); i++)	{
+	for(uint i=0; i<strlen(next)-1; i++)	{
 		if (*(next+i) < 0x30 || (*(next+i) > 0x39 && *(next+i) < 0x41) || (*(next+i) > 0x5B && *(next+i) < 0x60) || *(next+i) > 0x7B)
 			return FALSE;
 	}

@@ -35,6 +35,7 @@
 #define MLX5					1
 #define IXGBE					2
 #define VMXNET3					3
+#define IXGBEVF					4
 
 typedef struct {
 	U8		subt;
