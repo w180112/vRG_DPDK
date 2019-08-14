@@ -36,7 +36,7 @@ extern uint8_t					vendor_id;
 static uint16_t 				nb_rxd = RX_RING_SIZE;
 static uint16_t 				nb_txd = TX_RING_SIZE;
 
-static const struct rte_eth_conf port_conf_default = {
+static struct rte_eth_conf port_conf_default = {
 	.rxmode = { .max_rx_pkt_len = ETHER_MAX_LEN, }, 
 	.txmode = { .offloads = DEV_TX_OFFLOAD_IPV4_CKSUM | 
 							DEV_TX_OFFLOAD_UDP_CKSUM | 
