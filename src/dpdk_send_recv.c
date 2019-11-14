@@ -493,7 +493,7 @@ int gateway(void)
 				rte_pktmbuf_free(single_pkt);
 				continue;
 			}
-			rte_rmb()
+			rte_rmb();
 			vlan_header = (vlan_header_t *)(eth_hdr + 1);
 			user_index = (rte_be_to_cpu_16(vlan_header->tci_union.tci_value) & 0xFFF) - 1;
 			if (unlikely(ppp_ports[user_index].data_plane_start == FALSE)) {
