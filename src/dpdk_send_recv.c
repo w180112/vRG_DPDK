@@ -479,7 +479,7 @@ int gateway(void)
 
 	rte_eth_macaddr_get(0,(struct ether_addr *)mac_addr);
 	while(ppp_ports[0].data_plane_start == FALSE)
-		usleep(1000);
+		rte_pause();
 	for(;;) {
 		nb_rx = rte_eth_rx_burst(0,0,pkt,BURST_SIZE);
 		if (nb_rx == 0)
@@ -493,8 +493,13 @@ int gateway(void)
 				rte_pktmbuf_free(single_pkt);
 				continue;
 			}
+			rte_rmb()
 			vlan_header = (vlan_header_t *)(eth_hdr + 1);
 			user_index = (rte_be_to_cpu_16(vlan_header->tci_union.tci_value) & 0xFFF) - 1;
+			if (unlikely(ppp_ports[user_index].data_plane_start == FALSE)) {
+				rte_pktmbuf_free(single_pkt);
+				continue;
+			}
 			if (unlikely(vlan_header->next_proto == rte_cpu_to_be_16(FRAME_TYPE_ARP))) { 
 				/* We only reply arp request to us */
 				rte_memcpy(eth_hdr->d_addr.addr_bytes,eth_hdr->s_addr.addr_bytes,ETH_ALEN);
