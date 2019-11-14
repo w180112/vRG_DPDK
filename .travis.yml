@@ -15,8 +15,4 @@ before_install:
   - sudo apt-get install -y libnuma-dev
   - sudo apt-get install -y linux-modules-4.15.0-1028-gcp linux-headers-$(uname -r)
 
-deploy:
-  provider: script
-  script: bash boot.sh
-  on:
-    branch: master
+script: ./boot.sh || travis_terminate 1;
