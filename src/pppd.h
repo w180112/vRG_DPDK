@@ -163,9 +163,9 @@ typedef struct {
 	uint16_t			user_num;
 	uint16_t 			vlan;
 
-	unsigned char 		src_mac[ETHER_ADDR_LEN];
-	unsigned char 		dst_mac[ETHER_ADDR_LEN];
-	unsigned char 		lan_mac[ETHER_ADDR_LEN];
+	unsigned char 		src_mac[RTE_ETHER_ADDR_LEN];
+	unsigned char 		dst_mac[RTE_ETHER_ADDR_LEN];
+	unsigned char 		lan_mac[RTE_ETHER_ADDR_LEN];
 
 	uint32_t    		ipv4;
 	uint32_t			ipv4_gw;

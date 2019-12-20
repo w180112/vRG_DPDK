@@ -107,7 +107,7 @@ int main(int argc, char **argv)
 				continue;
 			if (!is_valid(token,next))
 				continue;
-			rte_eth_macaddr_get(0,(struct ether_addr *)ppp_ports[user_id].lan_mac);
+			rte_eth_macaddr_get(0,(struct rte_ether_addr *)ppp_ports[user_id].lan_mac);
 			user_id_length = strlen(token);
 			passwd_length = strlen(next) - 1;
 			ppp_ports[user_id].user_id = (unsigned char *)rte_malloc(NULL,user_id_length+1,0);
@@ -123,7 +123,7 @@ int main(int argc, char **argv)
     	fclose(account);
 	}
 	wan_mac = (unsigned char *)rte_malloc(NULL,ETH_ALEN,0);
-	rte_eth_macaddr_get(1,(struct ether_addr *)wan_mac);
+	rte_eth_macaddr_get(1,(struct rte_ether_addr *)wan_mac);
 
 	/* Creates a new mempool in memory to hold the mbufs. */
 	mbuf_pool = rte_pktmbuf_pool_create("MBUF_POOL", NUM_MBUFS,

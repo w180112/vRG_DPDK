@@ -477,7 +477,7 @@ int gateway(void)
 	uint16_t 			nb_tx, nb_rx, user_index;
 	uint32_t			lan_ip = rte_cpu_to_be_32(0xc0a80201); //192.168.2.1
 
-	rte_eth_macaddr_get(0,(struct ether_addr *)mac_addr);
+	rte_eth_macaddr_get(0,(struct rte_ether_addr *)mac_addr);
 	while(ppp_ports[0].data_plane_start == FALSE)
 		rte_pause();
 	for(;;) {
