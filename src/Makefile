@@ -5,7 +5,7 @@
 ######################################
 # Set variable
 ######################################
-LDLIBS += -L./lib/com_util -lcom_util
+LDLIBS += -L../lib/com_util -lcom_util
 APP = pppoeclient
 
 # all source are stored in SRCS-y
@@ -19,11 +19,11 @@ $(error "Please define RTE_SDK environment variable")
 endif
 
 # Default target, can be overridden by command line or environment
-RTE_TARGET ?= x86_64-native-linuxapp-gcc
+RTE_TARGET ?= x86_64-native-linux-gcc
 
 include $(RTE_SDK)/mk/rte.vars.mk
 
-INCLUDE += -I. -I./includes/com_util -I$(RTE_SDK)/lib/librte_eal/common -I./lib/libcli
+INCLUDE += -I. -I../includes/com_util -I$(RTE_SDK)/lib/librte_eal/common
 CFLAGS += $(INCLUDE) -Wall -fPIC -g -std=c99 -D_XOPEN_SOURCE=700 -D_BSD_SOURCE #-D_DP_DBG
 
 CFLAGS += -O3

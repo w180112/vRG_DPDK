@@ -310,7 +310,7 @@ int ppp_init(void)
 	uint16_t			event, session_index = 0;
 	uint16_t			burst_size;
 	uint16_t			recv_type;
-	struct ether_hdr 	eth_hdr;
+	struct rte_ether_hdr eth_hdr;
 	vlan_header_t		vlan_header;
 	pppoe_header_t 		pppoe_header;
 	ppp_payload_t		ppp_payload;
@@ -338,7 +338,7 @@ int ppp_init(void)
 			case IPC_EV_TYPE_DRV:
 #pragma GCC diagnostic push  // require GCC 4.6
 #pragma GCC diagnostic ignored "-Wstrict-aliasing"
-				session_index = ((vlan_header_t *)(((struct ether_hdr *)mail[i]->refp) + 1))->tci_union.tci_value;
+				session_index = ((vlan_header_t *)(((struct rte_ether_hdr *)mail[i]->refp) + 1))->tci_union.tci_value;
 				session_index = rte_be_to_cpu_16(session_index);
 				session_index = (session_index & 0xFFF) - 1;
 				if (session_index >= MAX_USER) {
@@ -372,7 +372,7 @@ int ppp_init(void)
     					ppp_ports[session_index].pppoe_phase.eth_hdr = &eth_hdr;
 						ppp_ports[session_index].pppoe_phase.vlan_header = &vlan_header;
 						ppp_ports[session_index].pppoe_phase.pppoe_header = &pppoe_header;
-						ppp_ports[session_index].pppoe_phase.pppoe_header_tag = (pppoe_header_tag_t *)((pppoe_header_t *)((vlan_header_t *)((struct ether_hdr *)mail[i]->refp + 1) + 1) + 1);
+						ppp_ports[session_index].pppoe_phase.pppoe_header_tag = (pppoe_header_tag_t *)((pppoe_header_t *)((vlan_header_t *)((struct rte_ether_hdr *)mail[i]->refp + 1) + 1) + 1);
 						ppp_ports[session_index].pppoe_phase.max_retransmit = MAX_RETRAN;
 						ppp_ports[session_index].pppoe_phase.timer_counter = 0;
 						rte_timer_stop(&(ppp_ports[session_index].pppoe));
@@ -410,7 +410,7 @@ int ppp_init(void)
     					}
     					ppp_ports[session_index].pppoe_phase.eth_hdr = &eth_hdr;
 						ppp_ports[session_index].pppoe_phase.pppoe_header = &pppoe_header;
-						ppp_ports[session_index].pppoe_phase.pppoe_header_tag = (pppoe_header_tag_t *)((pppoe_header_t *)((struct ether_hdr *)mail[i]->refp + 1) + 1);
+						ppp_ports[session_index].pppoe_phase.pppoe_header_tag = (pppoe_header_tag_t *)((pppoe_header_t *)((struct rte_ether_hdr *)mail[i]->refp + 1) + 1);
 						ppp_ports[session_index].pppoe_phase.max_retransmit = MAX_RETRAN;
 						
 						#ifdef _DP_DBG

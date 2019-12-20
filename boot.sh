@@ -10,7 +10,7 @@ get_script_dir () {
 }
 export RTE_SDK=$(get_script_dir)/lib/dpdk-19.11
 export RTE_TARGET=x86_64-native-linux-gcc
-cd ./lib/dpdk-19.11 && make install T=x86_64-native-linux-gcc
-cd ..
+cd ./lib/dpdk-19.11 && make install T=x86_64-native-linux-gcc -j 10
+cd ../../src
 make
 cd ..

@@ -13,7 +13,7 @@
 #include "fsm.h"
 #include <rte_timer.h>
 
-extern STATUS PPP_decode_frame(tPPP_MBX *mail, struct ether_hdr *eth_hdr, vlan_header_t *vlan_header, pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp_header_t *ppp_lcp, ppp_options_t *ppp_options, uint16_t *event, struct rte_timer *tim, tPPP_PORT *port_ccb);
+extern STATUS PPP_decode_frame(tPPP_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_header_t *vlan_header, pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp_header_t *ppp_lcp, ppp_options_t *ppp_options, uint16_t *event, struct rte_timer *tim, tPPP_PORT *port_ccb);
 extern STATUS decode_ipcp(pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp_header_t *ppp_lcp, ppp_options_t *ppp_options, uint16_t total_lcp_length, uint16_t *event, struct rte_timer *tim, tPPP_PORT *port_ccb);
 
 extern void   DECODE_OBJID(U8 *vp, U8 vlen, U32 *oids, U8 *oids_len);

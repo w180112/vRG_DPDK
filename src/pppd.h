@@ -124,7 +124,7 @@ typedef struct ppp_options {
 }ppp_options_t;
 
 typedef struct pppoe_phase {
-	struct ether_hdr 	*eth_hdr;
+	struct rte_ether_hdr *eth_hdr;
 	vlan_header_t		*vlan_header;
 	pppoe_header_t 		*pppoe_header;
 	pppoe_header_tag_t	*pppoe_header_tag;
@@ -134,7 +134,7 @@ typedef struct pppoe_phase {
 
 typedef struct ppp_phase {
 	U8 					state;
-	struct ether_hdr 	*eth_hdr;
+	struct rte_ether_hdr 	*eth_hdr;
 	vlan_header_t		*vlan_header;
 	pppoe_header_t 		*pppoe_header;
 	ppp_payload_t 		*ppp_payload;
