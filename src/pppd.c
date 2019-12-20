@@ -159,7 +159,7 @@ int main(int argc, char **argv)
 			rte_exit(EXIT_FAILURE, "Cannot init port %"PRIu8 "\n",portid);
 	}
 
-	signal(SIGTERM,(__sighandler_t)PPP_bye);
+	//signal(SIGTERM,(__sighandler_t)PPP_bye);
 	signal(SIGINT,(__sighandler_t)PPP_int);
 
 	/* init RTE timer library */
@@ -218,37 +218,35 @@ void PPP_ter(void)
 	rte_ring_enqueue_burst(rte_ring,(void **)&mail,1,NULL);
 }
 
-void PPP_bye(void)
+void PPP_bye(tPPP_PORT *port_ccb)
 {
     printf("bye!\n");
 	signal_term = TRUE;
-    for(int i=0; i<MAX_USER; i++) { 
-    	switch(ppp_ports[i].phase) {
-    		case PPPOE_PHASE:
-				rte_free(wan_mac);
-            	rte_ring_free(rte_ring);
-				rte_ring_free(decap_tcp);
-				rte_ring_free(decap_udp);
-				rte_ring_free(encap_tcp);
-				rte_ring_free(encap_udp);
-                fclose(fp);
-				cmdline_stdin_exit(cl);
-				exit(0);
-    			break;
-    		case LCP_PHASE:
-    			ppp_ports[i].cp = 0;
-    			PPP_FSM(&(ppp_ports[i].ppp),&ppp_ports[i],E_CLOSE);
-    			break;
-    		case DATA_PHASE:
-    			ppp_ports[i].phase--;
-    			ppp_ports[i].data_plane_start = FALSE;
-    		case IPCP_PHASE:
-    			ppp_ports[i].cp = 1;
-    			PPP_FSM(&(ppp_ports[i].ppp),&ppp_ports[i],E_CLOSE);
-    			break;
-    		default:
-    			;
-    	}
+   	switch(port_ccb->phase) {
+   		case PPPOE_PHASE:
+			rte_free(wan_mac);
+           	rte_ring_free(rte_ring);
+			rte_ring_free(decap_tcp);
+			rte_ring_free(decap_udp);
+			rte_ring_free(encap_tcp);
+			rte_ring_free(encap_udp);
+            fclose(fp);
+			cmdline_stdin_exit(cl);
+			exit(0);
+    		break;
+    	case LCP_PHASE:
+    		port_ccb->cp = 0;
+    		PPP_FSM(&(port_ccb->ppp),port_ccb,E_CLOSE);
+    		break;
+    	case DATA_PHASE:
+    		port_ccb->phase--;
+    		port_ccb->data_plane_start = FALSE;
+    	case IPCP_PHASE:
+    		port_ccb->cp = 1;
+    		PPP_FSM(&(port_ccb->ppp),port_ccb,E_CLOSE);
+    		break;
+    	default:
+    		;
     }
 }
 
@@ -324,7 +322,7 @@ int ppp_init(void)
 		ppp_ports[i].pppoe_phase.max_retransmit = MAX_RETRAN;
 		ppp_ports[i].pppoe_phase.timer_counter = 0;
     	if (build_padi(&(ppp_ports[i].pppoe),&(ppp_ports[i])) == FALSE)
-    		goto out;
+    		PPP_bye(&(ppp_ports[i]));
     	rte_timer_reset(&(ppp_ports[i].pppoe),rte_get_timer_hz(),PERIODICAL,4,(rte_timer_cb_t)build_padi,&(ppp_ports[i]));
     }
 	for(;;) {
@@ -481,7 +479,9 @@ int ppp_init(void)
 						break;
 					#endif
 					case CLI_QUIT:
-						kill(getpid(), SIGTERM);
+						for(int i=0; i<MAX_USER; i++) {
+ 							PPP_bye(&(ppp_ports[i])); 
+ 						}
 						break;
 					default:
 						;
@@ -512,7 +512,7 @@ int ppp_init(void)
 		}
     }
 out:
-	kill(getpid(), SIGTERM);
+	kill(getpid(), SIGINT);
 	return ERROR;
 }
 

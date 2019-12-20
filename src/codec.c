@@ -440,7 +440,7 @@ STATUS build_padi(__attribute__((unused)) struct rte_timer *tim, tPPP_PORT *port
 		#ifdef _DP_DBG
 		puts("timeout when sending PADI");
 		#endif
-		kill(getpid(),SIGTERM);
+		PPP_bye(port_ccb);
 	}
 	for(int i=0; i<6; i++) {
  		eth_hdr.s_addr.addr_bytes[i] = port_ccb->src_mac[i];
@@ -503,7 +503,7 @@ STATUS build_padr(__attribute__((unused)) struct rte_timer *tim, tPPP_PORT *port
 		#ifdef _DP_DBG
 		puts("timeout when sending PADR");
 		#endif
-		kill(getpid(),SIGTERM);
+		PPP_bye(port_ccb);
 	}
 	rte_memcpy(port_ccb->pppoe_phase.eth_hdr->s_addr.addr_bytes,port_ccb->src_mac,ETH_ALEN);
  	rte_memcpy(port_ccb->pppoe_phase.eth_hdr->d_addr.addr_bytes,port_ccb->dst_mac,ETH_ALEN);

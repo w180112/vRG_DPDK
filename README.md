@@ -1,23 +1,23 @@
 # PPPoE client and NAT implementation using DPDK
 
 [![BSD license](https://img.shields.io/badge/License-BSD-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
-[![Build Status](https://travis-ci.org/w180112/PPPoE_Client_DPDK.svg?branch=master)](https://travis-ci.org/w180112/PPPoE_Client_DPDK)
+[![Build Status](https://travis-ci.org/w180112/vRG.svg?branch=master)](https://travis-ci.org/w180112/vRG)
 
-In nowadays high speed virtualized nerwork, tranditional network mechanism has no longer satisfied our requirement. In home network virtualization many data plane features, e.g.: NAT and PPPoE, will be de-coupled to cloud NFV infrastructure. However, the perfoemance of data plane is always the main point of our concern. Therefore, a vRG system that make PPPoE client and NAT can be used in virtualization is purposed. By the powerful DPDK, all packets can be forwarded in high speed network.
+In nowadays high speed virtualized nerwork, tranditional network mechanism has no longer satisfied our requirement. In home network virtualization many data plane features, e.g.: NAT and PPPoE client, will be de-coupled to cloud NFV infrastructure. However, the perfoemance of data plane is always the main point of our concern. Therefore, a vRG system that make PPPoE client and NAT can be used in virtualization is purposed. By the powerful DPDK, all packets can be forwarded in high speed network.
 
 ## System required:
 
-Intel DPDK 18.11.2, Linux kernel > 3.10, at least 4G ram, 9 cpu cores.
+Intel DPDK 18.11.2, Linux kernel > 3.10, at least 4G ram, 10 cpu cores.
 
 ## How to use:
 
 Git clone this repository
 
-	# git clone https://github.com/w180112/PPPoE_Client_DPDK.git
+	# git clone https://github.com/w180112/vRG.git
 
 Type
 
-	# cd PPPoE_Client_DPDK
+	# cd vRG
 
 For first time build, please use boot.sh
 
@@ -60,14 +60,14 @@ For hugepages, NIC binding and other system configuration, please refer to Intel
 
 ## Test environment:
 
-1. CentOS 7.6 and Ubuntu 18.04 KVM with Mellanox CX4 Lx and Intel X520 NIC SR-I/OV virtual function driver
-2. AMD Ryzen 2700, 32GB ram desktop / Dell R630, E5 2630v3, 32GB ram
+1. CentOS 7.6 with Mellanox CX4 Lx virtual function and Ubuntu 18.04 with Intel X520 NIC SR-I/OV virtual function
+2. AMD EPYC 7401P with ECC RAM server / Dell R630, E5 2630v3 with ECC RAM server
 3. Successfully test control plane and data plane with CHT(Chunghwa Telecom Co., Ltd.) BRAS, open source RP-PPPoE and Spirent test center PPPoE server
 4. Intel DPDK 18.11.2 and GCC version 4.8.5 compiler
 
 ## Example usage:
 
-![image](https://github.com/w180112/PPPoE_Client_DPDK/blob/master/topo.png)
+![image](https://github.com/w180112/vRG/blob/master/topo.png)
 
 ## TODO:
 
