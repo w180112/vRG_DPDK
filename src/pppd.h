@@ -34,8 +34,10 @@
 
 #define MLX5					1
 #define IXGBE					2
-#define VMXNET3					3
-#define IXGBEVF					4
+#define I40E					3
+#define VMXNET3					4
+#define IXGBEVF					5
+#define I40EVF					6
 
 typedef struct {
 	U8		subt;
@@ -130,6 +132,7 @@ typedef struct pppoe_phase {
 	pppoe_header_tag_t	*pppoe_header_tag;
 	uint8_t 			max_retransmit;
 	uint8_t				timer_counter;
+	BOOL 				active;
 }pppoe_phase_t;
 
 typedef struct ppp_phase {

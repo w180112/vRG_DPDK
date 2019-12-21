@@ -120,9 +120,10 @@ STATUS PPP_decode_frame(tPPP_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_head
 					return FALSE;
 			
 				/* only check magic number. Skip the bytes stored in ppp_options_t length to find magic num. */
-				for(ppp_options_t *cur=ppp_options; cur->type!=0;) {
+				uint8_t ppp_options_length = 0;
+				for(ppp_options_t *cur=ppp_options; ppp_options_length<=(rte_cpu_to_be_16(ppp_lcp->length)-4);) {
 					if (cur->type == MAGIC_NUM) {
-						for(int i=cur->length-3; i>0; i--) {
+						for(int i=cur->length-3; i>=0; i--) {
 							if (*(((uint8_t *)&(port_ccb->magic_num)) + i) != cur->val[i]) {
 								RTE_LOG(INFO,EAL,"Session 0x%x recv ppp LCP magic number error.\n", rte_cpu_to_be_16(port_ccb->session_id));
 								#ifdef _DP_DBG
@@ -133,6 +134,7 @@ STATUS PPP_decode_frame(tPPP_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_head
 						}
 					}
 					cur = (ppp_options_t *)((char *)cur + cur->length);
+					ppp_options_length += cur->length;
 				}
 				*event = E_RECV_CONFIG_ACK;
 				rte_timer_stop(tim);

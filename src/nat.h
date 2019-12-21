@@ -20,11 +20,11 @@
 #include <rte_memcpy.h>
 #include "pppd.h"
 
-static inline void nat_icmp_learning(struct rte_ether_hdr *eth_hdr, struct ipv4_hdr *ip_hdr, struct icmp_hdr *icmphdr, uint32_t *new_port_id, addr_table_t addr_table[]);
-static inline void nat_udp_learning(struct rte_ether_hdr *eth_hdr, struct ipv4_hdr *ip_hdr, struct udp_hdr *udphdr, uint32_t *new_port_id, addr_table_t addr_table[]);
-static inline void nat_tcp_learning(struct rte_ether_hdr *eth_hdr, struct ipv4_hdr *ip_hdr, struct tcp_hdr *tcphdr, uint32_t *new_port_id, addr_table_t addr_table[]);
+static inline void nat_icmp_learning(struct rte_ether_hdr *eth_hdr, struct rte_ipv4_hdr *ip_hdr, struct rte_icmp_hdr *icmphdr, uint32_t *new_port_id, addr_table_t addr_table[]);
+static inline void nat_udp_learning(struct rte_ether_hdr *eth_hdr, struct rte_ipv4_hdr *ip_hdr, struct rte_udp_hdr *udphdr, uint32_t *new_port_id, addr_table_t addr_table[]);
+static inline void nat_tcp_learning(struct rte_ether_hdr *eth_hdr, struct rte_ipv4_hdr *ip_hdr, struct rte_tcp_hdr *tcphdr, uint32_t *new_port_id, addr_table_t addr_table[]);
 
-static inline void nat_icmp_learning(struct rte_ether_hdr *eth_hdr, struct ipv4_hdr *ip_hdr, struct icmp_hdr *icmphdr, uint32_t *new_port_id, addr_table_t addr_table[])
+static inline void nat_icmp_learning(struct rte_ether_hdr *eth_hdr, struct rte_ipv4_hdr *ip_hdr, struct rte_icmp_hdr *icmphdr, uint32_t *new_port_id, addr_table_t addr_table[])
 {
 	*new_port_id = rte_be_to_cpu_16(icmphdr->icmp_ident + (ip_hdr->src_addr) % 10000);
 	if (*new_port_id > 0xffff)
@@ -52,7 +52,7 @@ static inline void nat_icmp_learning(struct rte_ether_hdr *eth_hdr, struct ipv4_
 	addr_table[*new_port_id].port_id = icmphdr->icmp_ident;
 }
 
-static inline void nat_udp_learning(struct rte_ether_hdr *eth_hdr, struct ipv4_hdr *ip_hdr, struct udp_hdr *udphdr, uint32_t *new_port_id, addr_table_t addr_table[])
+static inline void nat_udp_learning(struct rte_ether_hdr *eth_hdr, struct rte_ipv4_hdr *ip_hdr, struct rte_udp_hdr *udphdr, uint32_t *new_port_id, addr_table_t addr_table[])
 {
 	*new_port_id = rte_be_to_cpu_16(udphdr->src_port + (ip_hdr->src_addr) % 10000);
 	if (*new_port_id > 0xffff)
@@ -80,7 +80,7 @@ static inline void nat_udp_learning(struct rte_ether_hdr *eth_hdr, struct ipv4_h
 	addr_table[*new_port_id].port_id = udphdr->src_port;
 }
 
-static inline void nat_tcp_learning(struct rte_ether_hdr *eth_hdr, struct ipv4_hdr *ip_hdr, struct tcp_hdr *tcphdr, uint32_t *new_port_id, addr_table_t addr_table[])
+static inline void nat_tcp_learning(struct rte_ether_hdr *eth_hdr, struct rte_ipv4_hdr *ip_hdr, struct rte_tcp_hdr *tcphdr, uint32_t *new_port_id, addr_table_t addr_table[])
 {
 	*new_port_id = rte_be_to_cpu_16(tcphdr->src_port + (ip_hdr->src_addr) % 10000);
 	if (*new_port_id > 0xffff)

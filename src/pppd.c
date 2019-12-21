@@ -65,6 +65,8 @@ nic_vendor_t vendor[] = {
 	{ "net_ixgbe", IXGBE },
 	{ "net_vmxnet3", VMXNET3 },
 	{ "net_ixgbevf", IXGBEVF },
+	{ "net_i40e", I40E },
+	{ "net_i40e_vf", I40EVF },
 	{ NULL, 0 }
 };
 
@@ -144,7 +146,7 @@ int main(int argc, char **argv)
 			printf("Error getting info for port %i\n", portid);
 			return -1;
 		}
-		for(int i=0; !vendor[i].vendor; i++) {
+		for(int i=0; vendor[i].vendor; i++) {
 			if (strcmp((const char *)info.driver,vendor[i].vendor) == 0) {
 				vendor_id = vendor[i].vendor_id;
 				break;
@@ -280,6 +282,7 @@ int pppdInit(void)
     for(int i=0; i<MAX_USER; i++) {
 		ppp_ports[i].ppp_phase[0].state = S_INIT;
 		ppp_ports[i].ppp_phase[1].state = S_INIT;
+		ppp_ports[i].pppoe_phase.active = FALSE;
 		ppp_ports[i].user_num = i;
 		ppp_ports[i].vlan = i + 1;
 		
@@ -353,7 +356,7 @@ int ppp_init(void)
 				if (vlan_header.next_proto == rte_cpu_to_be_16(ETH_P_PPP_DIS)) {
 					switch(pppoe_header.code) {
 					case PADO:
-						for(session_index=0; session_index<MAX_USER; session_index++) {
+						/*for(session_index=0; session_index<MAX_USER; session_index++) {
 							int j;
 							for(j=0; j<ETH_ALEN; j++) {
 								if (ppp_ports[session_index].dst_mac[j] != 0)
@@ -368,7 +371,10 @@ int ppp_init(void)
     						puts("Too many pppoe users.\nDiscard.");
 							#endif
     						continue;
-    					}
+    					}*/
+						if (ppp_ports[session_index].pppoe_phase.active == TRUE)
+							continue;
+						ppp_ports[session_index].pppoe_phase.active = TRUE;
     					ppp_ports[session_index].pppoe_phase.eth_hdr = &eth_hdr;
 						ppp_ports[session_index].pppoe_phase.vlan_header = &vlan_header;
 						ppp_ports[session_index].pppoe_phase.pppoe_header = &pppoe_header;
