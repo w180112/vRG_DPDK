@@ -165,7 +165,7 @@ int ppp_recvd(void)
 			single_pkt->data_len -= 8;
 			eth_hdr = (struct rte_ether_hdr *)((char *)eth_hdr + 8);
 			vlan_header = (vlan_header_t *)(eth_hdr + 1);
-			user_index = (rte_be_to_cpu_16(vlan_header->tci_union.tci_value) & 0xFFF) - 1;
+			user_index = (rte_be_to_cpu_16(vlan_header->tci_union.tci_value) & 0xFFF) - 2;
 			ip_hdr = (struct rte_ipv4_hdr *)(rte_pktmbuf_mtod(single_pkt, unsigned char *) + sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t));
 			single_pkt->l2_len = sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t);
 			single_pkt->l3_len = sizeof(struct rte_ipv4_hdr);
@@ -239,7 +239,7 @@ int decapsulation_udp(void)
 			rte_prefetch0(rte_pktmbuf_mtod(single_pkt,void *));
 			eth_hdr = rte_pktmbuf_mtod(single_pkt,struct rte_ether_hdr*);
 			vlan_header = (vlan_header_t *)(eth_hdr + 1);
-			user_index = (rte_be_to_cpu_16(vlan_header->tci_union.tci_value) & 0xFFF) - 1;
+			user_index = (rte_be_to_cpu_16(vlan_header->tci_union.tci_value) & 0xFFF) - 2;
 			/* for NAT mapping */
 			ip_hdr = (struct rte_ipv4_hdr *)(rte_pktmbuf_mtod(single_pkt,unsigned char *) + sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t));
 			ip_hdr->hdr_checksum = 0;
@@ -287,7 +287,7 @@ int decapsulation_tcp(void)
 			rte_prefetch0(rte_pktmbuf_mtod(single_pkt,void *));
 			eth_hdr = rte_pktmbuf_mtod(single_pkt,struct rte_ether_hdr*);
 			vlan_header = (vlan_header_t *)(eth_hdr + 1);
-			user_index = (rte_be_to_cpu_16(vlan_header->tci_union.tci_value) & 0xFFF) - 1;
+			user_index = (rte_be_to_cpu_16(vlan_header->tci_union.tci_value) & 0xFFF) - 2;
 			/* for NAT mapping */
 			ip_hdr = (struct rte_ipv4_hdr *)(rte_pktmbuf_mtod(single_pkt,unsigned char *) + sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t));
 			ip_hdr->hdr_checksum = 0;
@@ -350,7 +350,7 @@ int encapsulation_udp(void)
 			rte_prefetch0(rte_pktmbuf_mtod(single_pkt,void *));
 			eth_hdr = rte_pktmbuf_mtod(single_pkt,struct rte_ether_hdr*);
 			vlan_header = (vlan_header_t *)(eth_hdr + 1);
-			user_index = (rte_be_to_cpu_16(vlan_header->tci_union.tci_value) & 0xFFF) - 1;
+			user_index = (rte_be_to_cpu_16(vlan_header->tci_union.tci_value) & 0xFFF) - 2;
 			ip_hdr = (struct rte_ipv4_hdr *)(rte_pktmbuf_mtod(single_pkt,unsigned char *) + sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t));
 			ip_hdr->hdr_checksum = 0;
 			
@@ -419,7 +419,7 @@ int encapsulation_tcp(void)
 			rte_prefetch0(rte_pktmbuf_mtod(single_pkt,void *));
 			eth_hdr = rte_pktmbuf_mtod(single_pkt,struct rte_ether_hdr*);
 			vlan_header = (vlan_header_t *)(eth_hdr + 1);
-			user_index = (rte_be_to_cpu_16(vlan_header->tci_union.tci_value) & 0xFFF) - 1;
+			user_index = (rte_be_to_cpu_16(vlan_header->tci_union.tci_value) & 0xFFF) - 2;
 			ip_hdr = (struct rte_ipv4_hdr *)(rte_pktmbuf_mtod(single_pkt,unsigned char *) + sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t));
 			ip_hdr->hdr_checksum = 0;
 			/* for nat */
@@ -495,7 +495,7 @@ int gateway(void)
 			}
 			rte_rmb();
 			vlan_header = (vlan_header_t *)(eth_hdr + 1);
-			user_index = (rte_be_to_cpu_16(vlan_header->tci_union.tci_value) & 0xFFF) - 1;
+			user_index = (rte_be_to_cpu_16(vlan_header->tci_union.tci_value) & 0xFFF) - 2;
 			if (unlikely(ppp_ports[user_index].data_plane_start == FALSE)) {
 				rte_pktmbuf_free(single_pkt);
 				continue;

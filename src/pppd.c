@@ -284,7 +284,7 @@ int pppdInit(void)
 		ppp_ports[i].ppp_phase[1].state = S_INIT;
 		ppp_ports[i].pppoe_phase.active = FALSE;
 		ppp_ports[i].user_num = i;
-		ppp_ports[i].vlan = i + 1;
+		ppp_ports[i].vlan = i + 2;
 		
 		ppp_ports[i].ipv4 = 0;
 		ppp_ports[i].ipv4_gw = 0;
@@ -343,7 +343,7 @@ int ppp_init(void)
 #pragma GCC diagnostic ignored "-Wstrict-aliasing"
 				session_index = ((vlan_header_t *)(((struct rte_ether_hdr *)mail[i]->refp) + 1))->tci_union.tci_value;
 				session_index = rte_be_to_cpu_16(session_index);
-				session_index = (session_index & 0xFFF) - 1;
+				session_index = (session_index & 0xFFF) - 2;
 				if (session_index >= MAX_USER) {
 					#ifdef _DP_DBG
 					puts("Recv not our PPPoE packet.\nDiscard.");
