@@ -31,8 +31,8 @@ extern tPPP_PORT				ppp_ports[MAX_USER];
 extern struct rte_mempool 		*mbuf_pool;
 extern struct rte_ring 			*rte_ring;
 extern struct rte_ring 			*decap_udp, *decap_tcp, *encap_udp, *encap_tcp;
-extern rte_atomic16_t			cp_recv_prod;
-uint8_t 						cp_recv_cums;
+extern rte_atomic16_t			cp_recv_cums;
+uint8_t 						cp_recv_prod;
 extern uint8_t					vendor_id;
 
 static uint16_t 				nb_rxd = RX_RING_SIZE;
@@ -91,7 +91,7 @@ int PPP_PORT_INIT(uint16_t port)
 			return retval;
 	}
 
-	/* Allocate and set up 2 TX queue per Ethernet port. */
+	/* Allocate and set up 4 TX queue per Ethernet port. */
 	for(q=0; q<tx_rings; q++) {
 		retval = rte_eth_tx_queue_setup(port,q,nb_txd,rte_eth_dev_socket_id(port), NULL);
 		if (retval < 0)
