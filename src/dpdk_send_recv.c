@@ -17,6 +17,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <rte_memcpy.h>
+#include <rte_atomic.h>
 #include "pppoeclient.h"
 #include "nat.h"
 
@@ -30,7 +31,8 @@ extern tPPP_PORT				ppp_ports[MAX_USER];
 extern struct rte_mempool 		*mbuf_pool;
 extern struct rte_ring 			*rte_ring;
 extern struct rte_ring 			*decap_udp, *decap_tcp, *encap_udp, *encap_tcp;
-extern uint8_t					cp_recv_prod, cp_recv_cums;
+extern rte_atomic16_t			cp_recv_prod;
+uint8_t 						cp_recv_cums;
 extern uint8_t					vendor_id;
 
 static uint16_t 				nb_rxd = RX_RING_SIZE;
@@ -141,7 +143,8 @@ int ppp_recvd(void)
 			}
 			ppp_payload = ((ppp_payload_t *)((char *)eth_hdr + sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t) + sizeof(pppoe_header_t)));
 			if (unlikely(vlan_header->next_proto == rte_cpu_to_be_16(ETH_P_PPP_DIS) || (ppp_payload->ppp_protocol == rte_cpu_to_be_16(LCP_PROTOCOL) || ppp_payload->ppp_protocol == rte_cpu_to_be_16(AUTH_PROTOCOL) || ppp_payload->ppp_protocol == rte_cpu_to_be_16(IPCP_PROTOCOL)))) {
-				if (cp_recv_cums != ((cp_recv_prod + 1) % 32)) {
+				/* We need to maintain our ring queue */
+				if (rte_atomic16_read(&cp_recv_cums) != ((cp_recv_prod + 1) % 32)) {
 					rte_memcpy((mail+cp_recv_prod)->refp,eth_hdr,single_pkt->data_len);
 					(mail + cp_recv_prod)->type = IPC_EV_TYPE_DRV;
 					(mail + cp_recv_prod)->len = single_pkt->data_len;
@@ -478,8 +481,6 @@ int gateway(void)
 	uint32_t			lan_ip = rte_cpu_to_be_32(0xc0a80201); //192.168.2.1
 
 	rte_eth_macaddr_get(0,(struct rte_ether_addr *)mac_addr);
-	while(ppp_ports[0].data_plane_start == FALSE)
-		rte_pause();
 	for(;;) {
 		nb_rx = rte_eth_rx_burst(0,0,pkt,BURST_SIZE);
 		if (nb_rx == 0)
@@ -495,17 +496,15 @@ int gateway(void)
 			}
 			rte_rmb();
 			vlan_header = (vlan_header_t *)(eth_hdr + 1);
+			/* translate from vlan id to user index, we mention vlan_id - 2 = user_id */
 			user_index = (rte_be_to_cpu_16(vlan_header->tci_union.tci_value) & 0xFFF) - 2;
-			if (unlikely(ppp_ports[user_index].data_plane_start == FALSE)) {
-				rte_pktmbuf_free(single_pkt);
-				continue;
-			}
+			
 			if (unlikely(vlan_header->next_proto == rte_cpu_to_be_16(FRAME_TYPE_ARP))) { 
 				/* We only reply arp request to us */
-				rte_memcpy(eth_hdr->d_addr.addr_bytes,eth_hdr->s_addr.addr_bytes,ETH_ALEN);
-				rte_memcpy(eth_hdr->s_addr.addr_bytes,mac_addr,ETH_ALEN);
 				arphdr = (struct rte_arp_hdr *)(rte_pktmbuf_mtod(single_pkt, unsigned char *) + sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t));
 				if (arphdr->arp_opcode == rte_cpu_to_be_16(RTE_ARP_OP_REQUEST) && arphdr->arp_data.arp_tip == lan_ip) {
+					rte_memcpy(eth_hdr->d_addr.addr_bytes,eth_hdr->s_addr.addr_bytes,ETH_ALEN);
+					rte_memcpy(eth_hdr->s_addr.addr_bytes,mac_addr,ETH_ALEN);
 					rte_memcpy(arphdr->arp_data.arp_tha.addr_bytes,arphdr->arp_data.arp_sha.addr_bytes,ETH_ALEN);
 					rte_memcpy(arphdr->arp_data.arp_sha.addr_bytes,mac_addr,ETH_ALEN);
 					arphdr->arp_data.arp_tip = arphdr->arp_data.arp_sip;
@@ -523,6 +522,10 @@ int gateway(void)
 			}
 			else if (likely(vlan_header->next_proto == rte_cpu_to_be_16(FRAME_TYPE_IP))) {
 				ip_hdr = (struct rte_ipv4_hdr *)(rte_pktmbuf_mtod(single_pkt, unsigned char *) + sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t));
+				if (unlikely((ip_hdr->src_addr) << 8 != lan_ip << 8)) {
+					rte_pktmbuf_free(single_pkt);
+					continue;
+				}
 				single_pkt->l2_len = sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t) + sizeof(pppoe_header_t) + sizeof(ppp_payload_t);
 				single_pkt->l3_len = sizeof(struct rte_ipv4_hdr);
 				
@@ -530,6 +533,10 @@ int gateway(void)
 					//single_pkt->ol_flags |= PKT_TX_IPV4 | PKT_TX_IP_CKSUM;
 					icmphdr = (struct rte_icmp_hdr *)(rte_pktmbuf_mtod(single_pkt, unsigned char *) + sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t) + sizeof(struct rte_ipv4_hdr));
 					if (ip_hdr->dst_addr != lan_ip) {
+						if (unlikely(ppp_ports[user_index].data_plane_start == FALSE)) {
+							rte_pktmbuf_free(single_pkt);
+							continue;
+						}
 						uint32_t 			new_port_id;
 						uint32_t			icmp_new_cksum;
 
@@ -582,10 +589,20 @@ int gateway(void)
 						continue;
 					}
 				}
-				else if (ip_hdr->next_proto_id == PROTO_TYPE_TCP)
+				else if (ip_hdr->next_proto_id == PROTO_TYPE_TCP) {
+					if (unlikely(ppp_ports[user_index].data_plane_start == FALSE)) {
+						rte_pktmbuf_free(single_pkt);
+						continue;
+					}
 					rte_ring_enqueue_burst(encap_tcp,(void **)&single_pkt,1,NULL);
-				else if (ip_hdr->next_proto_id == PROTO_TYPE_UDP)
+				}
+				else if (ip_hdr->next_proto_id == PROTO_TYPE_UDP) {
+					if (unlikely(ppp_ports[user_index].data_plane_start == FALSE)) {
+						rte_pktmbuf_free(single_pkt);
+						continue;
+					}
 					rte_ring_enqueue_burst(encap_udp,(void **)&single_pkt,1,NULL);
+				}
 				else {
 					#ifdef _DP_DBG
 					puts("unknown L4 packet recv on gateway LAN port queue");
@@ -627,8 +644,7 @@ void drv_xmit(U8 *mu, U16 mulen)
 	rte_eth_tx_burst(1,1,&pkt,1);
 }
 
-static int
-lsi_event_callback(uint16_t port_id, enum rte_eth_event_type type, void *param)
+static int lsi_event_callback(uint16_t port_id, enum rte_eth_event_type type, void *param)
 {
 	struct rte_eth_link link;
 	tPPP_MBX			*mail = (tPPP_MBX *)rte_malloc(NULL,sizeof(tPPP_MBX),2048);

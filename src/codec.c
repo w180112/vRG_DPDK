@@ -608,7 +608,7 @@ STATUS build_padt(tPPP_PORT *port_ccb)
 	mulen = sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t) + sizeof(pppoe_header_t);
 
 	rte_memcpy(buffer,&eth_hdr,sizeof(struct rte_ether_hdr));
-	rte_memcpy(buffer+sizeof(struct rte_ether_hdr),port_ccb->pppoe_phase.vlan_header,sizeof(vlan_header_t));
+	rte_memcpy(buffer+sizeof(struct rte_ether_hdr),&vlan_header,sizeof(vlan_header_t));
 	rte_memcpy(buffer+sizeof(struct rte_ether_hdr)+sizeof(vlan_header_t),&pppoe_header,sizeof(pppoe_header_t));
 	drv_xmit(buffer,mulen);
 

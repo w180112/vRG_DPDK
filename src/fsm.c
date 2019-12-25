@@ -647,7 +647,7 @@ STATUS PPP_FSM(struct rte_timer *ppp, tPPP_PORT *port_ccb, U16 event)
         #ifdef _DP_DBG
         DBG_PPP(DBGLVL1,port_ccb,"state changed from %s to %s\n",str1,str2);
         #endif
-        RTE_LOG(INFO,EAL,"Session 0x%x LCP state changed from %s to %s.\n", rte_cpu_to_be_16(port_ccb->session_id), str1, str2);
+        RTE_LOG(INFO,EAL,"Session 0x%x %s state changed from %s to %s.\n", rte_cpu_to_be_16(port_ccb->session_id), (port_ccb->cp == 1 ? "IPCP" : "LCP"), str1, str2);
         port_ccb->ppp_phase[port_ccb->cp].state = ppp_fsm_tbl[port_ccb->cp][i].next_state;
     }
     

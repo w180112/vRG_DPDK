@@ -25,6 +25,7 @@
 
 #include				<rte_memcpy.h>
 #include 				<rte_flow.h>
+#include				<rte_atomic.h>
 #include 				"pppd.h"
 #include				"fsm.h"
 #include 				"dpdk_send_recv.h"
@@ -41,7 +42,7 @@ U32						ppp_interval;
 U16						ppp_init_delay;
 uint8_t					ppp_max_msg_per_query;
 
-uint8_t					cp_recv_cums = 0, cp_recv_prod = 0;
+rte_atomic16_t			cp_recv_cums;
 uint8_t					vendor_id = 0;
 
 tPPP_PORT				ppp_ports[MAX_USER]; //port is 1's based
@@ -174,7 +175,7 @@ int main(int argc, char **argv)
 		rte_timer_init(&(ppp_ports[i].nat));
 		ppp_ports[i].data_plane_start = FALSE;
 	}
-	
+	rte_atomic16_init(&cp_recv_cums);
 	rte_eal_remote_launch((lcore_function_t *)ppp_recvd,NULL,1);
 	rte_eal_remote_launch((lcore_function_t *)decapsulation_tcp,NULL,2);
 	rte_eal_remote_launch((lcore_function_t *)decapsulation_udp,NULL,3);
@@ -330,9 +331,9 @@ int ppp_init(void)
     }
 	for(;;) {
 		burst_size = control_plane_dequeue(mail);
-		cp_recv_cums += burst_size;
-		if (cp_recv_cums > 32)
-			cp_recv_cums -= 32;
+		rte_atomic16_add(&cp_recv_cums,burst_size);
+		if (rte_atomic16_read(&cp_recv_cums) > 32)
+			rte_atomic16_sub(&cp_recv_cums,32);
 		for(int i=0; i<burst_size; i++) {
 	    	recv_type = *(uint16_t *)mail[i];
 			switch(recv_type) {
@@ -488,6 +489,7 @@ int ppp_init(void)
 						for(int i=0; i<MAX_USER; i++) {
  							PPP_bye(&(ppp_ports[i])); 
  						}
+						rte_atomic16_dec(&cp_recv_cums);
 						break;
 					default:
 						;
