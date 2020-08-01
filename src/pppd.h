@@ -14,7 +14,7 @@
 #include <rte_memory.h>
 #include <rte_ether.h>
 
-#define ETH_MTU					1500
+#define ETH_MTU					1544
 #define TEST_PORT_ID			1
 
 #define	MIN_FRAME_SIZE			64
@@ -112,7 +112,7 @@ typedef struct ppp_header {
 
 typedef struct ppp_pap_ack_nak {
 	uint8_t msg_length;
-	uint8_t msg[0];
+	uint8_t *msg;
 }ppp_pap_ack_nak_t;
 
 typedef struct ppp_payload {

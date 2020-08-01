@@ -19,7 +19,6 @@
 #include <stdio.h>
 #include <assert.h>
 #include <rte_atomic.h>
-#include <rte_memcpy.h>
 #include "pppd.h"
 
 void 		nat_rule_timer(__attribute__((unused)) struct rte_timer *tim, tPPP_PORT ppp_ports[]);

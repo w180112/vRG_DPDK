@@ -7,7 +7,7 @@ In nowadays high speed virtualized nerwork, tranditional network mechanism has n
 
 ## System required:
 
-Intel DPDK 18.11.2, Linux kernel > 3.10, at least 4G ram, 10 cpu cores.
+Intel DPDK 19.11, Linux kernel > 4.18, at least 4G ram, 10 cpu cores.
 
 ## How to use:
 
@@ -60,10 +60,10 @@ For hugepages, NIC binding and other system configuration, please refer to Intel
 
 ## Test environment:
 
-1. CentOS 7.6 with Mellanox CX4 Lx virtual function and Ubuntu 18.04 with Intel X520 NIC SR-I/OV virtual function
-2. AMD EPYC 7401P with ECC RAM server / Dell R630, E5 2630v3 with ECC RAM server
+1. CentOS 8.1 with Mellanox CX4 Lx virtual function and Ubuntu 20.04 with Intel X710 NIC SR-I/OV virtual function
+2. AMD EPYC 7401P with ECC RAM server / Dell R630, E5 2670v3 with ECC RAM server
 3. Successfully test control plane and data plane with CHT(Chunghwa Telecom Co., Ltd.) BRAS, open source RP-PPPoE and Spirent test center PPPoE server
-4. Intel DPDK 18.11.2 and GCC version 4.8.5 compiler
+4. Intel DPDK 19.11 and GCC version 8.3 compiler
 
 ## Example usage:
 

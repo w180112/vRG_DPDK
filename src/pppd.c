@@ -188,7 +188,7 @@ int main(int argc, char **argv)
 	while(prompt == FALSE);
 	sleep(1);
 	puts("type ? or help to show all available commands");
-	cl = cmdline_stdin_new(ctx, "\npppoeclient> ");
+	cl = cmdline_stdin_new(ctx, "pppoeclient> ");
 	if (cl == NULL)
 		rte_exit(EXIT_FAILURE, "Cannot create cmdline instance\n");
 	cmdline_interact(cl);

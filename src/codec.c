@@ -133,8 +133,8 @@ STATUS PPP_decode_frame(tPPP_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_head
 							}
 						}
 					}
-					cur = (ppp_options_t *)((char *)cur + cur->length);
 					ppp_options_length += cur->length;
+					cur = (ppp_options_t *)((char *)cur + cur->length);
 				}
 				*event = E_RECV_CONFIG_ACK;
 				rte_timer_stop(tim);
@@ -218,6 +218,7 @@ STATUS PPP_decode_frame(tPPP_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_head
     		tmp_port_ccb.ppp_phase[0].ppp_lcp = ppp_lcp;
     		tmp_port_ccb.ppp_phase[0].ppp_options = NULL;
     		tmp_port_ccb.cp = 0;
+			tmp_port_ccb.session_id = port_ccb->session_id;
     		if (build_auth_ack_pap(buffer,&tmp_port_ccb,&mulen) < 0)
         		return FALSE;
 			drv_xmit(buffer,mulen);
@@ -1063,7 +1064,7 @@ STATUS build_auth_ack_pap(unsigned char *buffer, tPPP_PORT *port_ccb, uint16_t *
 	ppp_pap_header.identifier = ppp_lcp->identifier;
 
 	ppp_pap_ack_nak.msg_length = strlen(login_msg);
-	rte_memcpy(ppp_pap_ack_nak.msg,login_msg,ppp_pap_ack_nak.msg_length);
+	ppp_pap_ack_nak.msg = login_msg;
 
 	ppp_pap_header.length = sizeof(ppp_header_t) + ppp_pap_ack_nak.msg_length + sizeof(ppp_pap_ack_nak.msg_length);
 	pppoe_header->length = ppp_pap_header.length + sizeof(ppp_payload_t);
