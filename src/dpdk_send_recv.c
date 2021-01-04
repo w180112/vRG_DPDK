@@ -123,6 +123,7 @@ int ppp_recvd(void)
 	char 				*cur;
 	uint16_t 			user_index;
 	
+	usleep(500000);
 	for(;;) {
 		nb_rx = rte_eth_rx_burst(1,0,pkt,BURST_SIZE);
 		if (nb_rx == 0)
@@ -480,6 +481,7 @@ int gateway(void)
 	uint16_t 			nb_tx, nb_rx, user_index;
 	uint32_t			lan_ip = rte_cpu_to_be_32(0xc0a80201); //192.168.2.1
 
+	usleep(500000);
 	rte_eth_macaddr_get(0,(struct rte_ether_addr *)mac_addr);
 	for(;;) {
 		nb_rx = rte_eth_rx_burst(0,0,pkt,BURST_SIZE);
@@ -498,7 +500,11 @@ int gateway(void)
 			vlan_header = (vlan_header_t *)(eth_hdr + 1);
 			/* translate from vlan id to user index, we mention vlan_id - 2 = user_id */
 			user_index = (rte_be_to_cpu_16(vlan_header->tci_union.tci_value) & 0xFFF) - 2;
-			
+			if (unlikely(user_index > MAX_USER)) {
+				rte_pktmbuf_free(single_pkt);
+				continue;
+			}
+
 			if (unlikely(vlan_header->next_proto == rte_cpu_to_be_16(FRAME_TYPE_ARP))) { 
 				/* We only reply arp request to us */
 				arphdr = (struct rte_arp_hdr *)(rte_pktmbuf_mtod(single_pkt, unsigned char *) + sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t));

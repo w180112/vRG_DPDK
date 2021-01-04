@@ -1064,7 +1064,7 @@ STATUS build_auth_ack_pap(unsigned char *buffer, tPPP_PORT *port_ccb, uint16_t *
 	ppp_pap_header.identifier = ppp_lcp->identifier;
 
 	ppp_pap_ack_nak.msg_length = strlen(login_msg);
-	ppp_pap_ack_nak.msg = login_msg;
+	ppp_pap_ack_nak.msg = (uint8_t *)login_msg;
 
 	ppp_pap_header.length = sizeof(ppp_header_t) + ppp_pap_ack_nak.msg_length + sizeof(ppp_pap_ack_nak.msg_length);
 	pppoe_header->length = ppp_pap_header.length + sizeof(ppp_payload_t);

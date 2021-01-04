@@ -54,6 +54,7 @@ extern int 				timer_loop(__attribute__((unused)) void *arg);
 extern int 				rte_ethtool_get_drvinfo(uint16_t port_id, struct ethtool_drvinfo *drvinfo);
 extern STATUS			PPP_FSM(struct rte_timer *ppp, tPPP_PORT *port_ccb, U16 event);
 BOOL 					is_valid(char *token, char *next);
+BOOL 					string_split(char *ori_str, char *str1, char *str2, char split_tok);
 
 unsigned char 			*wan_mac;
 int 					log_type;
@@ -101,28 +102,32 @@ int main(int argc, char **argv)
         	perror("file doesnt exist");
         	return -1;
     	}
-		char tok[] = " ", user_info[MAX_USER][256];
+		char user_info[MAX_USER][256], user_name[256], passwd[256];
 		uint16_t user_id = 0;
 		for(int i=0; fgets(user_info[i],256,account) != NULL; i++) {
-       		char *token, *next;
-        	token=strtok_r(user_info[i],tok,&next);
-        	if (!next)
+        	if (string_split(user_info[i], user_name, passwd, ' ') == FALSE) {
+				i--;
 				continue;
-			if (!is_valid(token,next))
+			}
+			if (!is_valid(user_name, passwd)) {
+				i--;
 				continue;
+			}
 			rte_eth_macaddr_get(0,(struct rte_ether_addr *)ppp_ports[user_id].lan_mac);
-			user_id_length = strlen(token);
-			passwd_length = strlen(next) - 1;
+			user_id_length = strlen(user_name);
+			passwd_length = strlen(passwd) - 1;
 			ppp_ports[user_id].user_id = (unsigned char *)rte_malloc(NULL,user_id_length+1,0);
 			ppp_ports[user_id].passwd = (unsigned char *)rte_malloc(NULL,passwd_length+1,0);
-			rte_memcpy(ppp_ports[user_id].user_id,token,user_id_length);
-			rte_memcpy(ppp_ports[user_id].passwd,next,passwd_length);
+			rte_memcpy(ppp_ports[user_id].user_id,user_name,user_id_length);
+			rte_memcpy(ppp_ports[user_id].passwd,passwd,passwd_length);
 			ppp_ports[user_id].user_id[user_id_length] = '\0';
 			ppp_ports[user_id].passwd[passwd_length] = '\0';
 			user_id++;
+			memset(user_name, 0, 256);
+			memset(passwd, 0, 256);
     	}
 		if (user_id < MAX_USER)
-			rte_exit(EXIT_FAILURE, "User account and password not enough.");
+			rte_exit(EXIT_FAILURE, "User account and password not enough.\n");
     	fclose(account);
 	}
 	wan_mac = (unsigned char *)rte_malloc(NULL,ETH_ALEN,0);
@@ -534,5 +539,28 @@ BOOL is_valid(char *token, char *next)
 		if (*(next+i) < 0x30 || (*(next+i) > 0x39 && *(next+i) < 0x41) || (*(next+i) > 0x5B && *(next+i) < 0x60) || *(next+i) > 0x7B)
 			return FALSE;
 	}
+	return TRUE;
+}
+
+BOOL string_split(char *ori_str, char *str1, char *str2, char split_tok)
+{
+	int i, j;
+
+	for(i=0; i<strlen(ori_str); i++) {
+		if (*(ori_str+i) == '#')
+			return FALSE;
+		if (*(ori_str+i) == split_tok) {
+			*(str1+i) = '\0';
+			i++;
+			break;	
+		}
+		*(str1+i) = *(ori_str+i);
+	}
+	if (i == strlen(ori_str))
+		return FALSE;
+	for(j=0; *(ori_str+i)!='\n' && i<strlen(ori_str); i++, j++)
+		*(str2+j) = *(ori_str+i);
+	*(str2+j) = '\0';
+	
 	return TRUE;
 }
