@@ -115,7 +115,7 @@ int main(int argc, char **argv)
 			}
 			rte_eth_macaddr_get(0,(struct rte_ether_addr *)ppp_ports[user_id].lan_mac);
 			user_id_length = strlen(user_name);
-			passwd_length = strlen(passwd) - 1;
+			passwd_length = strlen(passwd);
 			ppp_ports[user_id].user_id = (unsigned char *)rte_malloc(NULL,user_id_length+1,0);
 			ppp_ports[user_id].passwd = (unsigned char *)rte_malloc(NULL,passwd_length+1,0);
 			rte_memcpy(ppp_ports[user_id].user_id,user_name,user_id_length);
@@ -181,6 +181,10 @@ int main(int argc, char **argv)
 		ppp_ports[i].data_plane_start = FALSE;
 	}
 	rte_atomic16_init(&cp_recv_cums);
+	#ifdef RTE_LIBRTE_PDUMP
+	/* initialize packet capture framework */
+	rte_pdump_init(NULL);
+	#endif
 	rte_eal_remote_launch((lcore_function_t *)ppp_recvd,NULL,1);
 	rte_eal_remote_launch((lcore_function_t *)decapsulation_tcp,NULL,2);
 	rte_eal_remote_launch((lcore_function_t *)decapsulation_udp,NULL,3);
@@ -240,6 +244,10 @@ void PPP_bye(tPPP_PORT *port_ccb)
 			rte_ring_free(encap_udp);
             fclose(fp);
 			cmdline_stdin_exit(cl);
+			#ifdef RTE_LIBRTE_PDUMP
+			/*uninitialize packet capture framework */
+			rte_pdump_uninit();
+			#endif
 			exit(0);
     		break;
     	case LCP_PHASE:
@@ -532,12 +540,16 @@ out:
 BOOL is_valid(char *token, char *next)
 {
 	for(uint i=0; i<strlen(token); i++)	{
-		if (*(token+i) < 0x30 || (*(token+i) > 0x39 && *(token+i) < 0x41) || (*(token+i) > 0x5B && *(token+i) < 0x60) || *(token+i) > 0x7B)
-			return FALSE;
+		if (*(token+i) < 0x30 || (*(token+i) > 0x39 && *(token+i) < 0x40) || (*(token+i) > 0x5B && *(token+i) < 0x60) || *(token+i) > 0x7B) {
+			if (*(token+i) != 0x2E)
+				return FALSE;
+		}
 	}
-	for(uint i=0; i<strlen(next)-1; i++)	{
-		if (*(next+i) < 0x30 || (*(next+i) > 0x39 && *(next+i) < 0x41) || (*(next+i) > 0x5B && *(next+i) < 0x60) || *(next+i) > 0x7B)
-			return FALSE;
+	for(uint i=0; i<strlen(next); i++) {
+		if (*(next+i) < 0x30 || (*(next+i) > 0x39 && *(next+i) < 0x40) || (*(next+i) > 0x5B && *(next+i) < 0x60) || *(next+i) > 0x7B) {
+			if (*(token+i) != 0x2E)
+				return FALSE;
+		}
 	}
 	return TRUE;
 }
