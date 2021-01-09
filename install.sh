@@ -9,7 +9,7 @@ get_script_dir () {
 	echo "$DIR"
 }
 
-export RTE_SDK=$(get_script_dir)/lib/dpdk-19.11
+export RTE_SDK=$(get_script_dir)/lib/dpdk-stable
 export RTE_TARGET=x86_64-native-linux-gcc
 cd ./src
 make

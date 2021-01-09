@@ -1,7 +1,7 @@
 # PPPoE client and NAT implementation using DPDK
 
 [![BSD license](https://img.shields.io/badge/License-BSD-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
-[![Build Status](https://travis-ci.com/w180112/libutil.svg?branch=master)](https://travis-ci.com/github/w180112/libutil)
+[![Build Status](https://travis-ci.org/w180112/vRG.svg?branch=master)](https://travis-ci.org/w180112/vRG)
 
 In nowadays high speed virtualized nerwork, tranditional network mechanism has no longer satisfied our requirement. In home network virtualization many data plane features, e.g.: NAT and PPPoE client, will be de-coupled to cloud NFV infrastructure. However, the perfoemance of data plane is always the main point of our concern. Therefore, a vRG system that make PPPoE client and NAT can be used in virtualization is purposed. By the powerful DPDK, all packets can be forwarded in high speed network.
 
@@ -33,11 +33,11 @@ to compile
 
 Then
 
-	# ./src/pppoeclient <dpdk eal options>
+	# ./src/vrg <dpdk eal options>
 
 e.g.
 
-	# ./src/pppoeclient -l 0-8 -n 4
+	# ./src/vrg -l 0-8 -n 4
 
 In this project 2 DPDK ethernet ports are needed, the first is used to receive packets from/send packets to LAN port and the second is used to receive packets from/send packets to WAN port.
 

@@ -221,6 +221,7 @@ STATUS PPP_decode_frame(tPPP_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_head
 			tmp_port_ccb.session_id = port_ccb->session_id;
     		if (build_auth_ack_pap(buffer,&tmp_port_ccb,&mulen) < 0)
         		return FALSE;
+				
 			drv_xmit(buffer,mulen);
 			RTE_LOG(INFO,EAL,"Session 0x%x recv pap request.\n", rte_cpu_to_be_16(port_ccb->session_id));
 			#ifdef _DP_DBG
@@ -322,7 +323,7 @@ STATUS check_ipcp_nak_rej(uint8_t flag, pppoe_header_t *pppoe_header, __attribut
 {
 	ppp_options_t *tmp_buf = (ppp_options_t *)rte_malloc(NULL,MSG_BUF*sizeof(char),0);
 	ppp_options_t *tmp_cur = tmp_buf;
-	int bool = 0;
+	int bool_flag = 0;
 	uint16_t tmp_total_length = 4;
 	
 	memset(tmp_buf,0,MSG_BUF);
@@ -332,7 +333,7 @@ STATUS check_ipcp_nak_rej(uint8_t flag, pppoe_header_t *pppoe_header, __attribut
 	for (ppp_options_t *cur=ppp_options; tmp_total_length<total_lcp_length; cur=(ppp_options_t *)((char *)cur + cur->length)) {
 		if (flag == CONFIG_NAK) {
 			if (cur->type == IP_ADDRESS && cur->val[0] == 0) {
-				bool = 1;
+				bool_flag = 1;
 				rte_memcpy(tmp_cur,cur,cur->length);
 				ppp_lcp->length += cur->length;
 				tmp_cur = (ppp_options_t *)((char *)tmp_cur + cur->length);
@@ -340,7 +341,7 @@ STATUS check_ipcp_nak_rej(uint8_t flag, pppoe_header_t *pppoe_header, __attribut
 		}
 		else {
 			if (cur->type != IP_ADDRESS) {
-				bool = 1;
+				bool_flag = 1;
 				rte_memcpy(tmp_cur,cur,cur->length);
 				ppp_lcp->length += cur->length;
 				tmp_cur = (ppp_options_t *)((char *)tmp_cur + cur->length);
@@ -349,7 +350,7 @@ STATUS check_ipcp_nak_rej(uint8_t flag, pppoe_header_t *pppoe_header, __attribut
 		tmp_total_length += cur->length;
 	}
 
-	if (bool == 1) {
+	if (bool_flag == 1) {
 		rte_memcpy(ppp_options,tmp_buf,ppp_lcp->length - 4);
 		pppoe_header->length = rte_cpu_to_be_16((ppp_lcp->length) + sizeof(ppp_payload_t));
 		ppp_lcp->length = rte_cpu_to_be_16(ppp_lcp->length);
@@ -379,7 +380,7 @@ STATUS check_nak_reject(uint8_t flag, pppoe_header_t *pppoe_header, __attribute_
 {
 	ppp_options_t 	*tmp_buf = (ppp_options_t *)rte_malloc(NULL,MSG_BUF*sizeof(char),0);
 	ppp_options_t 	*tmp_cur = tmp_buf;
-	int 			bool = 0;
+	int 			bool_flag = 0;
 	uint16_t 		tmp_total_length = 4;
 	
 	memset(tmp_buf,0,MSG_BUF);
@@ -389,7 +390,7 @@ STATUS check_nak_reject(uint8_t flag, pppoe_header_t *pppoe_header, __attribute_
 	for(ppp_options_t *cur=ppp_options; tmp_total_length<total_lcp_length; cur=(ppp_options_t *)((char *)cur + cur->length)) {
 		if (flag == CONFIG_NAK) {
 			if (cur->type == MRU && (cur->val[0] != 0x5 || cur->val[1] != 0xD4)) {
-				bool = 1;
+				bool_flag = 1;
 				cur->val[0] = 0x5;
 				cur->val[1] = 0xD4;
 				rte_memcpy(tmp_cur,cur,cur->length);
@@ -399,7 +400,7 @@ STATUS check_nak_reject(uint8_t flag, pppoe_header_t *pppoe_header, __attribute_
 		}
 		else {
 			if (cur->type != MAGIC_NUM && cur->type != MRU && cur->type != AUTH) {
-				bool = 1;
+				bool_flag= 1;
 				rte_memcpy(tmp_cur,cur,cur->length);
 				ppp_lcp->length += cur->length;
 				tmp_cur = (ppp_options_t *)((char *)tmp_cur + cur->length);
@@ -408,7 +409,7 @@ STATUS check_nak_reject(uint8_t flag, pppoe_header_t *pppoe_header, __attribute_
 		tmp_total_length += cur->length;
 	}
 
-	if (bool == 1) {
+	if (bool_flag== 1) {
 		rte_memcpy(ppp_options,tmp_buf,ppp_lcp->length - 4);
 		pppoe_header->length = rte_cpu_to_be_16((ppp_lcp->length) + sizeof(ppp_payload_t));
 		ppp_lcp->length = rte_cpu_to_be_16(ppp_lcp->length);

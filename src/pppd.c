@@ -26,6 +26,7 @@
 #include				<rte_memcpy.h>
 #include 				<rte_flow.h>
 #include				<rte_atomic.h>
+#include				<rte_pdump.h>
 #include 				"pppd.h"
 #include				"fsm.h"
 #include 				"dpdk_send_recv.h"
@@ -183,7 +184,7 @@ int main(int argc, char **argv)
 	rte_atomic16_init(&cp_recv_cums);
 	#ifdef RTE_LIBRTE_PDUMP
 	/* initialize packet capture framework */
-	rte_pdump_init(NULL);
+	rte_pdump_init();
 	#endif
 	rte_eal_remote_launch((lcore_function_t *)ppp_recvd,NULL,1);
 	rte_eal_remote_launch((lcore_function_t *)decapsulation_tcp,NULL,2);
@@ -290,7 +291,7 @@ void PPP_int(void)
  **************************************************************/
 int pppdInit(void)
 {	
-	ppp_interval = (uint32_t)(3*SEC); 
+	ppp_interval = (uint32_t)(3*SECOND); 
     
     //--------- default of all ports ----------
     for(int i=0; i<MAX_USER; i++) {

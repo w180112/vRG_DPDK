@@ -1,32 +1,50 @@
 ############################################################
-# pppoe makefile
+# vRG makefile
 ############################################################
 
 ######################################
 # Set variable
 ######################################
-LDLIBS += -L../lib/com_util -lcom_util
-APP = pppoeclient
+# binary name
+APP = vrg
 
 # all source are stored in SRCS-y
 SRCS-y := pppd.c fsm.c codec.c dpdk_send_recv.c timer.c nat.c ethtool.c dbg.c cmds.c
 
 # Build using pkg-config variables if possible
-$(shell pkg-config --exists libdpdk)
-
-ifeq ($(RTE_SDK),)
-$(error "Please define RTE_SDK environment variable")
+ifneq ($(shell pkg-config --exists libdpdk && echo 0),0)
+$(error "no installation of DPDK found")
 endif
 
-# Default target, can be overridden by command line or environment
-RTE_TARGET ?= x86_64-native-linux-gcc
+all: static
+.PHONY: shared static
+shared: build/$(APP)-shared
+	ln -sf $(APP)-shared build/$(APP)
+static: build/$(APP)-static
+	ln -sf $(APP)-static build/$(APP)
 
-include $(RTE_SDK)/mk/rte.vars.mk
+PKGCONF ?= pkg-config
 
-INCLUDE += -I. -I../includes/com_util -I$(RTE_SDK)/lib/librte_eal/common
-CFLAGS += $(INCLUDE) -Wall -fPIC -g -std=c99 -D_XOPEN_SOURCE=700 -D_BSD_SOURCE #-D_DP_DBG
+INCLUDE += -I. -I../lib/libutil -I../lib/dpdk-stable/lib/librte_eal/common
+CFLAGS += $(INCLUDE) -Wall -fPIC -g -std=c99 -D_XOPEN_SOURCE=700 -D_DEFAULT_SOURCE #-D_DP_DBG
+LDLIBS += -L../lib/libutil -lutil
 
-CFLAGS += -O3
-CFLAGS += $(WERROR_FLAGS)
+PC_FILE := $(shell $(PKGCONF) --path libdpdk 2>/dev/null)
+CFLAGS += -O3 $(shell $(PKGCONF) --cflags libdpdk)
+LDFLAGS_SHARED = $(shell $(PKGCONF) --libs libdpdk)
+LDFLAGS_STATIC = $(shell $(PKGCONF) --static --libs libdpdk)
 
-include $(RTE_SDK)/mk/rte.app.mk
+CFLAGS += -DALLOW_EXPERIMENTAL_API
+
+build/$(APP)-shared: $(SRCS-y) Makefile $(PC_FILE) | build
+	$(CC) $(CFLAGS) $(SRCS-y) -o $@ $(LDFLAGS) $(LDFLAGS_SHARED)
+
+build/$(APP)-static: $(SRCS-y) Makefile $(PC_FILE) | build
+	$(CC) $(CFLAGS) $(SRCS-y) -o $@ $(LDFLAGS) $(LDFLAGS_STATIC)
+
+build:
+    @mkdir -p $@
+.PHONY: clean
+clean:
+	rm -f build/$(APP) build/$(APP)-static build/$(APP)-shared
+	test -d build && rmdir -p build || true

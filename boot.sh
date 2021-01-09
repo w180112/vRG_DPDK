@@ -1,3 +1,6 @@
+sudo pip3 install meson
+sudo pip3 install ninja
+
 get_script_dir () {
      SOURCE="${BASH_SOURCE[0]}"
      while [ -h "$SOURCE" ]; do
@@ -8,9 +11,13 @@ get_script_dir () {
      DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
      echo "$DIR"
 }
-export RTE_SDK=$(get_script_dir)/lib/dpdk-19.11
-export RTE_TARGET=x86_64-native-linux-gcc
-cd ./lib/dpdk-19.11 && make install T=x86_64-native-linux-gcc -j 10
+
+cd ./lib/dpdk-stable && meson ../dpdk-build
+cd ../dpdk-build
+ninja && ninja instal
+ldconfig
+cd ../libutil
+make
 cd ../../src
 make
 cd ..
