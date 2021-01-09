@@ -12,7 +12,7 @@ get_script_dir () {
      echo "$DIR"
 }
 
-cd ./lib/dpdk-stable && meson ../dpdk-build
+cd ./lib/dpdk && meson ../dpdk-build
 cd ../dpdk-build
 ninja && ninja instal
 ldconfig
