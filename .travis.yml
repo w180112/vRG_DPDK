@@ -15,5 +15,8 @@ os:
 before_install:
   - sudo apt-get install -y libnuma-dev
   - sudo apt-get install -y linux-modules-4.15.0-1028-gcp linux-headers-$(uname -r)
+  - sudo apt install python3-pip -y
+  - sudo pip3 install meson
+  - sudo pip3 install ninja
 
 script: ./boot.sh || travis_terminate 1;
