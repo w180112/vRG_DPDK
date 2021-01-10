@@ -12,10 +12,10 @@ get_script_dir () {
      echo "$DIR"
 }
 
-cd ./lib/dpdk && meson ../dpdk-build
+cd ./lib/dpdk && sudo meson ../dpdk-build
 cd ../dpdk-build
-ninja && ninja instal
-ldconfig
+sudo ninja && sudo ninja instal
+sudo ldconfig
 cd ../libutil
 make
 cd ../../src
