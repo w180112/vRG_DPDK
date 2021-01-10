@@ -9,6 +9,7 @@ get_script_dir () {
 	echo "$DIR"
 }
 
-cd ./src
+path=$(get_script_dir)
+cd $path/src
 make
-cd ..
+cd $path

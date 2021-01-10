@@ -1,5 +1,5 @@
-sudo pip3 install meson
-sudo pip3 install ninja
+pip3 install meson
+pip3 install ninja
 
 get_script_dir () {
      SOURCE="${BASH_SOURCE[0]}"
@@ -11,13 +11,13 @@ get_script_dir () {
      DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
      echo "$DIR"
 }
-
-cd ./lib/dpdk && sudo meson ../dpdk-build
-cd ../dpdk-build
-sudo ninja && sudo ninja instal
-sudo ldconfig
-cd ../libutil
+path=$(get_script_dir)
+cd $path/lib/dpdk && meson $path/lib/dpdk_build
+cd $path/lib/dpdk_build
+ninja && ninja install
+ldconfig
+cd $path/lib/libutil
 make
-cd ../../src
+cd $path/src
 make
-cd ..
+cd $path
