@@ -27,10 +27,18 @@
 
 #define BURST_SIZE 32
 
+enum {
+	gen_port_q = 0,
+	tcp_port_q,
+	udp_port_q,
+	mc_port_q,
+	ctrl_port_q,
+};
+
 extern tPPP_PORT				ppp_ports[MAX_USER];
 extern struct rte_mempool 		*mbuf_pool;
 extern struct rte_ring 			*rte_ring;
-extern struct rte_ring 			*decap_udp, *decap_tcp, *encap_udp, *encap_tcp;
+extern struct rte_ring 			/**decap_udp, *decap_tcp, *encap_udp, *encap_tcp,*/ *ds_mc_queue, *us_mc_queue, *rg_func_queue;
 extern rte_atomic16_t			cp_recv_cums;
 uint8_t 						cp_recv_prod;
 extern uint8_t					vendor_id;
@@ -63,7 +71,7 @@ int PPP_PORT_INIT(uint16_t port)
 {
 	struct rte_eth_conf port_conf = port_conf_default;
 	struct rte_eth_dev_info dev_info;
-	const uint16_t rx_rings = 1, tx_rings = 4;
+	const uint16_t rx_rings = 1, tx_rings = 5;
 	int retval;
 	uint16_t q;
 
@@ -125,7 +133,7 @@ int ppp_recvd(void)
 	
 	usleep(500000);
 	for(;;) {
-		nb_rx = rte_eth_rx_burst(1,0,pkt,BURST_SIZE);
+		nb_rx = rte_eth_rx_burst(1, gen_port_q, pkt, BURST_SIZE);
 		if (nb_rx == 0)
 			continue;
 		total_tx = 0;
@@ -138,7 +146,21 @@ int ppp_recvd(void)
 				continue;
 			}
 			vlan_header = (vlan_header_t *)(rte_pktmbuf_mtod(single_pkt, unsigned char *) + sizeof(struct rte_ether_hdr));
+			/* We need to detect IGMP and multicast msg here */
 			if (unlikely(vlan_header->next_proto != rte_cpu_to_be_16(ETH_P_PPP_SES) && vlan_header->next_proto != rte_cpu_to_be_16(ETH_P_PPP_DIS))) {
+				if (vlan_header->next_proto == rte_cpu_to_be_16(FRAME_TYPE_IP)) {
+					user_index = (rte_be_to_cpu_16(vlan_header->tci_union.tci_value) & 0xFFF) - 2;
+					uint16_t vlan_id = rte_be_to_cpu_16(vlan_header->tci_union.tci_value) & 0xFFF;
+					ip_hdr = (struct rte_ipv4_hdr *)(rte_pktmbuf_mtod(single_pkt, unsigned char *) + sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t));
+					if (ip_hdr->next_proto_id == PROTO_TYPE_UDP && vlan_id == MULTICAST_TAG) { //add 4001 vlan tag to detect
+						rte_ring_enqueue_burst(ds_mc_queue,(void **)&single_pkt,1,NULL);
+						continue;
+					}
+					if (ip_hdr->next_proto_id == IPPROTO_IGMP) {
+						pkt[total_tx++] = single_pkt;
+						continue;
+					}
+				}
 				rte_pktmbuf_free(single_pkt);
 				continue;
 			}
@@ -195,11 +217,15 @@ int ppp_recvd(void)
 					#endif
 					break;
 				case PROTO_TYPE_UDP:
-					rte_ring_enqueue_burst(decap_udp,(void **)&single_pkt,1,NULL);
+					//rte_ring_enqueue_burst(decap_udp,(void **)&single_pkt,1,NULL);
+					decaps_udp(single_pkt);
+					pkt[total_tx++] = single_pkt;
 					//rte_pktmbuf_free(single_pkt);
 					continue;
 				case PROTO_TYPE_TCP:
-					rte_ring_enqueue_burst(decap_tcp,(void **)&single_pkt,1,NULL);
+					//rte_ring_enqueue_burst(decap_tcp,(void **)&single_pkt,1,NULL);
+					decaps_tcp(single_pkt);
+					pkt[total_tx++] = single_pkt;
 					//rte_pktmbuf_free(single_pkt);
 					continue;
 				default:
@@ -209,7 +235,7 @@ int ppp_recvd(void)
 			pkt[total_tx++] = single_pkt;
 		}
 		if (likely(total_tx > 0)) {
-			uint16_t nb_tx = rte_eth_tx_burst(0,1,pkt,total_tx);
+			uint16_t nb_tx = rte_eth_tx_burst(0, gen_port_q, pkt, total_tx);
 			if (unlikely(nb_tx < total_tx)) {
 				for(uint16_t buf=nb_tx; buf<total_tx; buf++)
 					rte_pktmbuf_free(pkt[buf]);
@@ -217,6 +243,61 @@ int ppp_recvd(void)
 		}
 	}
 	return 0;
+}
+
+int ds_mc(void)
+{
+	struct rte_mbuf 	*pkt[BURST_SIZE], *single_pkt;
+	uint64_t 			total_tx;
+	uint16_t			burst_size;
+	int 				i;
+	
+	for(i=0; i<BURST_SIZE; i++)
+		pkt[i] = rte_pktmbuf_alloc(mbuf_pool);
+
+	for(;;) {
+		burst_size = rte_ring_dequeue_burst(ds_mc_queue,(void **)pkt,BURST_SIZE,NULL);
+		if (unlikely(burst_size == 0))
+			continue;
+		total_tx = 0;
+		for(i=0; i<burst_size; i++) {
+			single_pkt = pkt[i];
+			/* Need to check whether the packet is multicast */
+			pkt[total_tx++] = single_pkt;
+		}
+		if (likely(total_tx > 0))
+			rte_eth_tx_burst(0, mc_port_q, pkt, total_tx);
+	}
+	return 0;
+}
+
+void decaps_udp(struct rte_mbuf *single_pkt)
+{
+	struct rte_ether_hdr 	*eth_hdr;
+	vlan_header_t		*vlan_header;
+	struct rte_ipv4_hdr 	*ip_hdr;
+	struct rte_udp_hdr 		*udphdr;
+	uint16_t 			ori_port_id, user_index;
+
+	rte_prefetch0(rte_pktmbuf_mtod(single_pkt, void *));
+	eth_hdr = rte_pktmbuf_mtod(single_pkt, struct rte_ether_hdr*);
+	vlan_header = (vlan_header_t *)(eth_hdr + 1);
+	user_index = (rte_be_to_cpu_16(vlan_header->tci_union.tci_value) & 0xFFF) - 2;
+	/* for NAT mapping */
+	ip_hdr = (struct rte_ipv4_hdr *)(rte_pktmbuf_mtod(single_pkt,unsigned char *) + sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t));
+	ip_hdr->hdr_checksum = 0;
+
+	single_pkt->ol_flags |= PKT_TX_IPV4 | PKT_TX_IP_CKSUM/* | PKT_TX_UDP_CKSUM*/;
+	udphdr = (struct rte_udp_hdr *)(rte_pktmbuf_mtod(single_pkt, unsigned char *) + sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t) + sizeof(struct rte_ipv4_hdr));
+	ori_port_id = rte_cpu_to_be_16(udphdr->dst_port);
+	rte_memcpy(eth_hdr->s_addr.addr_bytes,ppp_ports[user_index].lan_mac,ETH_ALEN);
+	rte_memcpy(eth_hdr->d_addr.addr_bytes,ppp_ports[user_index].addr_table[ori_port_id].mac_addr,ETH_ALEN);
+	ip_hdr->dst_addr = ppp_ports[user_index].addr_table[ori_port_id].src_ip;
+	udphdr->dst_port = ppp_ports[user_index].addr_table[ori_port_id].port_id;
+	ppp_ports[user_index].addr_table[ori_port_id].is_alive = 10;
+
+	udphdr->dgram_cksum = 0;
+	udphdr->dgram_cksum = rte_ipv4_udptcp_cksum(ip_hdr,udphdr);
 }
 
 int decapsulation_udp(void)
@@ -263,18 +344,47 @@ int decapsulation_udp(void)
 			pkt[total_tx++] = single_pkt;
 		}
 		if (likely(total_tx > 0))
-			rte_eth_tx_burst(0,2,pkt,total_tx);
+			rte_eth_tx_burst(0, udp_port_q, pkt, total_tx);
 	}
 	return 0;
+}
+
+void decaps_tcp(struct rte_mbuf *single_pkt)
+{
+	uint64_t 			total_tx;
+	struct rte_ether_hdr *eth_hdr;
+	vlan_header_t		*vlan_header;
+	struct rte_ipv4_hdr *ip_hdr;
+	struct rte_tcp_hdr 	*tcphdr;
+	uint16_t 			ori_port_id, user_index;
+	
+	rte_prefetch0(rte_pktmbuf_mtod(single_pkt,void *));
+	eth_hdr = rte_pktmbuf_mtod(single_pkt,struct rte_ether_hdr*);
+	vlan_header = (vlan_header_t *)(eth_hdr + 1);
+	user_index = (rte_be_to_cpu_16(vlan_header->tci_union.tci_value) & 0xFFF) - 2;
+	/* for NAT mapping */
+	ip_hdr = (struct rte_ipv4_hdr *)(rte_pktmbuf_mtod(single_pkt,unsigned char *) + sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t));
+	ip_hdr->hdr_checksum = 0;
+
+	single_pkt->ol_flags |= PKT_TX_IPV4 | PKT_TX_IP_CKSUM/* | PKT_TX_TCP_CKSUM*/;
+	tcphdr = (struct rte_tcp_hdr *)(rte_pktmbuf_mtod(single_pkt, unsigned char *) + sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t) + sizeof(struct rte_ipv4_hdr));
+	ori_port_id = rte_cpu_to_be_16(tcphdr->dst_port);
+	rte_memcpy(eth_hdr->s_addr.addr_bytes,ppp_ports[user_index].lan_mac,ETH_ALEN);
+	rte_memcpy(eth_hdr->d_addr.addr_bytes,ppp_ports[user_index].addr_table[ori_port_id].mac_addr,ETH_ALEN);
+	ip_hdr->dst_addr = ppp_ports[user_index].addr_table[ori_port_id].src_ip;
+	tcphdr->dst_port = ppp_ports[user_index].addr_table[ori_port_id].port_id;
+	ppp_ports[user_index].addr_table[ori_port_id].is_alive = 10;
+	tcphdr->cksum = 0;
+	tcphdr->cksum = rte_ipv4_udptcp_cksum(ip_hdr,tcphdr);
 }
 
 int decapsulation_tcp(void)
 {
 	uint64_t 			total_tx;
-	struct rte_ether_hdr 	*eth_hdr;
+	struct rte_ether_hdr *eth_hdr;
 	vlan_header_t		*vlan_header;
-	struct rte_ipv4_hdr 	*ip_hdr;
-	struct rte_tcp_hdr 		*tcphdr;
+	struct rte_ipv4_hdr *ip_hdr;
+	struct rte_tcp_hdr 	*tcphdr;
 	uint16_t 			ori_port_id, burst_size, user_index;
 	struct rte_mbuf 	*pkt[BURST_SIZE], *single_pkt;
 	int 				i;
@@ -311,7 +421,7 @@ int decapsulation_tcp(void)
 			pkt[total_tx++] = single_pkt;
 		}
 		if (likely(total_tx > 0))
-			rte_eth_tx_burst(0,3,pkt,total_tx);
+			rte_eth_tx_burst(0, tcp_port_q, pkt, total_tx);
 	}
 	return 0;
 }
@@ -325,8 +435,58 @@ int control_plane_dequeue(tPPP_MBX **mail)
 		if (likely(burst_size == 0))
 			continue;
 		break;
-		}
+	}
 	return burst_size;
+}
+
+void encaps_udp(struct rte_mbuf *single_pkt)
+{
+	struct rte_udp_hdr 	*udphdr;
+	char 				*cur;
+	uint32_t 			new_port_id;
+	pppoe_header_t 		*pppoe_header;
+	uint64_t 			total_tx;
+	uint16_t			user_index;
+	struct rte_ether_hdr *eth_hdr;
+	vlan_header_t		*vlan_header;
+	struct rte_ipv4_hdr *ip_hdr;
+
+	rte_prefetch0(rte_pktmbuf_mtod(single_pkt,void *));
+	eth_hdr = rte_pktmbuf_mtod(single_pkt,struct rte_ether_hdr*);
+	vlan_header = (vlan_header_t *)(eth_hdr + 1);
+	user_index = (rte_be_to_cpu_16(vlan_header->tci_union.tci_value) & 0xFFF) - 2;
+	ip_hdr = (struct rte_ipv4_hdr *)(rte_pktmbuf_mtod(single_pkt,unsigned char *) + sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t));
+	ip_hdr->hdr_checksum = 0;
+			
+	/* for nat */
+	//single_pkt->ol_flags |= PKT_TX_IPV4 | PKT_TX_IP_CKSUM | PKT_TX_UDP_CKSUM;
+
+	udphdr = (struct rte_udp_hdr *)(rte_pktmbuf_mtod(single_pkt, unsigned char *) + sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t) + sizeof(struct rte_ipv4_hdr));
+	nat_udp_learning(eth_hdr,ip_hdr,udphdr,&new_port_id,ppp_ports[user_index].addr_table);
+	ip_hdr->src_addr = ppp_ports[user_index].ipv4;
+	udphdr->src_port = rte_cpu_to_be_16(new_port_id);
+	ppp_ports[user_index].addr_table[new_port_id].is_alive = 10;
+	ip_hdr->hdr_checksum = rte_ipv4_cksum(ip_hdr);
+	udphdr->dgram_cksum = 0;
+	udphdr->dgram_cksum = rte_ipv4_udptcp_cksum(ip_hdr,udphdr);
+
+	/* for PPPoE */
+	rte_memcpy(eth_hdr->s_addr.addr_bytes,ppp_ports[user_index].src_mac,ETH_ALEN);
+	rte_memcpy(eth_hdr->d_addr.addr_bytes,ppp_ports[user_index].dst_mac,ETH_ALEN);
+
+	vlan_header->next_proto = rte_cpu_to_be_16(ETH_P_PPP_SES);
+	cur = (char *)eth_hdr - 8;
+	rte_memcpy(cur,eth_hdr,sizeof(struct rte_ether_hdr));
+	rte_memcpy(cur+sizeof(struct rte_ether_hdr),vlan_header,sizeof(vlan_header_t));
+	pppoe_header = (pppoe_header_t *)(cur+sizeof(struct rte_ether_hdr)+sizeof(vlan_header_t));
+	pppoe_header->ver_type = VER_TYPE;
+	pppoe_header->code = 0;
+	pppoe_header->session_id = ppp_ports[user_index].session_id;
+	pppoe_header->length = rte_cpu_to_be_16((single_pkt->pkt_len) - 18 + 2);
+	*((uint16_t *)(cur+sizeof(struct rte_ether_hdr)+sizeof(vlan_header_t)+sizeof(pppoe_header_t))) = rte_cpu_to_be_16(IP_PROTOCOL);
+	single_pkt->data_off -= 8;
+	single_pkt->pkt_len += 8;
+	single_pkt->data_len += 8;
 }
 
 int encapsulation_udp(void)
@@ -393,9 +553,59 @@ int encapsulation_udp(void)
 			pkt[total_tx++] = single_pkt;
 		}
 		if (likely(total_tx > 0))
-			rte_eth_tx_burst(1,2,pkt,total_tx);
+			rte_eth_tx_burst(1, udp_port_q, pkt, total_tx);
 	}
 	return 0;
+}
+
+void encaps_tcp(struct rte_mbuf *single_pkt)
+{
+	struct rte_tcp_hdr 	*tcphdr;
+	char 				*cur;
+	uint32_t 			new_port_id;
+	pppoe_header_t 		*pppoe_header;
+	uint64_t 			total_tx;
+	uint16_t			burst_size, user_index;
+	struct rte_ether_hdr *eth_hdr;
+	vlan_header_t		*vlan_header;
+	struct rte_ipv4_hdr *ip_hdr;
+	int 				i;
+
+	rte_prefetch0(rte_pktmbuf_mtod(single_pkt,void *));
+	eth_hdr = rte_pktmbuf_mtod(single_pkt,struct rte_ether_hdr*);
+	vlan_header = (vlan_header_t *)(eth_hdr + 1);
+	user_index = (rte_be_to_cpu_16(vlan_header->tci_union.tci_value) & 0xFFF) - 2;
+	ip_hdr = (struct rte_ipv4_hdr *)(rte_pktmbuf_mtod(single_pkt,unsigned char *) + sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t));
+	ip_hdr->hdr_checksum = 0;
+	/* for nat */
+	//single_pkt->ol_flags |= PKT_TX_IPV4 | PKT_TX_IP_CKSUM | PKT_TX_TCP_CKSUM;
+
+	tcphdr = (struct rte_tcp_hdr *)(rte_pktmbuf_mtod(single_pkt, unsigned char *) + sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t) + sizeof(struct rte_ipv4_hdr));
+	nat_tcp_learning(eth_hdr,ip_hdr,tcphdr,&new_port_id,ppp_ports[user_index].addr_table);
+	ip_hdr->src_addr = ppp_ports[user_index].ipv4;
+	tcphdr->src_port = rte_cpu_to_be_16(new_port_id);
+	ppp_ports[user_index].addr_table[new_port_id].is_alive = 10;
+	ip_hdr->hdr_checksum = rte_ipv4_cksum(ip_hdr);
+	tcphdr->cksum = 0;
+	tcphdr->cksum = rte_ipv4_udptcp_cksum(ip_hdr,tcphdr);
+
+	/* for PPPoE */
+	rte_memcpy(eth_hdr->s_addr.addr_bytes,ppp_ports[user_index].src_mac,ETH_ALEN);
+	rte_memcpy(eth_hdr->d_addr.addr_bytes,ppp_ports[user_index].dst_mac,ETH_ALEN);
+
+	vlan_header->next_proto = rte_cpu_to_be_16(ETH_P_PPP_SES);
+	cur = (char *)eth_hdr - 8;
+	rte_memcpy(cur,eth_hdr,sizeof(struct rte_ether_hdr));
+	rte_memcpy(cur+sizeof(struct rte_ether_hdr),vlan_header,sizeof(vlan_header_t));
+	pppoe_header = (pppoe_header_t *)(cur+sizeof(struct rte_ether_hdr)+sizeof(vlan_header_t));
+	pppoe_header->ver_type = VER_TYPE;
+	pppoe_header->code = 0;
+	pppoe_header->session_id = ppp_ports[user_index].session_id;
+	pppoe_header->length = rte_cpu_to_be_16((single_pkt->pkt_len) - 18 + 2);
+	*((uint16_t *)(cur+sizeof(struct rte_ether_hdr)+sizeof(vlan_header_t)+sizeof(pppoe_header_t))) = rte_cpu_to_be_16(IP_PROTOCOL);
+	single_pkt->data_off -= 8;
+	single_pkt->pkt_len += 8;
+	single_pkt->data_len += 8;
 }
 
 int encapsulation_tcp(void)
@@ -461,7 +671,33 @@ int encapsulation_tcp(void)
 			pkt[total_tx++] = single_pkt;
 		}
 		if (likely(total_tx > 0))
-			rte_eth_tx_burst(1,3,pkt,total_tx);
+			rte_eth_tx_burst(1, tcp_port_q, pkt, total_tx);
+	}
+	return 0;
+}
+
+int us_mc(void)
+{
+	struct rte_mbuf 	*pkt[BURST_SIZE], *single_pkt;
+	uint64_t 			total_tx;
+	uint16_t			burst_size;
+	int 				i;
+	
+	for(i=0; i<BURST_SIZE; i++)
+		pkt[i] = rte_pktmbuf_alloc(mbuf_pool);
+
+	for(;;) {
+		burst_size = rte_ring_dequeue_burst(us_mc_queue,(void **)pkt,BURST_SIZE,NULL);
+		if (unlikely(burst_size == 0))
+			continue;
+		total_tx = 0;
+		for(i=0; i<burst_size; i++) {
+			single_pkt = pkt[i];
+			/* Need to check whether the packet is multicast */
+			pkt[total_tx++] = single_pkt;
+		}
+		if (likely(total_tx > 0))
+			rte_eth_tx_burst(1, mc_port_q, pkt, total_tx);
 	}
 	return 0;
 }
@@ -476,17 +712,16 @@ int gateway(void)
 	struct rte_icmp_hdr *icmphdr;
 	struct rte_mbuf 	*pkt[BURST_SIZE];
 	unsigned char 		mac_addr[6];
-	struct rte_arp_hdr	*arphdr;
 	char 				*cur;
 	int 				i;
 	pppoe_header_t 		*pppoe_header;
 	uint16_t 			nb_tx, nb_rx, user_index;
-	uint32_t			lan_ip = rte_cpu_to_be_32(0xc0a80201); //192.168.2.1
+	//uint32_t			lan_ip = rte_cpu_to_be_32(0xc0a80201); //192.168.2.1
 
 	usleep(500000);
-	rte_eth_macaddr_get(0, (struct rte_ether_addr *)mac_addr);
+	//rte_eth_macaddr_get(0, (struct rte_ether_addr *)mac_addr);
 	for(;;) {
-		nb_rx = rte_eth_rx_burst(0, 0, pkt, BURST_SIZE);
+		nb_rx = rte_eth_rx_burst(0, gen_port_q, pkt, BURST_SIZE);
 		if (nb_rx == 0)
 			continue;
 		total_tx = 0;
@@ -509,28 +744,14 @@ int gateway(void)
 
 			if (unlikely(vlan_header->next_proto == rte_cpu_to_be_16(FRAME_TYPE_ARP))) { 
 				/* We only reply arp request to us */
-				arphdr = (struct rte_arp_hdr *)(rte_pktmbuf_mtod(single_pkt, unsigned char *) + sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t));
-				if (arphdr->arp_opcode == rte_cpu_to_be_16(RTE_ARP_OP_REQUEST) && arphdr->arp_data.arp_tip == lan_ip) {
-					rte_memcpy(eth_hdr->d_addr.addr_bytes,eth_hdr->s_addr.addr_bytes,ETH_ALEN);
-					rte_memcpy(eth_hdr->s_addr.addr_bytes,mac_addr,ETH_ALEN);
-					rte_memcpy(arphdr->arp_data.arp_tha.addr_bytes,arphdr->arp_data.arp_sha.addr_bytes,ETH_ALEN);
-					rte_memcpy(arphdr->arp_data.arp_sha.addr_bytes,mac_addr,ETH_ALEN);
-					arphdr->arp_data.arp_tip = arphdr->arp_data.arp_sip;
-					arphdr->arp_data.arp_sip = lan_ip;
-					arphdr->arp_opcode = rte_cpu_to_be_16(RTE_ARP_OP_REPLY);
-					rte_eth_tx_burst(0, 0, &single_pkt, 1);
-					continue;
-				}
-				rte_pktmbuf_free(single_pkt);
+				rte_ring_enqueue_burst(rg_func_queue, (void **)&single_pkt, 1, NULL);
 				continue;
 			}
-			else if (unlikely(vlan_header->next_proto == rte_cpu_to_be_16(ETH_P_PPP_DIS) || (vlan_header->next_proto == rte_cpu_to_be_16(ETH_P_PPP_SES)))) {
-				rte_pktmbuf_free(single_pkt);
-				continue;
-			}
+			else if (unlikely(vlan_header->next_proto == rte_cpu_to_be_16(ETH_P_PPP_DIS) || (vlan_header->next_proto == rte_cpu_to_be_16(ETH_P_PPP_SES))))
+				pkt[total_tx++] = single_pkt;
 			else if (likely(vlan_header->next_proto == rte_cpu_to_be_16(FRAME_TYPE_IP))) {
 				ip_hdr = (struct rte_ipv4_hdr *)(rte_pktmbuf_mtod(single_pkt, unsigned char *) + sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t));
-				if (unlikely((ip_hdr->src_addr) << 8 != lan_ip << 8)) {
+				if (unlikely((ip_hdr->src_addr) << 8 != ppp_ports[user_index].lan_ip << 8)) {
 					rte_pktmbuf_free(single_pkt);
 					continue;
 				}
@@ -540,7 +761,7 @@ int gateway(void)
 				if (ip_hdr->next_proto_id == PROTO_TYPE_ICMP) {
 					//single_pkt->ol_flags |= PKT_TX_IPV4 | PKT_TX_IP_CKSUM;
 					icmphdr = (struct rte_icmp_hdr *)(rte_pktmbuf_mtod(single_pkt, unsigned char *) + sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t) + sizeof(struct rte_ipv4_hdr));
-					if (ip_hdr->dst_addr != lan_ip) {
+					if (ip_hdr->dst_addr != ppp_ports[user_index].lan_ip) {
 						if (unlikely(ppp_ports[user_index].data_plane_start == FALSE)) {
 							rte_pktmbuf_free(single_pkt);
 							continue;
@@ -582,34 +803,29 @@ int gateway(void)
 						#endif
 					}
 					else {
-						memcpy(eth_hdr->d_addr.addr_bytes, eth_hdr->s_addr.addr_bytes, ETH_ALEN);
-						memcpy(eth_hdr->s_addr.addr_bytes, mac_addr, ETH_ALEN);
-						ip_hdr->dst_addr = ip_hdr->src_addr;
-						ip_hdr->src_addr = lan_ip;
-						icmphdr->icmp_type = 0;
-						uint32_t cksum = ~icmphdr->icmp_cksum & 0xffff;
-						cksum += ~rte_cpu_to_be_16(8 << 8) & 0xffff;
-						cksum += rte_cpu_to_be_16(0 << 8);
-		  				cksum = (cksum & 0xffff) + (cksum >> 16);
-						cksum = (cksum & 0xffff) + (cksum >> 16);
-						icmphdr->icmp_cksum = ~cksum;
-						rte_eth_tx_burst(0, 0, &single_pkt, 1);
+						rte_ring_enqueue_burst(rg_func_queue, (void **)&single_pkt, 1, NULL);
 						continue;
 					}
 				}
+				else if (ip_hdr->next_proto_id == IPPROTO_IGMP)
+					pkt[total_tx++] = single_pkt;
 				else if (ip_hdr->next_proto_id == PROTO_TYPE_TCP) {
 					if (unlikely(ppp_ports[user_index].data_plane_start == FALSE)) {
 						rte_pktmbuf_free(single_pkt);
 						continue;
 					}
-					rte_ring_enqueue_burst(encap_tcp, (void **)&single_pkt, 1, NULL);
+					//rte_ring_enqueue_burst(encap_tcp, (void **)&single_pkt, 1, NULL);
+					encaps_tcp(single_pkt);
+					pkt[total_tx++] = single_pkt;
 				}
 				else if (ip_hdr->next_proto_id == PROTO_TYPE_UDP) {
 					if (unlikely(ppp_ports[user_index].data_plane_start == FALSE)) {
 						rte_pktmbuf_free(single_pkt);
 						continue;
 					}
-					rte_ring_enqueue_burst(encap_udp, (void **)&single_pkt, 1, NULL);
+					//rte_ring_enqueue_burst(encap_udp, (void **)&single_pkt, 1, NULL);
+					encaps_udp(single_pkt);
+					pkt[total_tx++] = single_pkt;
 				}
 				else {
 					#ifdef _DP_DBG
@@ -629,10 +845,88 @@ int gateway(void)
 			}
 		}
 		if (likely(total_tx > 0)) {
-			nb_tx = rte_eth_tx_burst(1, 0, pkt, total_tx);
+			nb_tx = rte_eth_tx_burst(1, gen_port_q, pkt, total_tx);
 			if (unlikely(nb_tx < total_tx)) {
 				for(uint16_t buf=nb_tx; buf<total_tx; buf++)
 					rte_pktmbuf_free(pkt[buf]);
+			}
+		}
+	}
+	return 0;
+}
+
+
+/* process RG function such as DHCP server, gateway ARP replying */
+int rg_func(void)
+{
+	struct rte_udp_hdr 	*udphdr;
+	char 				*cur;
+	uint32_t 			new_port_id;
+	pppoe_header_t 		*pppoe_header;
+	struct rte_mbuf 	*pkt[BURST_SIZE], *single_pkt;
+	uint64_t 			total_tx;
+	uint16_t			burst_size, user_index;
+	struct rte_ether_hdr *eth_hdr;
+	vlan_header_t		*vlan_header;
+	struct rte_ipv4_hdr *ip_hdr;
+	int 				i;
+	struct rte_arp_hdr	*arphdr;
+	struct rte_icmp_hdr *icmphdr;
+
+	for(i=0; i<BURST_SIZE; i++)
+		pkt[i] = rte_pktmbuf_alloc(mbuf_pool);
+
+	for(;;) {
+		burst_size = rte_ring_dequeue_burst(rg_func_queue,(void **)pkt,BURST_SIZE,NULL);
+		if (unlikely(burst_size == 0))
+			continue;
+		total_tx = 0;
+		for(i=0; i<burst_size; i++) {
+			single_pkt = pkt[i];
+			rte_prefetch0(rte_pktmbuf_mtod(single_pkt, void *));
+			eth_hdr = rte_pktmbuf_mtod(single_pkt, struct rte_ether_hdr*);
+			vlan_header = (vlan_header_t *)(eth_hdr + 1);
+			user_index = (rte_be_to_cpu_16(vlan_header->tci_union.tci_value) & 0xFFF) - 2;
+			if (unlikely(vlan_header->next_proto == rte_cpu_to_be_16(FRAME_TYPE_ARP))) {
+				arphdr = (struct rte_arp_hdr *)(rte_pktmbuf_mtod(single_pkt, unsigned char *) + sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t));
+				if (arphdr->arp_opcode == rte_cpu_to_be_16(RTE_ARP_OP_REQUEST) && arphdr->arp_data.arp_tip == ppp_ports[user_index].lan_ip) {
+					rte_memcpy(eth_hdr->d_addr.addr_bytes,eth_hdr->s_addr.addr_bytes,ETH_ALEN);
+					rte_memcpy(eth_hdr->s_addr.addr_bytes,ppp_ports[user_index].lan_mac,ETH_ALEN);
+					rte_memcpy(arphdr->arp_data.arp_tha.addr_bytes,arphdr->arp_data.arp_sha.addr_bytes,ETH_ALEN);
+					rte_memcpy(arphdr->arp_data.arp_sha.addr_bytes,ppp_ports[user_index].lan_mac,ETH_ALEN);
+					arphdr->arp_data.arp_tip = arphdr->arp_data.arp_sip;
+					arphdr->arp_data.arp_sip = ppp_ports[user_index].lan_ip;
+					arphdr->arp_opcode = rte_cpu_to_be_16(RTE_ARP_OP_REPLY);
+					rte_eth_tx_burst(0, gen_port_q, &single_pkt, 1);
+					continue;
+				}
+				rte_pktmbuf_free(single_pkt);
+				continue;
+			}
+			else if (likely(vlan_header->next_proto == rte_cpu_to_be_16(FRAME_TYPE_IP))) {
+				ip_hdr = (struct rte_ipv4_hdr *)(rte_pktmbuf_mtod(single_pkt, unsigned char *) + sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t));
+				if (ip_hdr->next_proto_id == PROTO_TYPE_ICMP) {
+					icmphdr = (struct rte_icmp_hdr *)(rte_pktmbuf_mtod(single_pkt, unsigned char *) + sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t) + sizeof(struct rte_ipv4_hdr));
+					if (ip_hdr->dst_addr == ppp_ports[user_index].lan_ip) {
+						memcpy(eth_hdr->d_addr.addr_bytes, eth_hdr->s_addr.addr_bytes, ETH_ALEN);
+						memcpy(eth_hdr->s_addr.addr_bytes, ppp_ports[user_index].lan_mac, ETH_ALEN);
+						ip_hdr->dst_addr = ip_hdr->src_addr;
+						ip_hdr->src_addr = ppp_ports[user_index].lan_ip;
+						icmphdr->icmp_type = 0;
+						uint32_t cksum = ~icmphdr->icmp_cksum & 0xffff;
+						cksum += ~rte_cpu_to_be_16(8 << 8) & 0xffff;
+						cksum += rte_cpu_to_be_16(0 << 8);
+		  				cksum = (cksum & 0xffff) + (cksum >> 16);
+						cksum = (cksum & 0xffff) + (cksum >> 16);
+						icmphdr->icmp_cksum = ~cksum;
+						rte_eth_tx_burst(0, gen_port_q, &single_pkt, 1);
+						continue;
+					}
+					else {
+						rte_pktmbuf_free(single_pkt);
+						continue;
+					}
+				}
 			}
 		}
 	}
@@ -649,7 +943,7 @@ void drv_xmit(U8 *mu, U16 mulen)
 	rte_memcpy(buf, mu, mulen);
 	pkt->data_len = mulen;
 	pkt->pkt_len = mulen;
-	rte_eth_tx_burst(1, 1, &pkt, 1);
+	rte_eth_tx_burst(1, ctrl_port_q, &pkt, 1);
 }
 
 static int lsi_event_callback(uint16_t port_id, enum rte_eth_event_type type, void *param)

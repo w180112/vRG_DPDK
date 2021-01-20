@@ -30,6 +30,8 @@
 #define CAP_VSI_DISCOV_PROTO	1
 #define CAP_802_1X_AUTH_REQ		1
 
+#define MULTICAST_TAG 			4001
+
 #define MAX_USER				2
 
 #define MLX5					1
@@ -165,6 +167,7 @@ typedef struct {
 	uint16_t 			session_id;
 	uint16_t			user_num;
 	uint16_t 			vlan;
+	uint32_t			lan_ip;
 
 	unsigned char 		src_mac[RTE_ETHER_ADDR_LEN];
 	unsigned char 		dst_mac[RTE_ETHER_ADDR_LEN];

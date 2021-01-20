@@ -49,7 +49,7 @@ uint8_t					vendor_id = 0;
 tPPP_PORT				ppp_ports[MAX_USER]; //port is 1's based
 
 struct rte_mempool 		*mbuf_pool;
-struct rte_ring 		*rte_ring, *decap_udp, *decap_tcp, *encap_udp, *encap_tcp;
+struct rte_ring 		*rte_ring, /**decap_udp, *decap_tcp, *encap_udp, *encap_tcp,*/ *ds_mc_queue, *us_mc_queue, *rg_func_queue;
 
 extern int 				timer_loop(__attribute__((unused)) void *arg);
 extern int 				rte_ethtool_get_drvinfo(uint16_t port_id, struct ethtool_drvinfo *drvinfo);
@@ -90,8 +90,8 @@ int main(int argc, char **argv)
 
 	fp = fopen("./pppoeclient.log","w+");
 	eal_log_set_default(fp);
-	if (rte_lcore_count() < 9)
-		rte_exit(EXIT_FAILURE, "We need at least 9 cores.\n");
+	if (rte_lcore_count() < 8)
+		rte_exit(EXIT_FAILURE, "We need at least 8 cores.\n");
 	if (rte_eth_dev_count_avail() < 2)
 		rte_exit(EXIT_FAILURE, "We need at least 2 eth ports.\n");
 	
@@ -114,7 +114,7 @@ int main(int argc, char **argv)
 				i--;
 				continue;
 			}
-			rte_eth_macaddr_get(0,(struct rte_ether_addr *)ppp_ports[user_id].lan_mac);
+			rte_eth_macaddr_get(0, (struct rte_ether_addr *)ppp_ports[user_id].lan_mac);
 			user_id_length = strlen(user_name);
 			passwd_length = strlen(passwd);
 			ppp_ports[user_id].user_id = (unsigned char *)rte_malloc(NULL,user_id_length+1,0);
@@ -141,10 +141,13 @@ int main(int argc, char **argv)
 	if (mbuf_pool == NULL)
 		rte_exit(EXIT_FAILURE, "Cannot create mbuf pool\n");
 	rte_ring = rte_ring_create("state_machine",RING_SIZE,rte_socket_id(),0);
-	decap_tcp = rte_ring_create("decapsulation_tcp",RING_SIZE,rte_socket_id(),0);
-	decap_udp = rte_ring_create("decapsulation_udp",RING_SIZE,rte_socket_id(),0);
-	encap_tcp = rte_ring_create("encapsulation_tcp",RING_SIZE,rte_socket_id(),0);
-	encap_udp = rte_ring_create("encapsulation_udp",RING_SIZE,rte_socket_id(),0);
+	//decap_tcp = rte_ring_create("decapsulation_tcp",RING_SIZE,rte_socket_id(),0);
+	//decap_udp = rte_ring_create("decapsulation_udp",RING_SIZE,rte_socket_id(),0);
+	//encap_tcp = rte_ring_create("encapsulation_tcp",RING_SIZE,rte_socket_id(),0);
+	//encap_udp = rte_ring_create("encapsulation_udp",RING_SIZE,rte_socket_id(),0);
+	rg_func_queue = rte_ring_create("rg_function",RING_SIZE,rte_socket_id(),0);
+	ds_mc_queue = rte_ring_create("downstream_multicast",RING_SIZE,rte_socket_id(),0);
+	us_mc_queue = rte_ring_create("upstream_multicast",RING_SIZE,rte_socket_id(),0);
 
 	/* Initialize all ports. */
 	RTE_ETH_FOREACH_DEV(portid) {
@@ -186,14 +189,16 @@ int main(int argc, char **argv)
 	/* initialize packet capture framework */
 	rte_pdump_init();
 	#endif
-	rte_eal_remote_launch((lcore_function_t *)ppp_recvd,NULL,1);
-	rte_eal_remote_launch((lcore_function_t *)decapsulation_tcp,NULL,2);
-	rte_eal_remote_launch((lcore_function_t *)decapsulation_udp,NULL,3);
-	rte_eal_remote_launch((lcore_function_t *)timer_loop,NULL,4);
-	rte_eal_remote_launch((lcore_function_t *)gateway,NULL,5);
-	rte_eal_remote_launch((lcore_function_t *)encapsulation_tcp,NULL,6);
-	rte_eal_remote_launch((lcore_function_t *)encapsulation_udp,NULL,7);
-	rte_eal_remote_launch((lcore_function_t *)control_plane,NULL,8);
+
+	rte_eal_remote_launch((lcore_function_t *)control_plane,NULL,1);
+	rte_eal_remote_launch((lcore_function_t *)ppp_recvd,NULL,2);
+	rte_eal_remote_launch((lcore_function_t *)ds_mc,NULL,3);
+	//rte_eal_remote_launch((lcore_function_t *)decapsulation_tcp,NULL,2);
+	//rte_eal_remote_launch((lcore_function_t *)decapsulation_udp,NULL,3);
+	rte_eal_remote_launch((lcore_function_t *)gateway,NULL,4);
+	rte_eal_remote_launch((lcore_function_t *)us_mc,NULL,5);
+	rte_eal_remote_launch((lcore_function_t *)rg_func,NULL,5);
+	rte_eal_remote_launch((lcore_function_t *)timer_loop,NULL,7);
 	
 	while(prompt == FALSE);
 	sleep(1);
@@ -307,6 +312,7 @@ int pppdInit(void)
 		ppp_ports[i].second_dns = 0;
 		ppp_ports[i].phase = END_PHASE;
 		ppp_ports[i].is_pap_auth = TRUE;
+		ppp_ports[i].lan_ip = rte_cpu_to_be_32(0xc0a80201);
 		memcpy(ppp_ports[i].src_mac,wan_mac,ETH_ALEN);
 		memset(ppp_ports[i].dst_mac,0,ETH_ALEN);
 	}
