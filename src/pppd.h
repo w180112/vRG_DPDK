@@ -14,7 +14,7 @@
 #include <rte_memory.h>
 #include <rte_ether.h>
 
-#define ETH_MTU					1544
+#define ETH_MTU					1500
 #define TEST_PORT_ID			1
 
 #define	MIN_FRAME_SIZE			64
@@ -40,6 +40,16 @@
 #define VMXNET3					4
 #define IXGBEVF					5
 #define I40EVF					6
+
+enum {
+	CTRL_LCORE = 1,
+	PPP_RECVD_LCORE,
+	DS_MC_LCORE,
+	GATEWAY_LCORE,
+	US_MC_LCORE,
+	RG_FUNC_LCORE,
+	TIMER_LOOP_LCORE,
+};
 
 typedef struct {
 	U8		subt;

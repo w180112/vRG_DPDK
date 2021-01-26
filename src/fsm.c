@@ -30,7 +30,7 @@ extern BOOL                     prompt;
 //extern struct rte_flow *generate_lan_flow(uint16_t port_id, uint16_t rx_q_udp, uint16_t rx_q_tcp, struct rte_flow_error *error);
 //extern struct rte_flow *generate_wan_flow(uint16_t port_id, uint16_t rx_q_udp, uint16_t rx_q_tcp, struct rte_flow_error *error);
 
-tPPP_STATE_TBL  ppp_fsm_tbl[2][121] = { 
+tPPP_STATE_TBL  ppp_fsm_tbl[2][122] = { 
 /*//////////////////////////////////////////////////////////////////////////////////
   	STATE   		EVENT           						      NEXT-STATE            HANDLER       
 ///////////////////////////////////////////////////////////////////////////////////\*/
@@ -50,6 +50,8 @@ tPPP_STATE_TBL  ppp_fsm_tbl[2][121] = {
 { S_STARTING,		E_CLOSE,    						    		S_INIT,			    { A_this_layer_finish, 0 }},
 
 /*---------------------------------------------------------------------------*/
+{ S_CLOSED,			E_UP, 							      		    S_CLOSED,			{ 0 }},
+
 { S_CLOSED,			E_DOWN, 							      		S_INIT,			    { A_send_padt, 0 }},
 
 { S_CLOSED,			E_OPEN, 							      		S_REQUEST_SENT,	  	{ A_send_config_request, A_init_restart_config, 0 }},
@@ -186,7 +188,7 @@ tPPP_STATE_TBL  ppp_fsm_tbl[2][121] = {
 
 { S_REQUEST_SENT, 	E_TIMEOUT_COUNTER_POSITIVE,						S_REQUEST_SENT, 	{ A_send_config_request, 0 }},
 
-/* may be with "PASSIVE" option, with this option, ppp will not exit but then just wait for a valid LCP packet from peer if there is not received form peer */
+/* may be with "PASSIVE" option, with this option, ppp will not exit but then just wait for a valid LCP packet from peer if there is not received from peer */
 { S_REQUEST_SENT, 	E_TIMEOUT_COUNTER_EXPIRED,						S_STOPPED, 			{ A_this_layer_finish, 0 }},
 
 { S_REQUEST_SENT, 	E_RECV_GOOD_CONFIG_REQUEST,						S_ACK_SENT,			{ A_send_config_ack, 0 }},
@@ -255,7 +257,7 @@ tPPP_STATE_TBL  ppp_fsm_tbl[2][121] = {
 	
 { S_ACK_SENT, 		E_TIMEOUT_COUNTER_POSITIVE,						S_ACK_SENT, 		{ A_send_config_request, 0 }},
 
-/* may be with "PASSIVE" option, with this option, ppp will not exit but then just wait for a valid LCP packet from peer if there is not received form peer */
+/* may be with "PASSIVE" option, with this option, ppp will not exit but then just wait for a valid LCP packet from peer if there is not received from peer */
 { S_ACK_SENT, 		E_TIMEOUT_COUNTER_EXPIRED,						S_STOPPED, 			{ A_this_layer_finish, 0 }},
 
 { S_ACK_SENT, 		E_RECV_GOOD_CONFIG_REQUEST,						S_ACK_SENT,			{ A_send_config_ack, 0 }},
@@ -695,7 +697,7 @@ STATUS A_this_layer_up(__attribute__((unused)) struct rte_timer *tim, __attribut
     else if (port_ccb->ppp_phase[port_ccb->cp].ppp_payload->ppp_protocol == rte_cpu_to_be_16(IPCP_PROTOCOL)) {
     	port_ccb->data_plane_start = TRUE;
     	port_ccb->phase = DATA_PHASE;
-    	rte_timer_reset(&(port_ccb->nat),rte_get_timer_hz(),PERIODICAL,4,(rte_timer_cb_t)nat_rule_timer,ppp_ports);
+    	rte_timer_reset(&(port_ccb->nat),rte_get_timer_hz(),PERIODICAL,TIMER_LOOP_LCORE,(rte_timer_cb_t)nat_rule_timer,ppp_ports);
         RTE_LOG(INFO,EAL,"Session 0x%x IPCP connection establish successfully.\n", rte_cpu_to_be_16(port_ccb->session_id));
         #ifdef _DP_DBG
     	puts("IPCP connection establish successfully.");
@@ -755,7 +757,7 @@ STATUS A_init_restart_config(__attribute__((unused)) struct rte_timer *tim, __at
     #endif
     rte_timer_stop(tim);
     port_ccb->ppp_phase[port_ccb->cp].timer_counter = 9;
-	rte_timer_reset(tim,3*rte_get_timer_hz(),PERIODICAL,4,(rte_timer_cb_t)A_send_config_request,port_ccb);
+	rte_timer_reset(tim,3*rte_get_timer_hz(),PERIODICAL,TIMER_LOOP_LCORE,(rte_timer_cb_t)A_send_config_request,port_ccb);
 
     return TRUE;
 }
@@ -768,7 +770,7 @@ STATUS A_init_restart_termin(__attribute__((unused)) struct rte_timer *tim, __at
     #endif
     rte_timer_stop(tim);
     port_ccb->ppp_phase[port_ccb->cp].timer_counter = 9;
-	rte_timer_reset(tim,3*rte_get_timer_hz(),PERIODICAL,4,(rte_timer_cb_t)A_send_terminate_request,port_ccb);
+	rte_timer_reset(tim,3*rte_get_timer_hz(),PERIODICAL,TIMER_LOOP_LCORE,(rte_timer_cb_t)A_send_terminate_request,port_ccb);
 
     return TRUE;
 }

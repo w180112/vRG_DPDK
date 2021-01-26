@@ -25,9 +25,9 @@ static: build/$(APP)-static
 
 PKGCONF ?= pkg-config
 
-INCLUDE += -I. -I../lib/libutil -I../lib/dpdk-stable/lib/librte_eal/common
+INCLUDE += -I. -I../lib/libutil -I../lib/dpdk/lib/librte_eal/common
 CFLAGS += $(INCLUDE) -Wall -fPIC -g -std=c99 -D_XOPEN_SOURCE=700 -D_DEFAULT_SOURCE #-D_DP_DBG
-LDLIBS += -L../lib/libutil -lutil
+LDFLAGS += -L../lib/libutil -lutil
 
 PC_FILE := $(shell $(PKGCONF) --path libdpdk 2>/dev/null)
 CFLAGS += -O3 $(shell $(PKGCONF) --cflags libdpdk)
@@ -43,7 +43,7 @@ build/$(APP)-static: $(SRCS-y) Makefile $(PC_FILE) | build
 	$(CC) $(CFLAGS) $(SRCS-y) -o $@ $(LDFLAGS) $(LDFLAGS_STATIC)
 
 build:
-    @mkdir -p $@
+	@mkdir -p $@
 .PHONY: clean
 clean:
 	rm -f build/$(APP) build/$(APP)-static build/$(APP)-shared

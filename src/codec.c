@@ -10,7 +10,7 @@
 
 extern STATUS PPP_FSM(struct rte_timer *ppp, tPPP_PORT *port_ccb, U16 event);
 
-extern struct rte_ring 		*rte_ring, *decap_udp, *decap_tcp, *encap_udp, *encap_tcp;
+extern struct rte_ring 		*rte_ring, *ds_mc_queue, *us_mc_queue, *rg_func_queue;
 extern unsigned char 		*wan_mac;
 extern struct cmdline 		*cl;
 extern FILE					*fp;
@@ -219,8 +219,8 @@ STATUS PPP_decode_frame(tPPP_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_head
     		tmp_port_ccb.ppp_phase[0].ppp_options = NULL;
     		tmp_port_ccb.cp = 0;
 			tmp_port_ccb.session_id = port_ccb->session_id;
-    		if (build_auth_ack_pap(buffer,&tmp_port_ccb,&mulen) < 0)
-        		return FALSE;
+			if (build_auth_ack_pap(buffer,&tmp_port_ccb,&mulen) < 0)
+				return FALSE;
 				
 			drv_xmit(buffer,mulen);
 			RTE_LOG(INFO,EAL,"Session 0x%x recv pap request.\n", rte_cpu_to_be_16(port_ccb->session_id));
@@ -619,10 +619,9 @@ STATUS build_padt(tPPP_PORT *port_ccb)
 		printf("\n");
 		rte_free(wan_mac);
     	rte_ring_free(rte_ring);
-		rte_ring_free(decap_tcp);
-		rte_ring_free(decap_udp);
-		rte_ring_free(encap_tcp);
-		rte_ring_free(encap_udp);
+		rte_ring_free(ds_mc_queue);
+		rte_ring_free(us_mc_queue);
+		rte_ring_free(rg_func_queue);
     	fclose(fp);
 		cmdline_stdin_exit(cl);
 		exit(0);
@@ -836,7 +835,7 @@ STATUS build_config_nak_rej(unsigned char* buffer, tPPP_PORT *port_ccb, uint16_t
  */
 STATUS build_echo_reply(unsigned char* buffer, tPPP_PORT *port_ccb, uint16_t *mulen)
 {
-	struct rte_ether_hdr 	*eth_hdr = port_ccb->ppp_phase[port_ccb->cp].eth_hdr;
+	struct rte_ether_hdr *eth_hdr = port_ccb->ppp_phase[port_ccb->cp].eth_hdr;
 	vlan_header_t		*vlan_header = port_ccb->ppp_phase[port_ccb->cp].vlan_header;
 	pppoe_header_t 		*pppoe_header = port_ccb->ppp_phase[port_ccb->cp].pppoe_header;
 	ppp_payload_t 		*ppp_payload = port_ccb->ppp_phase[port_ccb->cp].ppp_payload;

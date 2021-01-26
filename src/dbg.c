@@ -37,10 +37,10 @@ void DBG_PPP(U8 level, tPPP_PORT *port_ccb, const char *fmt,...)
     	strcpy(sstr,PPP_state2str(port_ccb->ppp_phase[port_ccb->cp].state));
     	sprintf(buf,"pppd> Session id [%x.%s] ", rte_be_to_cpu_16(port_ccb->session_id), sstr);
     }
-    else
-    	sprintf(buf,"pppd> ");
-    
-  	strcat(buf,msg);
+	else
+		sprintf(buf,"pppd> ");
+
+	strcat(buf,msg);
    	printf("%s",buf);
     va_end(ap);
 }

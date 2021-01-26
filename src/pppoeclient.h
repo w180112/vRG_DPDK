@@ -70,7 +70,7 @@
 #define PRIMARY_DNS			0x81
 #define SECOND_DNS			0x83
 
-#define MAX_RECV			1492
+#define MAX_RECV			ETH_MTU - sizeof(pppoe_header_t) - sizeof(ppp_payload_t) - sizeof(vlan_header_t)
 #define MAX_RETRAN			10
 
 #define CLI_QUIT            0x0

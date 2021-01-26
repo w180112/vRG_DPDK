@@ -157,7 +157,7 @@ int main(int argc, char **argv)
 			return -1;
 		}
 		for(int i=0; vendor[i].vendor; i++) {
-			if (strcmp((const char *)info.driver,vendor[i].vendor) == 0) {
+			if (strcmp((const char *)info.driver, vendor[i].vendor) == 0) {
 				vendor_id = vendor[i].vendor_id;
 				break;
 			}
@@ -190,15 +190,15 @@ int main(int argc, char **argv)
 	rte_pdump_init();
 	#endif
 
-	rte_eal_remote_launch((lcore_function_t *)control_plane,NULL,1);
-	rte_eal_remote_launch((lcore_function_t *)ppp_recvd,NULL,2);
-	rte_eal_remote_launch((lcore_function_t *)ds_mc,NULL,3);
+	rte_eal_remote_launch((lcore_function_t *)control_plane,NULL,CTRL_LCORE);
+	rte_eal_remote_launch((lcore_function_t *)ppp_recvd,NULL,PPP_RECVD_LCORE);
+	//rte_eal_remote_launch((lcore_function_t *)ds_mc,NULL,DS_MC_LCORE);
 	//rte_eal_remote_launch((lcore_function_t *)decapsulation_tcp,NULL,2);
 	//rte_eal_remote_launch((lcore_function_t *)decapsulation_udp,NULL,3);
-	rte_eal_remote_launch((lcore_function_t *)gateway,NULL,4);
-	rte_eal_remote_launch((lcore_function_t *)us_mc,NULL,5);
-	rte_eal_remote_launch((lcore_function_t *)rg_func,NULL,5);
-	rte_eal_remote_launch((lcore_function_t *)timer_loop,NULL,7);
+	rte_eal_remote_launch((lcore_function_t *)gateway,NULL,GATEWAY_LCORE);
+	//rte_eal_remote_launch((lcore_function_t *)us_mc,NULL,US_MC_LCORE);
+	rte_eal_remote_launch((lcore_function_t *)rg_func,NULL,RG_FUNC_LCORE);
+	rte_eal_remote_launch((lcore_function_t *)timer_loop,NULL,TIMER_LOOP_LCORE);
 	
 	while(prompt == FALSE);
 	sleep(1);
@@ -244,10 +244,9 @@ void PPP_bye(tPPP_PORT *port_ccb)
    		case PPPOE_PHASE:
 			rte_free(wan_mac);
            	rte_ring_free(rte_ring);
-			rte_ring_free(decap_tcp);
-			rte_ring_free(decap_udp);
-			rte_ring_free(encap_tcp);
-			rte_ring_free(encap_udp);
+			rte_ring_free(ds_mc_queue);
+			rte_ring_free(us_mc_queue);
+			rte_ring_free(rg_func_queue);
             fclose(fp);
 			cmdline_stdin_exit(cl);
 			#ifdef RTE_LIBRTE_PDUMP
@@ -280,10 +279,9 @@ void PPP_int(void)
     printf("pppoe client interupt!\n");
 	rte_free(wan_mac);
     rte_ring_free(rte_ring);
-	rte_ring_free(decap_tcp);
-	rte_ring_free(decap_udp);
-	rte_ring_free(encap_tcp);
-	rte_ring_free(encap_udp);
+	rte_ring_free(ds_mc_queue);
+	rte_ring_free(us_mc_queue);
+	rte_ring_free(rg_func_queue);
     fclose(fp);
 	cmdline_stdin_exit(cl);
 	printf("bye!\n");
@@ -347,7 +345,7 @@ int ppp_init(void)
 		ppp_ports[i].pppoe_phase.timer_counter = 0;
     	if (build_padi(&(ppp_ports[i].pppoe),&(ppp_ports[i])) == FALSE)
     		PPP_bye(&(ppp_ports[i]));
-    	rte_timer_reset(&(ppp_ports[i].pppoe),rte_get_timer_hz(),PERIODICAL,4,(rte_timer_cb_t)build_padi,&(ppp_ports[i]));
+    	rte_timer_reset(&(ppp_ports[i].pppoe),rte_get_timer_hz(),PERIODICAL,TIMER_LOOP_LCORE,(rte_timer_cb_t)build_padi,&(ppp_ports[i]));
     }
 	for(;;) {
 		burst_size = control_plane_dequeue(mail);
@@ -407,7 +405,7 @@ int ppp_init(void)
 						rte_memcpy(ppp_ports[session_index].dst_mac,eth_hdr.s_addr.addr_bytes,ETH_ALEN);
 						if (build_padr(&(ppp_ports[session_index].pppoe),&(ppp_ports[session_index])) == FALSE)
 							goto out;
-						rte_timer_reset(&(ppp_ports[session_index].pppoe),rte_get_timer_hz(),PERIODICAL,4,(rte_timer_cb_t)build_padr,&(ppp_ports[session_index]));
+						rte_timer_reset(&(ppp_ports[session_index].pppoe),rte_get_timer_hz(),PERIODICAL,TIMER_LOOP_LCORE,(rte_timer_cb_t)build_padr,&(ppp_ports[session_index]));
 						continue;
 					case PADS:
 						rte_timer_stop(&(ppp_ports[session_index].pppoe));
@@ -447,10 +445,9 @@ int ppp_init(void)
 						if ((--total_user) == 0 && signal_term == TRUE) {
 							rte_free(wan_mac);
                             rte_ring_free(rte_ring);
-							rte_ring_free(decap_tcp);
-							rte_ring_free(decap_udp);
-							rte_ring_free(encap_tcp);
-							rte_ring_free(encap_udp);
+							rte_ring_free(ds_mc_queue);
+							rte_ring_free(us_mc_queue);
+							rte_ring_free(rg_func_queue);
                             fclose(fp);
 							cmdline_stdin_exit(cl);
 							exit(0);
@@ -546,13 +543,13 @@ out:
 
 BOOL is_valid(char *token, char *next)
 {
-	for(uint i=0; i<strlen(token); i++)	{
+	for(uint32_t i=0; i<strlen(token); i++)	{
 		if (*(token+i) < 0x30 || (*(token+i) > 0x39 && *(token+i) < 0x40) || (*(token+i) > 0x5B && *(token+i) < 0x60) || *(token+i) > 0x7B) {
 			if (*(token+i) != 0x2E)
 				return FALSE;
 		}
 	}
-	for(uint i=0; i<strlen(next); i++) {
+	for(uint32_t i=0; i<strlen(next); i++) {
 		if (*(next+i) < 0x30 || (*(next+i) > 0x39 && *(next+i) < 0x40) || (*(next+i) > 0x5B && *(next+i) < 0x60) || *(next+i) > 0x7B) {
 			if (*(token+i) != 0x2E)
 				return FALSE;

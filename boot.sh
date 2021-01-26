@@ -1,6 +1,3 @@
-pip3 install meson
-pip3 install ninja
-
 get_script_dir () {
      SOURCE="${BASH_SOURCE[0]}"
      while [ -h "$SOURCE" ]; do
