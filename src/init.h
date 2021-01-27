@@ -15,8 +15,8 @@
 
 extern int sys_init(void);
 
-extern struct rte_mempool *direct_pool;
-extern struct rte_mempool *indirect_pool;
+extern struct rte_mempool *direct_pool[PORT_AMOUNT];
+extern struct rte_mempool *indirect_pool[PORT_AMOUNT];
 extern struct rte_ring     *rte_ring, /**decap_udp, *decap_tcp, *encap_udp, *encap_tcp,*/ /**ds_mc_queue, *us_mc_queue,*/ *rg_func_queue;
 //extern struct rte_mempool  *mbuf_pool;
 

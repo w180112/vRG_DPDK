@@ -39,6 +39,8 @@ e.g.
 
 	# ./src/vrg -l 0-8 -n 4
 
+Note: All lcores should be on same CPU socket.
+
 In this project 2 DPDK ethernet ports are needed, the first is used to receive packets from/send packets to LAN port and the second is used to receive packets from/send packets to WAN port.
 
 After Sessions established, there is a CLI. User can input "?" command to show available commands.

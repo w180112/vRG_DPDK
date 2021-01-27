@@ -11,9 +11,9 @@
 static int init_mem(void);
 static int init_ring(void);
 
-static struct rte_ring    *rte_ring, /**decap_udp, *decap_tcp, *encap_udp, *encap_tcp,*/ /**ds_mc_queue, *us_mc_queue, */*rg_func_queue;
-static struct rte_mempool *direct_pool[PORT_AMOUNT];
-static struct rte_mempool *indirect_pool[PORT_AMOUNT];
+struct rte_ring    *rte_ring, /**decap_udp, *decap_tcp, *encap_udp, *encap_tcp,*/ /**ds_mc_queue, *us_mc_queue, */*rg_func_queue;
+struct rte_mempool *direct_pool[PORT_AMOUNT];
+struct rte_mempool *indirect_pool[PORT_AMOUNT];
 
 int sys_init(void)
 {
@@ -39,7 +39,7 @@ static int init_mem(void)
 {
 	char buf[PATH_MAX];
 	struct rte_mempool *mp;
-    int socket;
+    //int socket;
 
     /* Creates a new mempool in memory to hold the mbufs. */
     for(int i=0; i<PORT_AMOUNT; i++) {
@@ -53,7 +53,7 @@ static int init_mem(void)
         if (direct_pool[i] == NULL) {
 		    RTE_LOG(INFO, EAL, "Creating direct mempool on port %i\n", i);
 		    snprintf(buf, sizeof(buf), "pool_direct_%i", i);
-		    mp = rte_pktmbuf_pool_create(buf, NUM_MBUFS, MBUF_CACHE_SIZE, 0, RTE_MBUF_DEFAULT_BUF_SIZE, socket);
+		    mp = rte_pktmbuf_pool_create(buf, NUM_MBUFS, MBUF_CACHE_SIZE, 0, RTE_MBUF_DEFAULT_BUF_SIZE, rte_socket_id());
 		    if (mp == NULL) {
 			    RTE_LOG(ERR, EAL, "Cannot create direct mempool\n");
 			    return rte_errno;
@@ -65,7 +65,7 @@ static int init_mem(void)
 	        RTE_LOG(INFO, EAL, "Creating indirect mempool on port %i\n", i);
 		    snprintf(buf, sizeof(buf), "pool_indirect_%i", i);
 
-		    mp = rte_pktmbuf_pool_create(buf, NUM_MBUFS, MBUF_CACHE_SIZE, 0, 0, socket);
+		    mp = rte_pktmbuf_pool_create(buf, NUM_MBUFS, MBUF_CACHE_SIZE, 0, 0, rte_socket_id());
 		    if (mp == NULL) {
 		        RTE_LOG(ERR, EAL, "Cannot create indirect mempool\n");
 			    return rte_errno;
