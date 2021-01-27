@@ -15,7 +15,7 @@ static struct rte_ring    *rte_ring, /**decap_udp, *decap_tcp, *encap_udp, *enca
 static struct rte_mempool *direct_pool[PORT_AMOUNT];
 static struct rte_mempool *indirect_pool[PORT_AMOUNT];
 
-static int sys_init(void)
+int sys_init(void)
 {
     int ret;
 
@@ -86,7 +86,7 @@ static int init_ring(void)
 	//decap_udp = rte_ring_create("decapsulation_udp",RING_SIZE,rte_socket_id(),0);
 	//encap_tcp = rte_ring_create("encapsulation_tcp",RING_SIZE,rte_socket_id(),0);
 	//encap_udp = rte_ring_create("encapsulation_udp",RING_SIZE,rte_socket_id(),0);
-	rg_func_queue = rte_ring_create("rg_function",RING_SIZE,rte_socket_id(),0);
+    rg_func_queue = rte_ring_create("rg_function",RING_SIZE,rte_socket_id(),0);
 	if (!rg_func_queue)
         return rte_errno;
     /*ds_mc_queue = rte_ring_create("downstream_multicast",RING_SIZE,rte_socket_id(),0);

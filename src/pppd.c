@@ -51,6 +51,7 @@ extern int 				rte_ethtool_get_drvinfo(uint16_t port_id, struct ethtool_drvinfo 
 extern STATUS			PPP_FSM(struct rte_timer *ppp, tPPP_PORT *port_ccb, U16 event);
 BOOL 					is_valid(char *token, char *next);
 BOOL 					string_split(char *ori_str, char *str1, char *str2, char split_tok);
+void 					PPP_int(void);
 
 unsigned char 			*wan_mac;
 int 					log_type;

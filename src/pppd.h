@@ -208,12 +208,12 @@ extern tPPP_PORT		ppp_ports[MAX_USER];
 extern U32				ppp_interval;
 extern U8				ppp_max_msg_per_query;
 
-int 				ppp_init(void);
+extern void 		PPP_int(void);
 
+int 				ppp_init(void);
 int 				pppdInit(void);
 void 				PPP_bye(tPPP_PORT *port_ccb);
 void 				PPP_ter(void);
-void 				PPP_int(void);
 int 				control_plane(void);
 
 /*-----------------------------------------

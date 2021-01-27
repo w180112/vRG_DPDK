@@ -20,6 +20,7 @@
 #include <rte_atomic.h>
 #include "pppoeclient.h"
 #include "nat.h"
+#include "init.h"
 
 #define RX_RING_SIZE 128
 
@@ -81,7 +82,7 @@ int PPP_PORT_INIT(uint16_t port/*, uint32_t lcore_id*/)
 	struct rte_eth_rxconf rxq_conf;
 	struct rte_eth_txconf *txconf;
 	const uint16_t rx_rings = 1, tx_rings = 5;
-	int retval, socket;
+	int retval;
 	uint16_t q;
 
 	if (vendor_id > VMXNET3)
