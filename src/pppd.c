@@ -32,10 +32,8 @@
 #include 				"dpdk_send_recv.h"
 #include 				"dbg.h"
 #include				"cmds.h"
+#include				"init.h"
 
-#define 				RING_SIZE 		16384
-#define 				NUM_MBUFS 		8191
-#define 				MBUF_CACHE_SIZE 512
 #define 				BURST_SIZE 		32
 
 BOOL					ppp_testEnable = FALSE;
@@ -47,9 +45,6 @@ rte_atomic16_t			cp_recv_cums;
 uint8_t					vendor_id = 0;
 
 tPPP_PORT				ppp_ports[MAX_USER]; //port is 1's based
-
-struct rte_mempool 		*mbuf_pool;
-struct rte_ring 		*rte_ring, /**decap_udp, *decap_tcp, *encap_udp, *encap_tcp,*/ *ds_mc_queue, *us_mc_queue, *rg_func_queue;
 
 extern int 				timer_loop(__attribute__((unused)) void *arg);
 extern int 				rte_ethtool_get_drvinfo(uint16_t port_id, struct ethtool_drvinfo *drvinfo);
@@ -133,23 +128,14 @@ int main(int argc, char **argv)
 	}
 	wan_mac = (unsigned char *)rte_malloc(NULL,ETH_ALEN,0);
 	rte_eth_macaddr_get(1,(struct rte_ether_addr *)wan_mac);
-
-	/* Creates a new mempool in memory to hold the mbufs. */
-	mbuf_pool = rte_pktmbuf_pool_create("MBUF_POOL", NUM_MBUFS,
-		MBUF_CACHE_SIZE, 0, RTE_MBUF_DEFAULT_BUF_SIZE, rte_socket_id());
-
-	if (mbuf_pool == NULL)
-		rte_exit(EXIT_FAILURE, "Cannot create mbuf pool\n");
-	rte_ring = rte_ring_create("state_machine",RING_SIZE,rte_socket_id(),0);
-	//decap_tcp = rte_ring_create("decapsulation_tcp",RING_SIZE,rte_socket_id(),0);
-	//decap_udp = rte_ring_create("decapsulation_udp",RING_SIZE,rte_socket_id(),0);
-	//encap_tcp = rte_ring_create("encapsulation_tcp",RING_SIZE,rte_socket_id(),0);
-	//encap_udp = rte_ring_create("encapsulation_udp",RING_SIZE,rte_socket_id(),0);
-	rg_func_queue = rte_ring_create("rg_function",RING_SIZE,rte_socket_id(),0);
-	ds_mc_queue = rte_ring_create("downstream_multicast",RING_SIZE,rte_socket_id(),0);
-	us_mc_queue = rte_ring_create("upstream_multicast",RING_SIZE,rte_socket_id(),0);
+	ret = sys_init();
+	if (ret) {
+		rte_strerror(ret);
+		rte_exit(EXIT_FAILURE, "System initiation failed\n");
+	}
 
 	/* Initialize all ports. */
+	//uint32_t lcore_id = 2;
 	RTE_ETH_FOREACH_DEV(portid) {
 		memset(&info, 0, sizeof(info));
 		if (rte_ethtool_get_drvinfo(portid, &info)) {
@@ -167,15 +153,10 @@ int main(int argc, char **argv)
 		printf("firmware-version: %s\n", info.fw_version);
 		printf("bus-info: %s\n", info.bus_info);
 		#endif
-		if (PPP_PORT_INIT(portid) != 0)
+		if (PPP_PORT_INIT(portid/*, lcore_id*/) != 0)
 			rte_exit(EXIT_FAILURE, "Cannot init port %"PRIu8 "\n",portid);
+		//lcore_id += 2;
 	}
-
-	//signal(SIGTERM,(__sighandler_t)PPP_bye);
-	signal(SIGINT,(__sighandler_t)PPP_int);
-
-	/* init RTE timer library */
-	rte_timer_subsystem_init();
 
 	/* init timer structures */
 	for(int i=0; i<MAX_USER; i++) {
@@ -244,8 +225,8 @@ void PPP_bye(tPPP_PORT *port_ccb)
    		case PPPOE_PHASE:
 			rte_free(wan_mac);
            	rte_ring_free(rte_ring);
-			rte_ring_free(ds_mc_queue);
-			rte_ring_free(us_mc_queue);
+			//rte_ring_free(ds_mc_queue);
+			//rte_ring_free(us_mc_queue);
 			rte_ring_free(rg_func_queue);
             fclose(fp);
 			cmdline_stdin_exit(cl);
@@ -279,8 +260,8 @@ void PPP_int(void)
     printf("pppoe client interupt!\n");
 	rte_free(wan_mac);
     rte_ring_free(rte_ring);
-	rte_ring_free(ds_mc_queue);
-	rte_ring_free(us_mc_queue);
+	//rte_ring_free(ds_mc_queue);
+	//rte_ring_free(us_mc_queue);
 	rte_ring_free(rg_func_queue);
     fclose(fp);
 	cmdline_stdin_exit(cl);
@@ -445,8 +426,8 @@ int ppp_init(void)
 						if ((--total_user) == 0 && signal_term == TRUE) {
 							rte_free(wan_mac);
                             rte_ring_free(rte_ring);
-							rte_ring_free(ds_mc_queue);
-							rte_ring_free(us_mc_queue);
+							//rte_ring_free(ds_mc_queue);
+							//rte_ring_free(us_mc_queue);
 							rte_ring_free(rg_func_queue);
                             fclose(fp);
 							cmdline_stdin_exit(cl);

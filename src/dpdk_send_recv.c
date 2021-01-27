@@ -39,9 +39,9 @@ enum {
 };
 
 extern tPPP_PORT				ppp_ports[MAX_USER];
-extern struct rte_mempool 		*mbuf_pool;
+extern struct rte_mempool 		*direct_pool[PORT_AMOUNT], *indirect_pool[PORT_AMOUNT];
 extern struct rte_ring 			*rte_ring;
-extern struct rte_ring 			/**decap_udp, *decap_tcp, *encap_udp, *encap_tcp,*/ *ds_mc_queue, *us_mc_queue, *rg_func_queue;
+extern struct rte_ring 			/**decap_udp, *decap_tcp, *encap_udp, *encap_tcp,*/ /**ds_mc_queue, *us_mc_queue,*/ *rg_func_queue;
 extern rte_atomic16_t			cp_recv_cums;
 uint8_t 						cp_recv_prod;
 extern uint8_t					vendor_id;
@@ -74,19 +74,23 @@ int 				gateway(void);
 void 				drv_xmit(U8 *mu, U16 mulen);
 static int			lsi_event_callback(uint16_t port_id, enum rte_eth_event_type type, void *param);
 
-int PPP_PORT_INIT(uint16_t port)
+int PPP_PORT_INIT(uint16_t port/*, uint32_t lcore_id*/)
 {
 	struct rte_eth_conf port_conf = port_conf_default;
 	struct rte_eth_dev_info dev_info;
+	struct rte_eth_rxconf rxq_conf;
+	struct rte_eth_txconf *txconf;
 	const uint16_t rx_rings = 1, tx_rings = 5;
-	int retval;
+	int retval, socket;
 	uint16_t q;
 
 	if (vendor_id > VMXNET3)
 		port_conf.intr_conf.lsc = 0;
 	if (!rte_eth_dev_is_valid_port(port))
 		return -1;
-	rte_eth_dev_info_get(port, &dev_info);
+	int ret = rte_eth_dev_info_get(port, &dev_info);
+	if (ret != 0)
+		rte_exit(EXIT_FAILURE, "Error during getting device (port %u) info: %s\n", port, strerror(-ret));
 	if (dev_info.tx_offload_capa & DEV_TX_OFFLOAD_MBUF_FAST_FREE)
 		port_conf.txmode.offloads |= DEV_TX_OFFLOAD_MBUF_FAST_FREE;
 
@@ -99,16 +103,24 @@ int PPP_PORT_INIT(uint16_t port)
 
 	rte_eth_dev_callback_register(port, RTE_ETH_EVENT_INTR_LSC, (rte_eth_dev_cb_fn)lsi_event_callback, NULL);
 
+	/*socket = (int) rte_lcore_to_socket_id(lcore_id);
+	if (socket == SOCKET_ID_ANY)
+		socket = 0;*/
+
+	rxq_conf = dev_info.default_rxconf;
+	rxq_conf.offloads = port_conf.rxmode.offloads;
 	/* Allocate and set up 1 RX queue per Ethernet port. */
 	for(q=0; q<rx_rings; q++) {
-		retval = rte_eth_rx_queue_setup(port,q,nb_rxd,rte_eth_dev_socket_id(port),NULL,mbuf_pool);
+		retval = rte_eth_rx_queue_setup(port, q, nb_rxd, rte_eth_dev_socket_id(port), &rxq_conf, direct_pool[port]);
 		if (retval < 0)
 			return retval;
 	}
 
+	txconf = &dev_info.default_txconf;
+	txconf->offloads = port_conf.txmode.offloads;
 	/* Allocate and set up 5 TX queue per Ethernet port. */
 	for(q=0; q<tx_rings; q++) {
-		retval = rte_eth_tx_queue_setup(port,q,nb_txd,rte_eth_dev_socket_id(port), NULL);
+		retval = rte_eth_tx_queue_setup(port, q, nb_txd, rte_eth_dev_socket_id(port), txconf);
 		if (retval < 0)
 			return retval;
 	}
@@ -117,7 +129,7 @@ int PPP_PORT_INIT(uint16_t port)
 	retval = rte_eth_dev_start(port);
 	if (retval < 0)
 		return retval;
-	//rte_eth_promiscuous_enable(port);
+	rte_eth_promiscuous_enable(port);
 	return 0;
 }
 
@@ -259,7 +271,7 @@ int ppp_recvd(void)
 	}
 	return 0;
 }
-
+#if 0
 int ds_mc(void)
 {
 	struct rte_mbuf 	*pkt[BURST_SIZE], *single_pkt;
@@ -299,6 +311,7 @@ int ds_mc(void)
 	}
 	return 0;
 }
+#endif
 
 void decaps_udp(struct rte_mbuf *single_pkt)
 {
@@ -702,6 +715,7 @@ int encapsulation_tcp(void)
 	return 0;
 }
 #endif
+#if 0
 int us_mc(void)
 {
 	struct rte_mbuf 	*pkt[BURST_SIZE], *single_pkt;
@@ -727,7 +741,7 @@ int us_mc(void)
 	}
 	return 0;
 }
-
+#endif
 int gateway(void)
 {
 	struct rte_mbuf 	*single_pkt;
@@ -736,7 +750,7 @@ int gateway(void)
 	vlan_header_t		*vlan_header;
 	struct rte_ipv4_hdr *ip_hdr;
 	struct rte_icmp_hdr *icmphdr;
-	struct rte_mbuf 	*pkt[BURST_SIZE];
+	struct rte_mbuf 	*pkt[BURST_SIZE*2];
 	//unsigned char 		mac_addr[6];
 	char 				*cur;
 	int 				i;
@@ -850,6 +864,7 @@ int gateway(void)
 						rte_pktmbuf_free(single_pkt);
 						continue;
 					}
+
 					//rte_ring_enqueue_burst(encap_udp, (void **)&single_pkt, 1, NULL);
 					encaps_udp(single_pkt);
 					pkt[total_tx++] = single_pkt;
@@ -901,7 +916,7 @@ int rg_func(void)
 	struct rte_icmp_hdr *icmphdr;
 
 	for(i=0; i<BURST_SIZE; i++)
-		pkt[i] = rte_pktmbuf_alloc(mbuf_pool);
+		pkt[i] = rte_pktmbuf_alloc(direct_pool[0]);
 
 	for(;;) {
 		burst_size = rte_ring_dequeue_burst(rg_func_queue,(void **)pkt,BURST_SIZE,NULL);
@@ -969,7 +984,7 @@ void drv_xmit(U8 *mu, U16 mulen)
 	struct rte_mbuf *pkt;
 	char 			*buf;
 
-	pkt = rte_pktmbuf_alloc(mbuf_pool);
+	pkt = rte_pktmbuf_alloc(direct_pool[0]);
 	buf = rte_pktmbuf_mtod(pkt, char *);
 	rte_memcpy(buf, mu, mulen);
 	pkt->data_len = mulen;

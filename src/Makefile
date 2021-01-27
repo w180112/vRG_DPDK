@@ -9,7 +9,7 @@
 APP = vrg
 
 # all source are stored in SRCS-y
-SRCS-y := pppd.c fsm.c codec.c dpdk_send_recv.c timer.c nat.c ethtool.c dbg.c cmds.c
+SRCS-y := pppd.c fsm.c codec.c dpdk_send_recv.c timer.c nat.c ethtool.c dbg.c cmds.c init.c
 
 # Build using pkg-config variables if possible
 ifneq ($(shell pkg-config --exists libdpdk && echo 0),0)

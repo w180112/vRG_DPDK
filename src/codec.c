@@ -619,8 +619,8 @@ STATUS build_padt(tPPP_PORT *port_ccb)
 		printf("\n");
 		rte_free(wan_mac);
     	rte_ring_free(rte_ring);
-		rte_ring_free(ds_mc_queue);
-		rte_ring_free(us_mc_queue);
+		//rte_ring_free(ds_mc_queue);
+		//rte_ring_free(us_mc_queue);
 		rte_ring_free(rg_func_queue);
     	fclose(fp);
 		cmdline_stdin_exit(cl);
