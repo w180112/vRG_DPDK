@@ -53,7 +53,7 @@ BOOL 					is_valid(char *token, char *next);
 BOOL 					string_split(char *ori_str, char *str1, char *str2, char split_tok);
 void 					PPP_int(void);
 
-unsigned char 			*wan_mac;
+struct rte_ether_addr 	wan_mac;
 int 					log_type;
 FILE 					*fp;
 volatile BOOL			prompt = FALSE, signal_term = FALSE;
@@ -110,7 +110,7 @@ int main(int argc, char **argv)
 				i--;
 				continue;
 			}
-			rte_eth_macaddr_get(0, (struct rte_ether_addr *)ppp_ports[user_id].lan_mac);
+			rte_eth_macaddr_get(0, &(ppp_ports[user_id].lan_mac));
 			user_id_length = strlen(user_name);
 			passwd_length = strlen(passwd);
 			ppp_ports[user_id].user_id = (unsigned char *)rte_malloc(NULL,user_id_length+1,0);
@@ -127,8 +127,8 @@ int main(int argc, char **argv)
 			rte_exit(EXIT_FAILURE, "User account and password not enough.\n");
     	fclose(account);
 	}
-	wan_mac = (unsigned char *)rte_malloc(NULL,ETH_ALEN,0);
-	rte_eth_macaddr_get(1,(struct rte_ether_addr *)wan_mac);
+
+	rte_eth_macaddr_get(1, &wan_mac);
 	ret = sys_init();
 	if (ret) {
 		rte_strerror(ret);
@@ -224,7 +224,7 @@ void PPP_bye(tPPP_PORT *port_ccb)
 	signal_term = TRUE;
    	switch(port_ccb->phase) {
    		case PPPOE_PHASE:
-			rte_free(wan_mac);
+			//rte_free(wan_mac);
            	rte_ring_free(rte_ring);
 			//rte_ring_free(ds_mc_queue);
 			//rte_ring_free(us_mc_queue);
@@ -259,7 +259,7 @@ void PPP_bye(tPPP_PORT *port_ccb)
 void PPP_int(void)
 {
     printf("pppoe client interupt!\n");
-	rte_free(wan_mac);
+	//rte_free(wan_mac);
     rte_ring_free(rte_ring);
 	//rte_ring_free(ds_mc_queue);
 	//rte_ring_free(us_mc_queue);
@@ -293,8 +293,8 @@ int pppdInit(void)
 		ppp_ports[i].phase = END_PHASE;
 		ppp_ports[i].is_pap_auth = TRUE;
 		ppp_ports[i].lan_ip = rte_cpu_to_be_32(0xc0a80201);
-		memcpy(ppp_ports[i].src_mac,wan_mac,ETH_ALEN);
-		memset(ppp_ports[i].dst_mac,0,ETH_ALEN);
+		rte_ether_addr_copy(&wan_mac, &(ppp_ports[i].src_mac));
+		memset(ppp_ports[i].dst_mac.addr_bytes, 0, ETH_ALEN);
 	}
     
 	sleep(1);
@@ -383,8 +383,8 @@ int ppp_init(void)
 						ppp_ports[session_index].pppoe_phase.max_retransmit = MAX_RETRAN;
 						ppp_ports[session_index].pppoe_phase.timer_counter = 0;
 						rte_timer_stop(&(ppp_ports[session_index].pppoe));
-						rte_memcpy(ppp_ports[session_index].src_mac,eth_hdr.d_addr.addr_bytes,ETH_ALEN);
-						rte_memcpy(ppp_ports[session_index].dst_mac,eth_hdr.s_addr.addr_bytes,ETH_ALEN);
+						rte_ether_addr_copy(&eth_hdr.d_addr, &ppp_ports[session_index].src_mac);
+						rte_ether_addr_copy(&eth_hdr.s_addr, &ppp_ports[session_index].dst_mac);
 						if (build_padr(&(ppp_ports[session_index].pppoe),&(ppp_ports[session_index])) == FALSE)
 							goto out;
 						rte_timer_reset(&(ppp_ports[session_index].pppoe),rte_get_timer_hz(),PERIODICAL,TIMER_LOOP_LCORE,(rte_timer_cb_t)build_padr,&(ppp_ports[session_index]));
@@ -425,7 +425,7 @@ int ppp_init(void)
 						#endif
 						RTE_LOG(INFO,EAL,"Session 0x%x connection disconnected.\n",rte_be_to_cpu_16(ppp_ports[session_index].session_id));
 						if ((--total_user) == 0 && signal_term == TRUE) {
-							rte_free(wan_mac);
+							//rte_free(wan_mac);
                             rte_ring_free(rte_ring);
 							//rte_ring_free(ds_mc_queue);
 							//rte_ring_free(us_mc_queue);

@@ -100,7 +100,7 @@ typedef struct vlan_header {
 		}tci_struct;
 	}tci_union;
 	uint16_t next_proto;
-}vlan_header_t;
+}__rte_aligned(2) vlan_header_t;
 
 typedef struct pppoe_header {
 	uint8_t ver_type;
@@ -149,7 +149,7 @@ typedef struct pppoe_phase {
 
 typedef struct ppp_phase {
 	U8 					state;
-	struct rte_ether_hdr 	*eth_hdr;
+	struct rte_ether_hdr *eth_hdr;
 	vlan_header_t		*vlan_header;
 	pppoe_header_t 		*pppoe_header;
 	ppp_payload_t 		*ppp_payload;
@@ -160,12 +160,12 @@ typedef struct ppp_phase {
 }ppp_phase_t;
 
 typedef struct addr_table {
-	unsigned char 	mac_addr[6];
-	uint32_t		src_ip;
-	uint32_t		dst_ip;
-	uint16_t		port_id;
-	uint16_t 		is_fill:1;
-	uint16_t		is_alive:15;
+	struct rte_ether_addr 	mac_addr;
+	uint32_t				src_ip;
+	uint32_t				dst_ip;
+	uint16_t				port_id;
+	uint16_t 				is_fill:1;
+	uint16_t				is_alive:15;
 }__rte_cache_aligned addr_table_t;
 
 //========= The structure of port ===========
@@ -179,9 +179,9 @@ typedef struct {
 	uint16_t 			vlan;
 	uint32_t			lan_ip;
 
-	unsigned char 		src_mac[RTE_ETHER_ADDR_LEN];
-	unsigned char 		dst_mac[RTE_ETHER_ADDR_LEN];
-	unsigned char 		lan_mac[RTE_ETHER_ADDR_LEN];
+	struct rte_ether_addr src_mac;
+	struct rte_ether_addr dst_mac;
+	struct rte_ether_addr lan_mac;
 
 	uint32_t    		ipv4;
 	uint32_t			ipv4_gw;

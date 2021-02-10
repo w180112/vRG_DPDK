@@ -11,7 +11,7 @@
 extern STATUS PPP_FSM(struct rte_timer *ppp, tPPP_PORT *port_ccb, U16 event);
 
 extern struct rte_ring 		*rte_ring, *ds_mc_queue, *us_mc_queue, *rg_func_queue;
-extern unsigned char 		*wan_mac;
+extern struct rte_ether_addr wan_mac;
 extern struct cmdline 		*cl;
 extern FILE					*fp;
 
@@ -389,10 +389,10 @@ STATUS check_nak_reject(uint8_t flag, pppoe_header_t *pppoe_header, __attribute_
 	ppp_lcp->length = sizeof(ppp_header_t);
 	for(ppp_options_t *cur=ppp_options; tmp_total_length<total_lcp_length; cur=(ppp_options_t *)((char *)cur + cur->length)) {
 		if (flag == CONFIG_NAK) {
-			if (cur->type == MRU && (cur->val[0] != 0x5 || cur->val[1] != 0xD4)) {
+			if (cur->type == MRU && (cur->val[0] != 0x5 || cur->val[1] != 0xD0)) {
 				bool_flag = 1;
 				cur->val[0] = 0x5;
-				cur->val[1] = 0xD4;
+				cur->val[1] = 0xD0;
 				rte_memcpy(tmp_cur,cur,cur->length);
 				ppp_lcp->length += cur->length;
 				tmp_cur = (ppp_options_t *)((char *)tmp_cur + cur->length);
@@ -447,7 +447,7 @@ STATUS build_padi(__attribute__((unused)) struct rte_timer *tim, tPPP_PORT *port
 		PPP_bye(port_ccb);
 	}
 	for(int i=0; i<6; i++) {
- 		eth_hdr.s_addr.addr_bytes[i] = port_ccb->src_mac[i];
+ 		eth_hdr.s_addr.addr_bytes[i] = port_ccb->src_mac.addr_bytes[i];
  		eth_hdr.d_addr.addr_bytes[i] = 0xff;
 	}
 	#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
@@ -509,9 +509,9 @@ STATUS build_padr(__attribute__((unused)) struct rte_timer *tim, tPPP_PORT *port
 		#endif
 		PPP_bye(port_ccb);
 	}
-	rte_memcpy(port_ccb->pppoe_phase.eth_hdr->s_addr.addr_bytes,port_ccb->src_mac,ETH_ALEN);
- 	rte_memcpy(port_ccb->pppoe_phase.eth_hdr->d_addr.addr_bytes,port_ccb->dst_mac,ETH_ALEN);
- 	port_ccb->pppoe_phase.pppoe_header->code = PADR;
+	rte_ether_addr_copy(&port_ccb->src_mac, &port_ccb->pppoe_phase.eth_hdr->s_addr);
+	rte_ether_addr_copy(&port_ccb->dst_mac, &port_ccb->pppoe_phase.eth_hdr->d_addr);
+	port_ccb->pppoe_phase.pppoe_header->code = PADR;
 
  	uint32_t total_tag_length = 0;
 	for(pppoe_header_tag_t *cur = tmp_pppoe_header_tag;;) {
@@ -583,24 +583,15 @@ STATUS build_padt(tPPP_PORT *port_ccb)
 	pppoe_header_t 		pppoe_header;
 	static uint16_t		total_user = MAX_USER;
 
-	rte_memcpy(eth_hdr.s_addr.addr_bytes,port_ccb->src_mac,6);
- 	rte_memcpy(eth_hdr.d_addr.addr_bytes,port_ccb->dst_mac,6);
- 	#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+	rte_ether_addr_copy(&port_ccb->src_mac, &eth_hdr.s_addr);
+	rte_ether_addr_copy(&port_ccb->dst_mac, &eth_hdr.d_addr);
 	eth_hdr.ether_type = rte_cpu_to_be_16(VLAN);
-	#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-	eth_hdr.ether_type = VLAN;
-	#endif
 
 	vlan_header.tci_union.tci_struct.priority = 0;
 	vlan_header.tci_union.tci_struct.DEI = 0;
 	vlan_header.tci_union.tci_struct.vlan_id = port_ccb->vlan;
-	#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 	vlan_header.next_proto = rte_cpu_to_be_16(ETH_P_PPP_DIS);
 	vlan_header.tci_union.tci_value = rte_cpu_to_be_16(vlan_header.tci_union.tci_value);
-	#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-	vlan_header.next_proto = ETH_P_PPP_DIS;
-	vlan_header.tci_union.tci_value = vlan_header.tci_union.tci_value;
-	#endif
 
 	pppoe_header.ver_type = VER_TYPE;
 	pppoe_header.code = PADT;
@@ -617,7 +608,7 @@ STATUS build_padt(tPPP_PORT *port_ccb)
 	port_ccb->phase = END_PHASE;
 	if (--total_user == 0) {
 		printf("\n");
-		rte_free(wan_mac);
+		//rte_free(wan_mac);
     	rte_ring_free(rte_ring);
 		//rte_ring_free(ds_mc_queue);
 		//rte_ring_free(us_mc_queue);
@@ -650,24 +641,16 @@ STATUS build_config_request(unsigned char *buffer, tPPP_PORT *port_ccb, uint16_t
 
 	srand(time(NULL));
 
-	rte_memcpy(eth_hdr->s_addr.addr_bytes,port_ccb->src_mac,ETH_ALEN);
-	rte_memcpy(eth_hdr->d_addr.addr_bytes,port_ccb->dst_mac,ETH_ALEN);
-	#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+	rte_ether_addr_copy(&port_ccb->src_mac, &eth_hdr->s_addr);
+	rte_ether_addr_copy(&port_ccb->dst_mac, &eth_hdr->d_addr);
+	
 	eth_hdr->ether_type = rte_cpu_to_be_16(VLAN);
-	#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-	eth_hdr->ether_type = VLAN;
-	#endif
 
 	vlan_header->tci_union.tci_struct.priority = 0;
 	vlan_header->tci_union.tci_struct.DEI = 0;
 	vlan_header->tci_union.tci_struct.vlan_id = port_ccb->vlan;
-	#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 	vlan_header->next_proto = rte_cpu_to_be_16(ETH_P_PPP_SES);
 	vlan_header->tci_union.tci_value = rte_cpu_to_be_16(vlan_header->tci_union.tci_value);
-	#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-	vlan_header->next_proto = ETH_P_PPP_SES;
-	vlan_header->tci_union.tci_value = vlan_header->tci_union.tci_value;
-	#endif
 
 	/* build ppp protocol and lcp header. */
  	pppoe_header->ver_type = VER_TYPE;
@@ -763,9 +746,9 @@ STATUS build_config_ack(unsigned char* buffer, tPPP_PORT *port_ccb, uint16_t *mu
 	ppp_options_t 		*ppp_options = port_ccb->ppp_phase[port_ccb->cp].ppp_options;
 
 	ppp_lcp->code = CONFIG_ACK;
-
-	rte_memcpy(eth_hdr->s_addr.addr_bytes,port_ccb->src_mac,ETH_ALEN);
-	rte_memcpy(eth_hdr->d_addr.addr_bytes,port_ccb->dst_mac,ETH_ALEN);
+	
+	rte_ether_addr_copy(&port_ccb->src_mac, &eth_hdr->s_addr);
+	rte_ether_addr_copy(&port_ccb->dst_mac, &eth_hdr->d_addr);
 
 	*mulen = ntohs(pppoe_header->length) + sizeof(struct rte_ether_hdr) + sizeof(pppoe_header_t) + sizeof(vlan_header_t);
 
@@ -796,15 +779,15 @@ STATUS build_config_ack(unsigned char* buffer, tPPP_PORT *port_ccb, uint16_t *mu
  */
 STATUS build_config_nak_rej(unsigned char* buffer, tPPP_PORT *port_ccb, uint16_t *mulen)
 {
-	struct rte_ether_hdr 	*eth_hdr = port_ccb->ppp_phase[port_ccb->cp].eth_hdr;
+	struct rte_ether_hdr *eth_hdr = port_ccb->ppp_phase[port_ccb->cp].eth_hdr;
 	vlan_header_t		*vlan_header = port_ccb->ppp_phase[port_ccb->cp].vlan_header;
 	pppoe_header_t 		*pppoe_header = port_ccb->ppp_phase[port_ccb->cp].pppoe_header;
 	ppp_payload_t 		*ppp_payload = port_ccb->ppp_phase[port_ccb->cp].ppp_payload;
 	ppp_header_t 		*ppp_lcp = port_ccb->ppp_phase[port_ccb->cp].ppp_lcp;
 	ppp_options_t 		*ppp_options = port_ccb->ppp_phase[port_ccb->cp].ppp_options;
 
-	rte_memcpy(eth_hdr->s_addr.addr_bytes,port_ccb->src_mac,ETH_ALEN);
-	rte_memcpy(eth_hdr->d_addr.addr_bytes,port_ccb->dst_mac,ETH_ALEN);
+	rte_ether_addr_copy(&port_ccb->src_mac, &eth_hdr->s_addr);
+	rte_ether_addr_copy(&port_ccb->dst_mac, &eth_hdr->d_addr);
 
 	*mulen = ntohs(pppoe_header->length) + sizeof(struct rte_ether_hdr) + sizeof(pppoe_header_t) + sizeof(vlan_header_t);
 
@@ -843,8 +826,8 @@ STATUS build_echo_reply(unsigned char* buffer, tPPP_PORT *port_ccb, uint16_t *mu
 
 	ppp_lcp->code = ECHO_REPLY;
 
-	rte_memcpy(eth_hdr->s_addr.addr_bytes,port_ccb->src_mac,ETH_ALEN);
-	rte_memcpy(eth_hdr->d_addr.addr_bytes,port_ccb->dst_mac,ETH_ALEN);
+	rte_ether_addr_copy(&port_ccb->src_mac, &eth_hdr->s_addr);
+	rte_ether_addr_copy(&port_ccb->dst_mac, &eth_hdr->d_addr);
 
 	pppoe_header->length = rte_cpu_to_be_16(sizeof(ppp_payload_t) + sizeof(ppp_header_t) + 4);
 	*mulen = ntohs(pppoe_header->length) + sizeof(struct rte_ether_hdr) + sizeof(pppoe_header_t) + sizeof(vlan_header_t);
@@ -872,7 +855,7 @@ STATUS build_echo_reply(unsigned char* buffer, tPPP_PORT *port_ccb, uint16_t *mu
  */
 STATUS build_terminate_ack(unsigned char* buffer, tPPP_PORT *port_ccb, uint16_t *mulen)
 {
-	struct rte_ether_hdr 	*eth_hdr = port_ccb->ppp_phase[port_ccb->cp].eth_hdr;
+	struct rte_ether_hdr *eth_hdr = port_ccb->ppp_phase[port_ccb->cp].eth_hdr;
 	vlan_header_t		*vlan_header = port_ccb->ppp_phase[port_ccb->cp].vlan_header;
 	pppoe_header_t 		*pppoe_header = port_ccb->ppp_phase[port_ccb->cp].pppoe_header;
 	ppp_payload_t 		*ppp_payload = port_ccb->ppp_phase[port_ccb->cp].ppp_payload;
@@ -880,8 +863,8 @@ STATUS build_terminate_ack(unsigned char* buffer, tPPP_PORT *port_ccb, uint16_t 
 
 	ppp_lcp->code = TERMIN_ACK;
 
-	rte_memcpy(eth_hdr->s_addr.addr_bytes,port_ccb->src_mac,ETH_ALEN);
-	rte_memcpy(eth_hdr->d_addr.addr_bytes,port_ccb->dst_mac,ETH_ALEN);
+	rte_ether_addr_copy(&port_ccb->src_mac, &eth_hdr->s_addr);
+	rte_ether_addr_copy(&port_ccb->dst_mac, &eth_hdr->d_addr);
 
 	*mulen = ntohs(pppoe_header->length) + sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t) + sizeof(pppoe_header_t);
 
@@ -917,24 +900,15 @@ STATUS build_terminate_request(unsigned char* buffer, tPPP_PORT *port_ccb, uint1
 	ppp_payload_t 		*ppp_payload = port_ccb->ppp_phase[port_ccb->cp].ppp_payload;
 	ppp_header_t 		*ppp_lcp = port_ccb->ppp_phase[port_ccb->cp].ppp_lcp;
 
-	rte_memcpy(eth_hdr->s_addr.addr_bytes,port_ccb->src_mac,ETH_ALEN);
-	rte_memcpy(eth_hdr->d_addr.addr_bytes,port_ccb->dst_mac,ETH_ALEN);
-	#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+	rte_ether_addr_copy(&port_ccb->src_mac, &eth_hdr->s_addr);
+	rte_ether_addr_copy(&port_ccb->dst_mac, &eth_hdr->d_addr);
 	eth_hdr->ether_type = rte_cpu_to_be_16(VLAN);
-	#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-	eth_hdr->ether_type = VLAN;
-	#endif
 
 	vlan_header->tci_union.tci_struct.priority = 0;
 	vlan_header->tci_union.tci_struct.DEI = 0;
 	vlan_header->tci_union.tci_struct.vlan_id = port_ccb->vlan;
-	#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 	vlan_header->next_proto = rte_cpu_to_be_16(ETH_P_PPP_SES);
 	vlan_header->tci_union.tci_value = rte_cpu_to_be_16(vlan_header->tci_union.tci_value);
-	#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-	vlan_header->next_proto = ETH_P_PPP_SES;
-	vlan_header->tci_union.tci_value = vlan_header->tci_union.tci_value;
-	#endif
 	/* build ppp protocol and lcp/ipcp header. */
 
  	pppoe_header->ver_type = VER_TYPE;
@@ -1001,8 +975,8 @@ STATUS build_auth_request_pap(unsigned char* buffer, tPPP_PORT *port_ccb, uint16
 
 	port_ccb->phase = AUTH_PHASE;
 
-	rte_memcpy(eth_hdr->s_addr.addr_bytes,port_ccb->src_mac,ETH_ALEN);
-	rte_memcpy(eth_hdr->d_addr.addr_bytes,port_ccb->dst_mac,ETH_ALEN);
+	rte_ether_addr_copy(&port_ccb->src_mac, &eth_hdr->s_addr);
+	rte_ether_addr_copy(&port_ccb->dst_mac, &eth_hdr->d_addr);
 
 	ppp_payload->ppp_protocol = rte_cpu_to_be_16(AUTH_PROTOCOL);
 	ppp_pap_header.code = AUTH_REQUEST;
@@ -1048,16 +1022,16 @@ STATUS build_auth_ack_pap(unsigned char *buffer, tPPP_PORT *port_ccb, uint16_t *
 	ppp_header_t 		ppp_pap_header;
 	const char 			*login_msg = "Login ok";
 	ppp_pap_ack_nak_t 	ppp_pap_ack_nak;
-	unsigned char 		tmp_mac[ETH_ALEN];
-	struct rte_ether_hdr 	*eth_hdr = port_ccb->ppp_phase[port_ccb->cp].eth_hdr;
+	struct rte_ether_addr tmp_mac;
+	struct rte_ether_hdr *eth_hdr = port_ccb->ppp_phase[port_ccb->cp].eth_hdr;
 	vlan_header_t		*vlan_header = port_ccb->ppp_phase[port_ccb->cp].vlan_header;
 	pppoe_header_t 		*pppoe_header = port_ccb->ppp_phase[port_ccb->cp].pppoe_header;
 	ppp_payload_t 		*ppp_payload = port_ccb->ppp_phase[port_ccb->cp].ppp_payload;
 	ppp_header_t 		*ppp_lcp = port_ccb->ppp_phase[port_ccb->cp].ppp_lcp;
 
-	rte_memcpy(tmp_mac,eth_hdr->s_addr.addr_bytes,ETH_ALEN);
-	rte_memcpy(eth_hdr->s_addr.addr_bytes,eth_hdr->d_addr.addr_bytes,ETH_ALEN);
-	rte_memcpy(eth_hdr->d_addr.addr_bytes,tmp_mac,6);
+	rte_ether_addr_copy(&eth_hdr->s_addr, &tmp_mac);
+	rte_ether_addr_copy(&eth_hdr->d_addr, &eth_hdr->s_addr);
+	rte_ether_addr_copy(&tmp_mac, &eth_hdr->d_addr);
 
 	ppp_payload->ppp_protocol = rte_cpu_to_be_16(AUTH_PROTOCOL);
 	ppp_pap_header.code = AUTH_ACK;

@@ -7,7 +7,7 @@ In nowadays high speed virtualized nerwork, tranditional network mechanism has n
 
 ## System required:
 
-Intel DPDK 20.11, Linux kernel > 4.18, at least 4G ram, 10 cpu cores.
+Intel DPDK 21.02, Linux kernel > 4.18, at least 4G ram, 8 cpu cores.
 
 ## How to use:
 
@@ -18,18 +18,15 @@ Git clone this repository
 Type
 
 	# cd vRG
+	# git submodule update --init --recursive
 
-For first time build, please use boot.sh
+For first time build, please use boot.sh to build DPDK library, libutil and vRG
 
 	# ./boot.sh
 
-to compile
-
-For second time build, please use install.sh
+For just vRG build, please use install.sh
 
 	# ./install.sh
-
-to compile
 
 Then
 
@@ -37,9 +34,7 @@ Then
 
 e.g.
 
-	# ./src/vrg -l 0-8 -n 4
-
-Note: All lcores should be on same CPU socket.
+	# ./src/vrg -l 0-7 -n 4
 
 In this project 2 DPDK ethernet ports are needed, the first is used to receive packets from/send packets to LAN port and the second is used to receive packets from/send packets to WAN port.
 
@@ -56,16 +51,18 @@ For hugepages, NIC binding and other system configuration, please refer to Intel
 1. The vRG system only support 3 LCP options, PAP authentication, Magic Number, Max receive unit so far.
 2. User can now set the default gateway address 192.168.2.1 to end device after PPPoE link established.
 3. The master branch contains NAT feature. If you don't want any NAT translation, switch to non_nat branch by typing git checkout non_nat.
-4. User can assign how many sessions will be established, the maximum support sessions are 4094, but only 2 sessions have been tested so far.
-5. In data plane, user 1 uses single tag vlan 1, user 2 uses single tag vlan 2. All data plane packets received at gateway should include a single tag vlan. If you don't need to run in VLAN environment, just switch to non_vlan branch.
-6. Each user's account and password are stored in ***pap-setup*** file.
+4. User can assign how many sessions will be established, the maximum support sessions are 4094, but only 2 sessions have been tested so far. 
+5. In default configuration, there are only 2 RG users. You can just modify the value ***MAX_USER*** in ***pppd.h*** file.
+6. In data plane, user 1 uses single tag vlan 2, user 2 uses single tag vlan 3. All data plane packets received at gateway should include a single tag vlan. If you don't need to run in VLAN environment, just switch to non_vlan branch.
+7. Each user's account and password are stored in ***pap-setup*** file.
+8. All DPDK EAL lcores should be on same CPU socket.
 
 ## Test environment:
 
-1. CentOS 8.1 with Mellanox CX4 Lx virtual function and Ubuntu 20.04 with Intel X710 NIC SR-I/OV virtual function
-2. AMD EPYC 7401P with ECC RAM server / Dell R630, E5 2670v3 with ECC RAM server
+1. CentOS 8.2 with Mellanox CX4 Lx virtual function and Ubuntu 20.04 with Intel X710 NIC SR-I/OV virtual function
+2. AMD EPYC 7401P with ECC RAM server / Dell R630, E5 2687v3 with ECC RAM server
 3. Successfully test control plane and data plane with CHT(Chunghwa Telecom Co., Ltd.) BRAS, open source RP-PPPoE and Spirent test center PPPoE server
-4. Intel DPDK 19.11 and GCC version 8.3 compiler
+4. Intel DPDK 21.02 and GCC version 9 compiler
 
 ## Example usage:
 
