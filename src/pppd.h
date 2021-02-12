@@ -164,8 +164,8 @@ typedef struct addr_table {
 	uint32_t				src_ip;
 	uint32_t				dst_ip;
 	uint16_t				port_id;
-	uint16_t 				is_fill:1;
-	uint16_t				is_alive:15;
+	rte_atomic16_t 			is_fill;
+	rte_atomic16_t			is_alive;
 }__rte_cache_aligned addr_table_t;
 
 //========= The structure of port ===========
@@ -229,5 +229,7 @@ typedef struct nic_vendor {
 	const char 		*vendor;
 	uint8_t			vendor_id;
 }nic_vendor_t;
+
+extern tPPP_PORT	ppp_ports[MAX_USER];
 
 #endif

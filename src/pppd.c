@@ -29,10 +29,11 @@
 #include				<rte_pdump.h>
 #include 				"pppd.h"
 #include				"fsm.h"
-#include 				"dpdk_send_recv.h"
+#include 				"dp.h"
 #include 				"dbg.h"
 #include				"cmds.h"
 #include				"init.h"
+#include				"dp_flow.h"
 
 #define 				BURST_SIZE 		32
 
@@ -171,6 +172,12 @@ int main(int argc, char **argv)
 	/* initialize packet capture framework */
 	rte_pdump_init();
 	#endif
+	/*struct rte_flow_error error;
+	struct rte_flow *flow = generate_flow(0, 1, &error);
+	if (!flow) {
+		printf("Flow can't be created %d message: %s\n", error.type, error.message ? error.message : "(no stated reason)");
+		rte_exit(EXIT_FAILURE, "error in creating flow");
+	}*/
 
 	rte_eal_remote_launch((lcore_function_t *)control_plane,NULL,CTRL_LCORE);
 	rte_eal_remote_launch((lcore_function_t *)ppp_recvd,NULL,PPP_RECVD_LCORE);
@@ -293,6 +300,10 @@ int pppdInit(void)
 		ppp_ports[i].phase = END_PHASE;
 		ppp_ports[i].is_pap_auth = TRUE;
 		ppp_ports[i].lan_ip = rte_cpu_to_be_32(0xc0a80201);
+		for(int j=0; j<65536; j++) {
+			rte_atomic16_init(&ppp_ports[i].addr_table[j].is_alive);
+			rte_atomic16_init(&ppp_ports[i].addr_table[j].is_fill);
+		}
 		rte_ether_addr_copy(&wan_mac, &(ppp_ports[i].src_mac));
 		memset(ppp_ports[i].dst_mac.addr_bytes, 0, ETH_ALEN);
 	}

@@ -55,11 +55,11 @@ void nat_rule_timer(__attribute__((unused)) struct rte_timer *tim, tPPP_PORT ppp
 	uint16_t user_id;
 	for(user_id=0; user_id<MAX_USER; user_id++) {
 		for(int i=0; i<65535; i++) {
-			if (ppp_ports[user_id].addr_table[i].is_fill == 1) {
-				if (ppp_ports[user_id].addr_table[i].is_alive > 0)
-					ppp_ports[user_id].addr_table[i].is_alive--;
+			if (rte_atomic16_read(&ppp_ports[user_id].addr_table[i].is_fill) == 1) {
+				if (rte_atomic16_read(&ppp_ports[user_id].addr_table[i].is_alive) > 0)
+					rte_atomic16_sub(&ppp_ports[user_id].addr_table[i].is_alive, 1);
 				else
-					ppp_ports[user_id].addr_table[i].is_fill = 0;
+					rte_atomic16_set(&ppp_ports[user_id].addr_table[i].is_fill, 0);
 			}
 		}
 	}

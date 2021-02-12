@@ -32,7 +32,7 @@ static inline void nat_icmp_learning(struct rte_ether_hdr *eth_hdr, struct rte_i
 	if (*new_port_id > 0xffff)
 		*new_port_id = *new_port_id / 0xffff + 1000;
 	for(int j=1000,shift=0; j<65535; j++) {
-		if (likely(addr_table[*new_port_id].is_fill == 1)) {
+		if (likely(rte_atomic16_read(&addr_table[*new_port_id].is_fill) == 1 )) {
 			if (likely(addr_table[*new_port_id].src_ip == ip_hdr->src_addr && addr_table[*new_port_id].dst_ip == ip_hdr->dst_addr))
 				return;
 			shift++;
@@ -40,7 +40,8 @@ static inline void nat_icmp_learning(struct rte_ether_hdr *eth_hdr, struct rte_i
 		}
 		else {
 			rte_wmb();
-			addr_table[*new_port_id].is_fill = 1;
+			//addr_table[*new_port_id].is_fill = 1;
+			rte_atomic16_set(&addr_table[*new_port_id].is_fill, 1);
 			//port_ccb->addr_table[*new_port_id].shift = shift;
 			break;
 		}
@@ -60,7 +61,7 @@ static inline void nat_udp_learning(struct rte_ether_hdr *eth_hdr, struct rte_ip
 	if (*new_port_id > 0xffff)
 		*new_port_id = *new_port_id / 0xffff + 1000;
 	for(int j=1000,shift=0; j<65535; j++) {
-		if (likely(addr_table[*new_port_id].is_fill == 1)) {
+		if (likely(rte_atomic16_read(&addr_table[*new_port_id].is_fill) == 1)) {
 			if (likely(addr_table[*new_port_id].src_ip == ip_hdr->src_addr && addr_table[*new_port_id].dst_ip == ip_hdr->dst_addr))
 				return;
 			shift++;
@@ -68,7 +69,8 @@ static inline void nat_udp_learning(struct rte_ether_hdr *eth_hdr, struct rte_ip
 		}
 		else {
 			rte_wmb();
-			addr_table[*new_port_id].is_fill = 1;
+			//addr_table[*new_port_id].is_fill = 1;
+			rte_atomic16_set(&addr_table[*new_port_id].is_fill, 1);
 			//port_ccb->addr_table[*new_port_id].shift = shift;
 			break;
 		}
@@ -88,7 +90,7 @@ static inline void nat_tcp_learning(struct rte_ether_hdr *eth_hdr, struct rte_ip
 	if (*new_port_id > 0xffff)
 		*new_port_id = *new_port_id / 0xffff + 1000;
 	for(int j=1000,shift=0; j<65535; j++) {
-		if (likely(addr_table[*new_port_id].is_fill == 1)) {
+		if (likely(rte_atomic16_read(&addr_table[*new_port_id].is_fill) == 1)) {
 			if (likely(addr_table[*new_port_id].src_ip == ip_hdr->src_addr && addr_table[*new_port_id].dst_ip == ip_hdr->dst_addr))
 				return;
 			shift++;
@@ -96,7 +98,8 @@ static inline void nat_tcp_learning(struct rte_ether_hdr *eth_hdr, struct rte_ip
 		}
 		else {
 			rte_wmb();
-			addr_table[*new_port_id].is_fill = 1;
+			//addr_table[*new_port_id].is_fill = 1;
+			rte_atomic16_set(&addr_table[*new_port_id].is_fill, 1);
 			//port_ccb->addr_table[*new_port_id].shift = shift;
 			break;
 		}
