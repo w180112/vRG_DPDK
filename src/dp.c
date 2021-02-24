@@ -139,7 +139,7 @@ int PPP_PORT_INIT(uint16_t port/*, uint32_t lcore_id*/)
 int ppp_recvd(void)
 {
 	struct rte_mbuf 	*single_pkt;
-	uint64_t 			total_tx;
+	uint64_t 			total_tx = 0;
 	struct rte_ether_hdr *eth_hdr, tmp_eth_hdr;
 	vlan_header_t		*vlan_header, tmp_vlan_header;
 	struct rte_ipv4_hdr *ip_hdr;
@@ -156,9 +156,6 @@ int ppp_recvd(void)
 	usleep(500000);
 	for(;;) {
 		nb_rx = rte_eth_rx_burst(1, gen_port_q, pkt, BURST_SIZE);
-		if (nb_rx == 0)
-			continue;
-		total_tx = 0;
 		for(i=0; i<nb_rx; i++) {
 			single_pkt = pkt[i];
 			rte_prefetch0(rte_pktmbuf_mtod(single_pkt, void *));
@@ -271,6 +268,7 @@ int ppp_recvd(void)
 				for(uint16_t buf=nb_tx; buf<total_tx; buf++)
 					rte_pktmbuf_free(pkt[buf]);
 			}
+			total_tx = 0;
 		}
 	}
 	return 0;
@@ -828,7 +826,7 @@ int us_mc(void)
 int gateway(void)
 {
 	struct rte_mbuf 	*single_pkt;
-	uint64_t 			total_tx;
+	uint64_t 			total_tx = 0;
 	struct rte_ether_hdr *eth_hdr;
 	vlan_header_t		*vlan_header;
 	struct rte_ipv4_hdr *ip_hdr;
@@ -845,9 +843,6 @@ int gateway(void)
 	//rte_eth_macaddr_get(0, (struct rte_ether_addr *)mac_addr);
 	for(;;) {
 		nb_rx = rte_eth_rx_burst(0, gen_port_q, pkt, BURST_SIZE);
-		if (nb_rx == 0)
-			continue;
-		total_tx = 0;
 		for(i=0; i<nb_rx; i++) {
 			single_pkt = pkt[i];
 			rte_prefetch0(rte_pktmbuf_mtod(single_pkt, void *));
@@ -927,8 +922,8 @@ int gateway(void)
 						#endif
 					}
 					else {
-						rte_pktmbuf_free(single_pkt);
-						//rte_ring_enqueue_burst(rg_func_queue, (void **)&single_pkt, 1, NULL);
+						//rte_pktmbuf_free(single_pkt);
+						rte_ring_enqueue_burst(rg_func_queue, (void **)&single_pkt, 1, NULL);
 						continue;
 					}
 				}
@@ -979,6 +974,7 @@ int gateway(void)
 				for(uint16_t buf=nb_tx; buf<total_tx; buf++)
 					rte_pktmbuf_free(pkt[buf]);
 			}
+			total_tx = 0;
 		}
 	}
 	return 0;
@@ -1007,8 +1003,6 @@ int rg_func(void)
 
 	for(;;) {
 		burst_size = rte_ring_dequeue_burst(rg_func_queue,(void **)pkt,BURST_SIZE,NULL);
-		if (unlikely(burst_size == 0))
-			continue;
 		//total_tx = 0;
 		for(i=0; i<burst_size; i++) {
 			single_pkt = pkt[i];

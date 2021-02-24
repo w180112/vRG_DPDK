@@ -172,12 +172,12 @@ int main(int argc, char **argv)
 	/* initialize packet capture framework */
 	rte_pdump_init();
 	#endif
-	/*struct rte_flow_error error;
+	struct rte_flow_error error;
 	struct rte_flow *flow = generate_flow(0, 1, &error);
 	if (!flow) {
 		printf("Flow can't be created %d message: %s\n", error.type, error.message ? error.message : "(no stated reason)");
 		rte_exit(EXIT_FAILURE, "error in creating flow");
-	}*/
+	}
 
 	rte_eal_remote_launch((lcore_function_t *)control_plane,NULL,CTRL_LCORE);
 	rte_eal_remote_launch((lcore_function_t *)ppp_recvd,NULL,PPP_RECVD_LCORE);
