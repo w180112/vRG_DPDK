@@ -11,7 +11,7 @@
 static int init_mem(void);
 static int init_ring(void);
 
-struct rte_ring    *rte_ring, /**decap_udp, *decap_tcp, *encap_udp, *encap_tcp,*/ /**ds_mc_queue, *us_mc_queue, */*rg_func_queue;
+struct rte_ring    *rte_ring, *rg_func_q, *uplink_q, *downlink_q;
 struct rte_mempool *direct_pool[PORT_AMOUNT];
 struct rte_mempool *indirect_pool[PORT_AMOUNT];
 
@@ -81,20 +81,16 @@ static int init_ring(void)
 {
     rte_ring = rte_ring_create("state_machine",RING_SIZE,rte_socket_id(),0);
     if (!rte_ring)
+		return rte_errno;
+	rg_func_q = rte_ring_create("rg_function",RING_SIZE,rte_socket_id(),0);
+	if (!rg_func_q)
         return rte_errno;
-	//decap_tcp = rte_ring_create("decapsulation_tcp",RING_SIZE,rte_socket_id(),0);
-	//decap_udp = rte_ring_create("decapsulation_udp",RING_SIZE,rte_socket_id(),0);
-	//encap_tcp = rte_ring_create("encapsulation_tcp",RING_SIZE,rte_socket_id(),0);
-	//encap_udp = rte_ring_create("encapsulation_udp",RING_SIZE,rte_socket_id(),0);
-    rg_func_queue = rte_ring_create("rg_function",RING_SIZE,rte_socket_id(),0);
-	if (!rg_func_queue)
+    uplink_q = rte_ring_create("upstream",RING_SIZE,rte_socket_id(),0);
+	if (!uplink_q)
         return rte_errno;
-    /*ds_mc_queue = rte_ring_create("downstream_multicast",RING_SIZE,rte_socket_id(),0);
-	if (!ds_mc_queue)
+    downlink_q = rte_ring_create("downstream",RING_SIZE,rte_socket_id(),0);
+    if (!downlink_q)
         return rte_errno;
-    us_mc_queue = rte_ring_create("upstream_multicast",RING_SIZE,rte_socket_id(),0);
-    if (!us_mc_queue)
-        return rte_errno;*/
 
     return 0;
 }

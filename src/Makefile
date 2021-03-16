@@ -26,7 +26,7 @@ static: build/$(APP)-static
 PKGCONF ?= pkg-config
 
 INCLUDE += -I. -I../lib/libutil -I../lib/dpdk/lib/librte_eal/common
-CFLAGS += $(INCLUDE) -Wall -fPIC -g -std=c99 -D_XOPEN_SOURCE=700 -D_DEFAULT_SOURCE #-D_DP_DBG
+CFLAGS += $(INCLUDE) -Wall -fPIC -g -std=c99 -D_XOPEN_SOURCE=700 -D_DEFAULT_SOURCE #-D_DP_DBG -D_NON_VLAN
 LDFLAGS += -L../lib/libutil -lutil
 
 PC_FILE := $(shell $(PKGCONF) --path libdpdk 2>/dev/null)

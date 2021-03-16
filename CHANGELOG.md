@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.5] - 2021/03/06
+
+1. Bugs fix
+2. Support ICMP unreachable when L2 payload is larger than ETH MTU
+3. System optimization
+4. Support IPTV multicast traffic
+5. Update supported DPDK version to 21.02
+
 ## [1.1] - 2019/07/15
 
 1. Add VLAN info in CLI info cmd

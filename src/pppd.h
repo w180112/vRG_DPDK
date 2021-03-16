@@ -34,6 +34,8 @@
 
 #define MAX_USER				2
 
+#define BASE_VLAN_ID			2
+
 #define MLX5					1
 #define IXGBE					2
 #define I40E					3
@@ -44,9 +46,9 @@
 enum {
 	CTRL_LCORE = 1,
 	PPP_RECVD_LCORE,
-	DS_MC_LCORE,
+	DOWNLINK_LCORE,
 	GATEWAY_LCORE,
-	US_MC_LCORE,
+	UPLINK_LCORE,
 	RG_FUNC_LCORE,
 	TIMER_LOOP_LCORE,
 };

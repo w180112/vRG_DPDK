@@ -172,20 +172,20 @@ int main(int argc, char **argv)
 	/* initialize packet capture framework */
 	rte_pdump_init();
 	#endif
+	#if 0
 	struct rte_flow_error error;
 	struct rte_flow *flow = generate_flow(0, 1, &error);
 	if (!flow) {
 		printf("Flow can't be created %d message: %s\n", error.type, error.message ? error.message : "(no stated reason)");
 		rte_exit(EXIT_FAILURE, "error in creating flow");
 	}
+	#endif
 
 	rte_eal_remote_launch((lcore_function_t *)control_plane,NULL,CTRL_LCORE);
 	rte_eal_remote_launch((lcore_function_t *)ppp_recvd,NULL,PPP_RECVD_LCORE);
-	//rte_eal_remote_launch((lcore_function_t *)ds_mc,NULL,DS_MC_LCORE);
-	//rte_eal_remote_launch((lcore_function_t *)decapsulation_tcp,NULL,2);
-	//rte_eal_remote_launch((lcore_function_t *)decapsulation_udp,NULL,3);
+	rte_eal_remote_launch((lcore_function_t *)downlink,NULL,DOWNLINK_LCORE);
 	rte_eal_remote_launch((lcore_function_t *)gateway,NULL,GATEWAY_LCORE);
-	//rte_eal_remote_launch((lcore_function_t *)us_mc,NULL,US_MC_LCORE);
+	rte_eal_remote_launch((lcore_function_t *)uplink,NULL,UPLINK_LCORE);
 	rte_eal_remote_launch((lcore_function_t *)rg_func,NULL,RG_FUNC_LCORE);
 	rte_eal_remote_launch((lcore_function_t *)timer_loop,NULL,TIMER_LOOP_LCORE);
 	
@@ -233,9 +233,9 @@ void PPP_bye(tPPP_PORT *port_ccb)
    		case PPPOE_PHASE:
 			//rte_free(wan_mac);
            	rte_ring_free(rte_ring);
-			//rte_ring_free(ds_mc_queue);
-			//rte_ring_free(us_mc_queue);
-			rte_ring_free(rg_func_queue);
+			rte_ring_free(uplink_q);
+			rte_ring_free(downlink_q);
+			rte_ring_free(rg_func_q);
             fclose(fp);
 			cmdline_stdin_exit(cl);
 			#ifdef RTE_LIBRTE_PDUMP
@@ -268,9 +268,9 @@ void PPP_int(void)
     printf("pppoe client interupt!\n");
 	//rte_free(wan_mac);
     rte_ring_free(rte_ring);
-	//rte_ring_free(ds_mc_queue);
-	//rte_ring_free(us_mc_queue);
-	rte_ring_free(rg_func_queue);
+	rte_ring_free(uplink_q);
+	rte_ring_free(downlink_q);
+	rte_ring_free(rg_func_q);
     fclose(fp);
 	cmdline_stdin_exit(cl);
 	printf("bye!\n");
@@ -291,7 +291,7 @@ int pppdInit(void)
 		ppp_ports[i].ppp_phase[1].state = S_INIT;
 		ppp_ports[i].pppoe_phase.active = FALSE;
 		ppp_ports[i].user_num = i;
-		ppp_ports[i].vlan = i + 2;
+		ppp_ports[i].vlan = i + BASE_VLAN_ID;
 		
 		ppp_ports[i].ipv4 = 0;
 		ppp_ports[i].ipv4_gw = 0;
@@ -355,7 +355,7 @@ int ppp_init(void)
 #pragma GCC diagnostic ignored "-Wstrict-aliasing"
 				session_index = ((vlan_header_t *)(((struct rte_ether_hdr *)mail[i]->refp) + 1))->tci_union.tci_value;
 				session_index = rte_be_to_cpu_16(session_index);
-				session_index = (session_index & 0xFFF) - 2;
+				session_index = (session_index & 0xFFF) - BASE_VLAN_ID;
 				if (session_index >= MAX_USER) {
 					#ifdef _DP_DBG
 					puts("Recv not our PPPoE packet.\nDiscard.");
@@ -438,9 +438,9 @@ int ppp_init(void)
 						if ((--total_user) == 0 && signal_term == TRUE) {
 							//rte_free(wan_mac);
                             rte_ring_free(rte_ring);
-							//rte_ring_free(ds_mc_queue);
-							//rte_ring_free(us_mc_queue);
-							rte_ring_free(rg_func_queue);
+							rte_ring_free(uplink_q);
+							rte_ring_free(downlink_q);
+							rte_ring_free(rg_func_q);
                             fclose(fp);
 							cmdline_stdin_exit(cl);
 							exit(0);
@@ -544,7 +544,7 @@ BOOL is_valid(char *token, char *next)
 	}
 	for(uint32_t i=0; i<strlen(next); i++) {
 		if (*(next+i) < 0x30 || (*(next+i) > 0x39 && *(next+i) < 0x40) || (*(next+i) > 0x5B && *(next+i) < 0x60) || *(next+i) > 0x7B) {
-			if (*(token+i) != 0x2E)
+			if (*(next+i) != 0x2E)
 				return FALSE;
 		}
 	}

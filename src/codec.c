@@ -10,7 +10,7 @@
 
 extern STATUS PPP_FSM(struct rte_timer *ppp, tPPP_PORT *port_ccb, U16 event);
 
-extern struct rte_ring 		*rte_ring, *ds_mc_queue, *us_mc_queue, *rg_func_queue;
+extern struct rte_ring 		*rte_ring, *rg_func_q, *uplink_q, *downlink_q;
 extern struct rte_ether_addr wan_mac;
 extern struct cmdline 		*cl;
 extern FILE					*fp;
@@ -610,9 +610,9 @@ STATUS build_padt(tPPP_PORT *port_ccb)
 		printf("\n");
 		//rte_free(wan_mac);
     	rte_ring_free(rte_ring);
-		//rte_ring_free(ds_mc_queue);
-		//rte_ring_free(us_mc_queue);
-		rte_ring_free(rg_func_queue);
+		rte_ring_free(uplink_q);
+		rte_ring_free(downlink_q);
+		rte_ring_free(rg_func_q);
     	fclose(fp);
 		cmdline_stdin_exit(cl);
 		exit(0);
