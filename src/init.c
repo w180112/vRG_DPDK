@@ -1,7 +1,9 @@
 #include <rte_ring.h>
 #include <rte_errno.h>
 #include <rte_mbuf.h>
+#include <rte_byteorder.h>
 #include "pppd.h"
+#include "dhcp_codec.h"
 
 #define NUM_MBUFS 		8191
 #define MBUF_CACHE_SIZE 512

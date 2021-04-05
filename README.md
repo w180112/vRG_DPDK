@@ -49,10 +49,10 @@ For hugepages, NIC binding and other system configuration, please refer to Intel
 ## Note:
 
 1. The vRG system only support 3 LCP options, PAP authentication, Magic Number, Max receive unit so far.
-2. Users should set the default gateway address 192.168.2.1 to their end device.
-3. User can assign how many sessions will be established, the maximum support sessions are 4094, but only 2 sessions have been tested so far. 
-4. In default configuration, there are only 2 RG users. You can just modify the value ***MAX_USER*** in ***pppd.h*** file.
-5. In data plane, user 1 uses single tag vlan 2, user 2 uses single tag vlan 3. All data plane packets received at gateway should include a single tag vlan. If you don't need to run in VLAN environment, add ***-D_NON_VLAN*** compile option in ***src/Makefile***(Note: non-vlan mode only support 1 user at the same time).
+2. Users behind vRG should use DHCP to get IP address or set the default gateway address 192.168.2.1 to their end device.
+3. Administrator can assign how many PPPoE sessions will be established, the maximum support sessions are 4094, but only 2 sessions have been tested so far. 
+4. In default configuration, there are only 2 vRG PPPoE sessions. You can just modify the value ***MAX_USER*** in ***pppd.h*** file.
+5. In data plane, PPPoE session 1 uses single tag vlan 2, PPPoE session 2 uses single tag vlan 3. All data plane packets received at gateway should include a single tag vlan. If you don't need to run in VLAN environment, add ***-D_NON_VLAN*** compile option in ***src/Makefile***(Note: non-vlan mode only support 1 PPPoE session at the same time).
 6. Each user's account and password are stored in ***pap-setup*** file.
 7. All DPDK EAL lcores should be on same CPU socket.
 

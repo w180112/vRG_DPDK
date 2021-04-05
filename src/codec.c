@@ -29,7 +29,7 @@ STATUS PPP_decode_frame(tPPP_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_head
     uint16_t	mulen;
 
 	if (mail->len > ETH_MTU){
-	    DBG_PPP(DBGLVL1,0,"error! too large frame(%d)\n",mail->len);
+	    DBG_vRG(DBGPPP,0,"error! too large frame(%d)\n",mail->len);
 	    return ERROR;
 	}
 

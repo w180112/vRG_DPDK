@@ -10,35 +10,48 @@
 #include 	<rte_byteorder.h>
 #include	"pppd.h"
 #include 	"fsm.h"
+#include 	"dhcp_fsm.h"
 #include    "dbg.h"
 
-#define 	DBG_PPP_MSG_LEN     		256
+#define 	DBG_VRG_MSG_LEN     		256
 
 char 		*PPP_state2str(U16 state);
+char 		*DHCP_state2str(U16 state);
 	
-U8       	pppDbgFlag=1;
+U8       	vRGDbgFlag=1;
 
 /***************************************************
- * DBG_PPP:
+ * DBG_vRG:
  ***************************************************/	
-void DBG_PPP(U8 level, tPPP_PORT *port_ccb, const char *fmt,...)
+void DBG_vRG(U8 level, U8 *ptr, const char *fmt,...)
 {
 	va_list ap; /* points to each unnamed arg in turn */
-	char    buf[256], msg[DBG_PPP_MSG_LEN], sstr[20];
+	char    buf[256], msg[DBG_VRG_MSG_LEN], sstr[20];
 	
 	//user offer level must > system requirement
-    if (pppDbgFlag < level)
+    if (vRGDbgFlag > level)
     	return;
 
 	va_start(ap, fmt); /* set ap pointer to 1st unnamed arg */
-    vsnprintf(msg, DBG_PPP_MSG_LEN, fmt, ap);
-    
-    if (port_ccb) {
-    	strcpy(sstr,PPP_state2str(port_ccb->ppp_phase[port_ccb->cp].state));
-    	sprintf(buf,"pppd> Session id [%x.%s] ", rte_be_to_cpu_16(port_ccb->session_id), sstr);
-    }
-	else
-		sprintf(buf,"pppd> ");
+    vsnprintf(msg, DBG_VRG_MSG_LEN, fmt, ap);
+    if (level == DBGPPP) {
+		tPPP_PORT *port_ccb = (tPPP_PORT *)ptr;
+    	if (port_ccb) {
+    		strcpy(sstr,PPP_state2str(port_ccb->ppp_phase[port_ccb->cp].state));
+    		sprintf(buf,"pppd> Session id [%x.%s] ", rte_be_to_cpu_16(port_ccb->session_id), sstr);
+    	}
+		else
+			sprintf(buf,"pppd> ");
+	}
+	else if (level == DBGDHCP) {
+		dhcp_ccb_t *dhcp_ccb = (dhcp_ccb_t *)ptr;
+		if (dhcp_ccb) {
+    		strcpy(sstr,DHCP_state2str(dhcp_ccb->lan_user_info[dhcp_ccb->cur_lan_user_index].state));
+    		sprintf(buf,"dhcpd> ip pool index, user index[%u, %u, %s] ", dhcp_ccb->cur_ip_pool_index, dhcp_ccb->cur_lan_user_index, sstr);
+    	}
+		else
+			sprintf(buf,"dhcpd> ");
+	}
 
 	strcat(buf,msg);
    	printf("%s",buf);
@@ -79,4 +92,37 @@ char *PPP_state2str(U16 state)
 		return NULL;
 
 	return ppp_state_desc_tbl[i].str;
+}
+
+
+/*-------------------------------------------------------------------
+ * DHCP_state2str
+ *
+ * input : state
+ * return: string of corresponding state value
+ *------------------------------------------------------------------*/
+char *DHCP_state2str(U16 state)
+{
+	static struct {
+		DHCP_STATE	state;
+		char		str[20];
+	} dhcp_state_desc_tbl[] = {
+    	{ S_DHCP_INIT,  		"DHCP INIT" },
+    	{ S_DHCP_DISCOVER_RECV, "DHCP DISCOVERY RECV" },
+    	{ S_DHCP_OFFER_SENT,  	"DHCP OFFER SENT" },
+    	{ S_DHCP_REQUEST_RECV,	"DHCP REQUEST RECV" },
+    	{ S_DHCP_ACK_SENT,  	"DHCP ACK SENT" },
+    	{ S_DHCP_NAK_SENT,		"DHCP NAK SENT" },
+    	{ S_DHCP_INVLD,  		"DHCP INVALID" },
+	};
+
+	U8  i;
+	
+	for(i=0; dhcp_state_desc_tbl[i].state != S_DHCP_INVLD; i++) {
+		if (dhcp_state_desc_tbl[i].state == state)  break;
+	}
+	if (dhcp_state_desc_tbl[i].state == S_DHCP_INVLD)
+		return NULL;
+
+	return dhcp_state_desc_tbl[i].str;
 }

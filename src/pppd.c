@@ -34,6 +34,7 @@
 #include				"cmds.h"
 #include				"init.h"
 #include				"dp_flow.h"
+#include 				"dhcpd.h"
 
 #define 				BURST_SIZE 		32
 
@@ -45,7 +46,7 @@ uint8_t					ppp_max_msg_per_query;
 rte_atomic16_t			cp_recv_cums;
 uint8_t					vendor_id = 0;
 
-tPPP_PORT				ppp_ports[MAX_USER]; //port is 1's based
+tPPP_PORT				ppp_ports[MAX_USER];
 
 extern int 				timer_loop(__attribute__((unused)) void *arg);
 extern int 				rte_ethtool_get_drvinfo(uint16_t port_id, struct ethtool_drvinfo *drvinfo);
@@ -160,14 +161,18 @@ int main(int argc, char **argv)
 		//lcore_id += 2;
 	}
 
-	/* init timer structures */
+	/* init structures */
 	for(int i=0; i<MAX_USER; i++) {
 		rte_timer_init(&(ppp_ports[i].pppoe));
 		rte_timer_init(&(ppp_ports[i].ppp));
 		rte_timer_init(&(ppp_ports[i].nat));
 		ppp_ports[i].data_plane_start = FALSE;
 	}
+
 	rte_atomic16_init(&cp_recv_cums);
+
+	dhcp_init();
+
 	#ifdef RTE_LIBRTE_PDUMP
 	/* initialize packet capture framework */
 	rte_pdump_init();
@@ -192,7 +197,7 @@ int main(int argc, char **argv)
 	while(prompt == FALSE);
 	sleep(1);
 	puts("type ? or help to show all available commands");
-	cl = cmdline_stdin_new(ctx, "pppoeclient> ");
+	cl = cmdline_stdin_new(ctx, "vRG> ");
 	if (cl == NULL)
 		rte_exit(EXIT_FAILURE, "Cannot create cmdline instance\n");
 	cmdline_interact(cl);
@@ -227,7 +232,6 @@ void PPP_ter(void)
 
 void PPP_bye(tPPP_PORT *port_ccb)
 {
-    printf("bye!\n");
 	signal_term = TRUE;
    	switch(port_ccb->phase) {
    		case PPPOE_PHASE:
@@ -309,7 +313,7 @@ int pppdInit(void)
 	}
     
 	sleep(1);
-	DBG_PPP(DBGLVL1,NULL,"============ pppoe init successfully ==============\n");
+	DBG_vRG(DBGPPP,NULL,"============ pppoe init successfully ==============\n");
 	return 0;
 }
             
@@ -450,7 +454,7 @@ int ppp_init(void)
 						RTE_LOG(INFO,EAL,"recv active discovery message\n");
 						continue;
 					default:
-						RTE_LOG(INFO,EAL,"Unknown PPPoE discovery type.\n");
+						RTE_LOG(INFO,EAL,"Unknown PPPoE discovery type %x.\n", pppoe_header.code);
 						#ifdef _DP_DBG
 						puts("Unknown PPPoE discovery type.");
 						#endif
@@ -496,9 +500,9 @@ int ppp_init(void)
 						break;
 					#endif
 					case CLI_QUIT:
-						for(int i=0; i<MAX_USER; i++) {
- 							PPP_bye(&(ppp_ports[i])); 
- 						}
+						for(int i=0; i<MAX_USER; i++)
+ 							PPP_bye(&(ppp_ports[i]));
+						puts("Bye!");
 						rte_atomic16_dec(&cp_recv_cums);
 						break;
 					default:

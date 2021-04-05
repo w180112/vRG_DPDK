@@ -1,3 +1,12 @@
+/*\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\
+  DP_CODEC.H
+
+  Designed by THE on JAN 21, 2021
+/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\*/
+
+#ifndef _DP_CODEC_H_
+#define _DP_CODEC_H_
+
 #include <rte_mbuf.h>
 #include <rte_ether.h>
 #include <rte_icmp.h>
@@ -60,7 +69,7 @@ static inline int encaps_udp(struct rte_mbuf **single_pkt, struct rte_ether_hdr 
 	if (unlikely((*single_pkt)->pkt_len > (ETH_MTU - (uint16_t)(sizeof(vlan_header_t) + sizeof(pppoe_header_t) + sizeof(ppp_payload_t))))) {
 		struct rte_mbuf *pkt = rte_pktmbuf_alloc(direct_pool[0]);
 		build_icmp_unreach(pkt, user_index, eth_hdr, old_vlan_hdr, ip_hdr);
-		#if _NON_VLAN
+		#ifdef _NON_VLAN
 		rte_vlan_strip(pkt);
 		#endif
 		rte_eth_tx_burst(0, gen_port_q, &pkt, 1);
@@ -170,7 +179,7 @@ static inline int encaps_tcp(struct rte_mbuf **single_pkt, struct rte_ether_hdr 
 		#else
 		struct rte_mbuf *pkt = rte_pktmbuf_alloc(direct_pool[0]);
 		build_icmp_unreach(pkt, user_index, eth_hdr, old_vlan_hdr, ip_hdr);
-		#if _NON_VLAN
+		#ifdef _NON_VLAN
 		rte_vlan_strip(pkt);
 		#endif
 		rte_eth_tx_burst(0, gen_port_q, &pkt, 1);
@@ -257,3 +266,5 @@ static inline int decaps_tcp(struct rte_mbuf *single_pkt, struct rte_ether_hdr *
 
 	return 1;
 }
+
+#endif

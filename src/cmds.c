@@ -35,10 +35,12 @@
 #include "cmds.h"
 #include "pppd.h"
 #include "pppoeclient.h"
+#include "dhcp_codec.h"
 
 extern struct rte_ring *rte_ring;
 extern nic_vendor_t 	vendor[];
 extern uint8_t			vendor_id;
+extern dhcp_ccb_t 		dhcp_ccb[MAX_USER];
 
 typedef struct cli_to_main_msg {
 	uint8_t type;
@@ -55,6 +57,8 @@ static void cmd_info_parsed(__attribute__((unused)) void *parsed_result,
 		struct cmdline *cl,
 		__attribute__((unused)) void *data)
 {
+	char buf[64];
+
 	if (vendor_id == 0)
 		cmdline_printf(cl,"We are using unexcepted driver\n");
 	else {
@@ -67,10 +71,18 @@ static void cmd_info_parsed(__attribute__((unused)) void *parsed_result,
 	}
 	
 	for(int i=0; i<MAX_USER; i++) {
-		cmdline_printf(cl,"User %d account is %s, password is %s\n", i, ppp_ports[i].user_id, ppp_ports[i].passwd);
-		cmdline_printf(cl,"LAN mac addr is %x:%x:%x:%x:%x:%x\n", ppp_ports[i].lan_mac.addr_bytes[0], ppp_ports[i].lan_mac.addr_bytes[1], ppp_ports[i].lan_mac.addr_bytes[2], ppp_ports[i].lan_mac.addr_bytes[3], ppp_ports[i].lan_mac.addr_bytes[4], ppp_ports[i].lan_mac.addr_bytes[5]);
-		cmdline_printf(cl,"Session ID is 0x%x, VLAN ID is 0x%x\n", rte_be_to_cpu_16(ppp_ports[i].session_id), ppp_ports[i].vlan);
-		cmdline_printf(cl,"IP addr is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 "\n", *(((uint8_t *)&(ppp_ports[i].ipv4))), *(((uint8_t *)&(ppp_ports[i].ipv4))+1), *(((uint8_t *)&(ppp_ports[i].ipv4))+2), *(((uint8_t *)&(ppp_ports[i].ipv4))+3));
+		cmdline_printf(cl, "User %d account is %s, password is %s\n", i, ppp_ports[i].user_id, ppp_ports[i].passwd);
+		cmdline_printf(cl, "LAN mac addr is %x:%x:%x:%x:%x:%x\n", ppp_ports[i].lan_mac.addr_bytes[0], ppp_ports[i].lan_mac.addr_bytes[1], ppp_ports[i].lan_mac.addr_bytes[2], ppp_ports[i].lan_mac.addr_bytes[3], ppp_ports[i].lan_mac.addr_bytes[4], ppp_ports[i].lan_mac.addr_bytes[5]);
+		cmdline_printf(cl, "Session ID is 0x%x, VLAN ID is 0x%x\n", rte_be_to_cpu_16(ppp_ports[i].session_id), ppp_ports[i].vlan);
+		cmdline_printf(cl, "WAN IP addr is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 "\n", *(((U8 *)&(ppp_ports[i].ipv4))), *(((U8 *)&(ppp_ports[i].ipv4))+1), *(((U8 *)&(ppp_ports[i].ipv4))+2), *(((U8 *)&(ppp_ports[i].ipv4))+3));
+		cmdline_printf(cl, "DHCP server IP addr is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 "\n", (rte_be_to_cpu_32(dhcp_ccb[i].dhcp_server_ip) & 0xff000000) >> 24, (rte_be_to_cpu_32(dhcp_ccb[i].dhcp_server_ip) & 0x00ff0000) >> 16, (rte_be_to_cpu_32(dhcp_ccb[i].dhcp_server_ip) & 0x0000ff00) >> 8, rte_be_to_cpu_32(dhcp_ccb[i].dhcp_server_ip) & 0x000000ff);
+		for(U8 j=0; j<MAX_IP_POOL; j++) {
+			if (dhcp_ccb[i].ip_pool[j].used) {
+				rte_ether_format_addr(buf, 18, &dhcp_ccb[i].ip_pool[j].mac_addr);
+				cmdline_printf(cl, "DHCP ip pool index %" PRIu8 " IP addr is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 " is used by %s\n", j, (rte_be_to_cpu_32(dhcp_ccb[i].ip_pool[j].ip_addr) & 0xff000000) >> 24, (rte_be_to_cpu_32(dhcp_ccb[i].ip_pool[j].ip_addr) & 0x00ff0000) >> 16, (rte_be_to_cpu_32(dhcp_ccb[i].ip_pool[j].ip_addr) & 0x0000ff00) >> 8, rte_be_to_cpu_32(dhcp_ccb[i].ip_pool[j].ip_addr) & 0x000000ff, buf);
+			}
+		}
+		cmdline_printf(cl, "================================================================================\n");
 	}
 }
 
