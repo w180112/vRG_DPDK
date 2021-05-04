@@ -22,7 +22,7 @@ tDHCP_STATE_TBL  dhcp_fsm_tbl[9] = {
 
 { S_DHCP_OFFER_SENT,     E_DISCOVER,                                S_DHCP_OFFER_SENT,       { A_send_dhcp_offer, A_wait_request_timer, 0 }},
 
-{ S_DHCP_OFFER_SENT,     E_TIMEOUT,                                 S_DHCP_INIT,             { 0 }},
+{ S_DHCP_OFFER_SENT,     E_TIMEOUT,                                 S_DHCP_INIT,             { A_release, 0 }},
 
 { S_DHCP_OFFER_SENT, 	 E_GOOD_REQUEST,						    S_DHCP_ACK_SENT,         { A_send_dhcp_ack, A_wait_lease_timer, 0 }},
 
@@ -75,7 +75,7 @@ STATUS dhcp_fsm(dhcp_ccb_t *dhcp_ccb, U16 event)
     if (dhcp_fsm_tbl[i].state != dhcp_ccb->lan_user_info[dhcp_ccb->cur_lan_user_index].state) { /* search until meet the next state */
         DBG_vRG(DBGDHCP,(U8 *)dhcp_ccb,"error! invalid event(%d) in state(%s)\n",
             event, DHCP_state2str(dhcp_ccb->lan_user_info[dhcp_ccb->cur_lan_user_index].state));
-        return TRUE; /* still pass to endpoint */
+        return FALSE;
     }
     
     /* Correct state found */

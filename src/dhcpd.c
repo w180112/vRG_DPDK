@@ -44,32 +44,38 @@ int dhcpd(struct rte_mbuf *single_pkt, struct rte_ether_hdr *eth_hdr, vlan_heade
         return -1;
     }
 
+    /* Pick one index from lan_user_info array and save it to dhcp_ccb */
     for(int i=0; i<LAN_USER; i++) {
         if (dhcp_ccb[user_index].lan_user_info[i].lan_user_used == FALSE) {
             lan_user_index = dhcp_ccb[user_index].cur_lan_user_index = i;
             rte_ether_addr_copy(&eth_hdr->s_addr, &dhcp_ccb[user_index].lan_user_info[i].mac_addr);
+            dhcp_ccb[user_index].lan_user_info[i].lan_user_used = TRUE;
             break;
         }
-        if (rte_is_same_ether_addr(&eth_hdr->s_addr, &dhcp_ccb[user_index].lan_user_info[i].mac_addr)) {
+        else if (rte_is_same_ether_addr(&eth_hdr->s_addr, &dhcp_ccb[user_index].lan_user_info[i].mac_addr)) {
             lan_user_index = dhcp_ccb[user_index].cur_lan_user_index = i;
             break;
         }
     }
+    /* If dhcp ip pool is full, drop the packet */
     if (lan_user_index < 0) {
         rte_pktmbuf_free(single_pkt);
         return -1;
     }
+    /* If no more packet from the host, clear all information in dhcp_ccb */
     rte_timer_stop(&dhcp_ccb[user_index].lan_user_info[lan_user_index].timer);
 	rte_timer_reset(&dhcp_ccb[user_index].lan_user_info[lan_user_index].timer, LEASE_TIMEOUT * 2 * rte_get_timer_hz(), SINGLE, TIMER_LOOP_LCORE, (rte_timer_cb_t)release_lan_user, &dhcp_ccb[user_index].lan_user_info[lan_user_index]);
 
     event = dhcp_decode(&dhcp_ccb[user_index], eth_hdr, vlan_header, ip_hdr, udp_hdr);
     if (event < 0) {
+        release_lan_user(&dhcp_ccb[user_index].lan_user_info[lan_user_index]);
         rte_pktmbuf_free(single_pkt);
         return -1;
     }
     else if (event == 0)
         return 0;
     if (dhcp_fsm(&dhcp_ccb[user_index], event) == FALSE) {
+        release_lan_user(&dhcp_ccb[user_index].lan_user_info[lan_user_index]);
         rte_pktmbuf_free(single_pkt);
         return -1;
     }
@@ -79,6 +85,7 @@ int dhcpd(struct rte_mbuf *single_pkt, struct rte_ether_hdr *eth_hdr, vlan_heade
 
 void release_lan_user(lan_user_info_t *lan_user_info)
 {
+    dhcp_ccb->ip_pool[dhcp_ccb->cur_ip_pool_index].used = FALSE;
     lan_user_info->lan_user_used = FALSE;
     rte_ether_addr_copy(&zero_mac, &lan_user_info->mac_addr);
 }

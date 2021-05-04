@@ -58,7 +58,7 @@ For hugepages, NIC binding and other system configuration, please refer to Intel
 
 ## Test environment:
 
-1. CentOS 8.2 with Mellanox CX4 Lx virtual function and Ubuntu 20.04 with Intel X710 NIC SR-I/OV virtual function
+1. Ubuntu 20.04 with Mellanox CX4 Lx virtual function and RHEL 8.3 with Intel X710 NIC SR-I/OV virtual function
 2. AMD EPYC 7401P / Dell R630, Intel E5 2687v3 / Xeon Platinum 8124 with ECC RAM server
 3. Successfully test control plane and data plane with CHT(Chunghwa Telecom Co., Ltd.) BRAS, open source RP-PPPoE and Spirent test center PPPoE server
 4. Intel DPDK 21.02 and GCC version 9 compiler

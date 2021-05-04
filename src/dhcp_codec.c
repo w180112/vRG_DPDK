@@ -141,6 +141,7 @@ int pick_ip_from_pool(dhcp_ccb_t *dhcp_ccb, U32 *ip_addr, struct rte_ether_addr 
         if (dhcp_ccb->ip_pool[i].used == FALSE) {
             *ip_addr = dhcp_ccb->ip_pool[i].ip_addr;
             rte_ether_addr_copy(&mac_addr, &dhcp_ccb->ip_pool[i].mac_addr);
+            dhcp_ccb->cur_ip_pool_index = i;
             return 0;
         }
     }
@@ -148,6 +149,7 @@ int pick_ip_from_pool(dhcp_ccb_t *dhcp_ccb, U32 *ip_addr, struct rte_ether_addr 
         if (dhcp_ccb->ip_pool[j].used == FALSE) {
             *ip_addr = dhcp_ccb->ip_pool[j].ip_addr;
             rte_ether_addr_copy(&mac_addr, &dhcp_ccb->ip_pool[j].mac_addr);
+            dhcp_ccb->cur_ip_pool_index = j;
             return 0;
         }
     }
