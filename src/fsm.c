@@ -26,7 +26,7 @@ static STATUS 	A_send_padt(__attribute__((unused)) struct rte_timer *tim, __attr
 static STATUS 	A_create_close_to_lower_layer(__attribute__((unused)) struct rte_timer *tim, __attribute__((unused)) tPPP_PORT *port_ccb);
 
 extern tPPP_PORT				ppp_ports[MAX_USER];
-extern BOOL                     prompt;
+//extern BOOL                     prompt;
 //extern struct rte_flow *generate_lan_flow(uint16_t port_id, uint16_t rx_q_udp, uint16_t rx_q_tcp, struct rte_flow_error *error);
 //extern struct rte_flow *generate_wan_flow(uint16_t port_id, uint16_t rx_q_udp, uint16_t rx_q_tcp, struct rte_flow_error *error);
 
@@ -688,10 +688,10 @@ STATUS A_this_layer_up(__attribute__((unused)) struct rte_timer *tim, __attribut
     		return FALSE;
     	drv_xmit(buffer,mulen);
         RTE_LOG(INFO,EAL,"Session 0x%x LCP connection establish successfully.\n", rte_cpu_to_be_16(port_ccb->session_id));
-        RTE_LOG(INFO,EAL,"Session 0x%x starting Authenticate.\n", rte_cpu_to_be_16(port_ccb->session_id));
+        RTE_LOG(INFO,EAL,"Session 0x%x starting Authentication.\n", rte_cpu_to_be_16(port_ccb->session_id));
         #ifdef _DP_DBG
     	puts("LCP connection establish successfully.");
-    	puts("Starting Authenticate.");
+    	puts("Starting Authentication.");
         #endif
     }
     else if (port_ccb->ppp_phase[port_ccb->cp].ppp_payload->ppp_protocol == rte_cpu_to_be_16(IPCP_PROTOCOL)) {
@@ -704,9 +704,10 @@ STATUS A_this_layer_up(__attribute__((unused)) struct rte_timer *tim, __attribut
         #endif
         RTE_LOG(INFO,EAL,"Now we can start to send data via pppoe session id 0x%x and vlan is 0x%x.\n", rte_cpu_to_be_16(port_ccb->session_id), port_ccb->vlan);
         RTE_LOG(INFO,EAL,"Our PPPoE client IP address is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 ", PPPoE server IP address is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 "\n", *(((uint8_t *)&(port_ccb->ipv4))), *(((uint8_t *)&(port_ccb->ipv4))+1), *(((uint8_t *)&(port_ccb->ipv4))+2), *(((uint8_t *)&(port_ccb->ipv4))+3), *(((uint8_t *)&(port_ccb->ipv4_gw))), *(((uint8_t *)&(port_ccb->ipv4_gw))+1), *(((uint8_t *)&(port_ccb->ipv4_gw))+2), *(((uint8_t *)&(port_ccb->ipv4_gw))+3));
-    	printf("Now we can start to send data via pppoe session id 0x%x.\n", rte_cpu_to_be_16(port_ccb->session_id));
+    	printf("\n");
+        printf("Now we can start to send data via pppoe session id 0x%x.\n", rte_cpu_to_be_16(port_ccb->session_id));
     	printf("Our PPPoE client IP address is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 ", PPPoE server IP address is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 "\n", *(((uint8_t *)&(port_ccb->ipv4))), *(((uint8_t *)&(port_ccb->ipv4))+1), *(((uint8_t *)&(port_ccb->ipv4))+2), *(((uint8_t *)&(port_ccb->ipv4))+3), *(((uint8_t *)&(port_ccb->ipv4_gw))), *(((uint8_t *)&(port_ccb->ipv4_gw))+1), *(((uint8_t *)&(port_ccb->ipv4_gw))+2), *(((uint8_t *)&(port_ccb->ipv4_gw))+3));
-        prompt = TRUE;
+        //prompt = TRUE;
     }
 
     return TRUE;

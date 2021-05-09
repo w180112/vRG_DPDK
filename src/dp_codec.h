@@ -18,7 +18,6 @@ enum {
 	gen_port_q = 0,
 	up_port_q,
 	down_port_q,
-	mc_port_q,
 	ctrl_port_q,
 };
 

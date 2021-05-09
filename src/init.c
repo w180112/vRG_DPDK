@@ -26,9 +26,8 @@ int sys_init(void)
         return ret;
     ret = init_ring();
     if (ret)
-        return ret;
-
-    //signal(SIGTERM,(__sighandler_t)PPP_bye);
+		return ret;
+		
 	signal(SIGINT,(__sighandler_t)PPP_int);
 
 	/* init RTE timer library */

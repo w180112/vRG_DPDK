@@ -69,7 +69,7 @@ int PPP_PORT_INIT(uint16_t port/*, uint32_t lcore_id*/)
 	struct rte_eth_dev_info dev_info;
 	struct rte_eth_rxconf rxq_conf;
 	struct rte_eth_txconf *txconf;
-	const uint16_t rx_rings = 1, tx_rings = 5;
+	const uint16_t rx_rings = 1, tx_rings = 4;
 	int retval;
 	uint16_t q;
 

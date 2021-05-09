@@ -14,6 +14,7 @@ extern struct rte_ring 		*rte_ring, *rg_func_q, *uplink_q, *downlink_q;
 extern struct rte_ether_addr wan_mac;
 extern struct cmdline 		*cl;
 extern FILE					*fp;
+extern BOOL					quit_flag;
 
 /*============================ DECODE ===============================*/
 
@@ -41,11 +42,7 @@ STATUS PPP_decode_frame(tPPP_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_head
 	rte_memcpy(pppoe_header,tmp_pppoe_header,sizeof(pppoe_header_t));
 
 	/* we receive pppoe discovery packet and dont need to parse for ppp payload */
-	#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 	if (vlan_header->next_proto == rte_cpu_to_be_16(ETH_P_PPP_DIS)) {
-	#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-	if (vlan_header->next_proto == ETH_P_PPP_DIS) {
-	#endif
 		if (pppoe_header->code == PADS)
 			port_ccb->phase = LCP_PHASE;
 		return TRUE;
@@ -56,33 +53,22 @@ STATUS PPP_decode_frame(tPPP_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_head
 
 	rte_memcpy(ppp_payload,tmp_ppp_payload,sizeof(ppp_payload_t));
 	rte_memcpy(ppp_lcp,tmp_ppp_lcp,sizeof(ppp_header_t));
-	#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 	rte_memcpy(ppp_options,tmp_ppp_lcp+1,rte_cpu_to_be_16(ppp_lcp->length)-4);
-	#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-	rte_memcpy(ppp_options,tmp_ppp_lcp+1,(ppp_lcp->length)-4);
-	#endif
+
 	mulen = mail->len;
 
     mulen -= 14; //DA-MAC[6] + SA-MAC[6] + ETH-TYPE[2]
     uint16_t total_lcp_length = ntohs(ppp_lcp->length);
 
     /* check the ppp is in LCP, AUTH or NCP phase */
-	#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
     if (ppp_payload->ppp_protocol == rte_cpu_to_be_16(IPCP_PROTOCOL)) {
-	#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-	if (ppp_payload->ppp_protocol == IPCP_PROTOCOL) {
-	#endif
     	if (port_ccb->phase != IPCP_PHASE)
     		return FALSE;
     	if (decode_ipcp(pppoe_header,ppp_payload,ppp_lcp,ppp_options,total_lcp_length,event,tim,port_ccb) == FALSE){
     		return FALSE;
     	}
     }
-	#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
     else if (ppp_payload->ppp_protocol == rte_cpu_to_be_16(LCP_PROTOCOL)) {
-	#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-	else if (ppp_payload->ppp_protocol == LCP_PROTOCOL) {
-	#endif
 		switch(ppp_lcp->code) {
 			case CONFIG_REQUEST : 
 				if (port_ccb->phase != LCP_PHASE)
@@ -107,11 +93,7 @@ STATUS PPP_decode_frame(tPPP_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_head
 						;
 				}
 				*event = E_RECV_GOOD_CONFIG_REQUEST;
-				#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 				ppp_lcp->length = rte_cpu_to_be_16(total_lcp_length);
-				#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-				ppp_lcp->length = total_lcp_length;
-				#endif
 				return TRUE;
 			case CONFIG_ACK :
 				if (port_ccb->phase != LCP_PHASE)
@@ -294,6 +276,7 @@ STATUS decode_ipcp(pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp
 			*event = E_RECV_TERMINATE_REQUEST;
 			return TRUE;
 		case TERMIN_ACK :
+			RTE_LOG(INFO, EAL, "Session 0x%x vlan 0x%x recv termin ack.\n", rte_cpu_to_be_16(port_ccb->session_id), port_ccb->vlan);
 			rte_timer_stop(tim);
 			*event = E_RECV_TERMINATE_ACK;
 			return TRUE;
@@ -389,10 +372,18 @@ STATUS check_nak_reject(uint8_t flag, pppoe_header_t *pppoe_header, __attribute_
 	ppp_lcp->length = sizeof(ppp_header_t);
 	for(ppp_options_t *cur=ppp_options; tmp_total_length<total_lcp_length; cur=(ppp_options_t *)((char *)cur + cur->length)) {
 		if (flag == CONFIG_NAK) {
+			#ifdef _NON_VLAN
+			if (cur->type == MRU && (cur->val[0] != 0x5 || cur->val[1] != 0xD4))
+			#else
 			if (cur->type == MRU && (cur->val[0] != 0x5 || cur->val[1] != 0xD0)) {
+			#endif
 				bool_flag = 1;
 				cur->val[0] = 0x5;
+				#ifdef _NON_VLAN
+				cur->val[1] = 0xD4;
+				#else
 				cur->val[1] = 0xD0;
+				#endif
 				rte_memcpy(tmp_cur,cur,cur->length);
 				ppp_lcp->length += cur->length;
 				tmp_cur = (ppp_options_t *)((char *)tmp_cur + cur->length);
@@ -409,7 +400,7 @@ STATUS check_nak_reject(uint8_t flag, pppoe_header_t *pppoe_header, __attribute_
 		tmp_total_length += cur->length;
 	}
 
-	if (bool_flag== 1) {
+	if (bool_flag == 1) {
 		rte_memcpy(ppp_options,tmp_buf,ppp_lcp->length - 4);
 		pppoe_header->length = rte_cpu_to_be_16((ppp_lcp->length) + sizeof(ppp_payload_t));
 		ppp_lcp->length = rte_cpu_to_be_16(ppp_lcp->length);
@@ -450,22 +441,13 @@ STATUS build_padi(__attribute__((unused)) struct rte_timer *tim, tPPP_PORT *port
  		eth_hdr.s_addr.addr_bytes[i] = port_ccb->src_mac.addr_bytes[i];
  		eth_hdr.d_addr.addr_bytes[i] = 0xff;
 	}
-	#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 	eth_hdr.ether_type = rte_cpu_to_be_16(VLAN);
-	#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-	eth_hdr.ether_type = VLAN;
-	#endif
 
 	vlan_header.tci_union.tci_struct.priority = 0;
 	vlan_header.tci_union.tci_struct.DEI = 0;
 	vlan_header.tci_union.tci_struct.vlan_id = port_ccb->vlan;
-	#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 	vlan_header.next_proto = rte_cpu_to_be_16(ETH_P_PPP_DIS);
 	vlan_header.tci_union.tci_value = rte_cpu_to_be_16(vlan_header.tci_union.tci_value);
-	#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-	vlan_header.next_proto = ETH_P_PPP_DIS;
-	vlan_header.tci_union.tci_value = vlan_header.tci_union.tci_value;
-	#endif
 
 	pppoe_header.ver_type = VER_TYPE;
 	pppoe_header.code = PADI;
@@ -498,8 +480,8 @@ STATUS build_padi(__attribute__((unused)) struct rte_timer *tim, tPPP_PORT *port
  */
 STATUS build_padr(__attribute__((unused)) struct rte_timer *tim, tPPP_PORT *port_ccb)
 {
-	unsigned char 		buffer[MSG_BUF];
-	uint16_t 			mulen;
+	static unsigned char 		buffer[MSG_BUF];
+	static uint16_t 			mulen;
 	pppoe_header_tag_t 	*tmp_pppoe_header_tag = (pppoe_header_tag_t *)((pppoe_header_t *)((vlan_header_t *)((struct rte_ether_hdr *)buffer + 1) + 1) + 1);
 
 	if (port_ccb->pppoe_phase.timer_counter >= port_ccb->pppoe_phase.max_retransmit) {
@@ -509,6 +491,8 @@ STATUS build_padr(__attribute__((unused)) struct rte_timer *tim, tPPP_PORT *port
 		#endif
 		PPP_bye(port_ccb);
 	}
+	if (port_ccb->pppoe_phase.timer_counter > 0)
+		goto send;
 	rte_ether_addr_copy(&port_ccb->src_mac, &port_ccb->pppoe_phase.eth_hdr->s_addr);
 	rte_ether_addr_copy(&port_ccb->dst_mac, &port_ccb->pppoe_phase.eth_hdr->d_addr);
 	port_ccb->pppoe_phase.pppoe_header->code = PADR;
@@ -561,6 +545,7 @@ STATUS build_padr(__attribute__((unused)) struct rte_timer *tim, tPPP_PORT *port
 	rte_memcpy(buffer+sizeof(struct rte_ether_hdr),port_ccb->pppoe_phase.vlan_header,sizeof(vlan_header_t));
 	rte_memcpy(buffer+sizeof(struct rte_ether_hdr)+sizeof(vlan_header_t),port_ccb->pppoe_phase.pppoe_header,sizeof(pppoe_header_t));
 	rte_memcpy(buffer+sizeof(struct rte_ether_hdr)+sizeof(vlan_header_t)+sizeof(pppoe_header_t),tmp_pppoe_header_tag,total_tag_length);
+send:
 	drv_xmit(buffer,mulen);
 	port_ccb->pppoe_phase.timer_counter++;
 
@@ -581,7 +566,7 @@ STATUS build_padt(tPPP_PORT *port_ccb)
 	struct rte_ether_hdr 	eth_hdr;
 	vlan_header_t		vlan_header;
 	pppoe_header_t 		pppoe_header;
-	static uint16_t		total_user = MAX_USER;
+	static uint16_t		cur_user = MAX_USER;
 
 	rte_ether_addr_copy(&port_ccb->src_mac, &eth_hdr.s_addr);
 	rte_ether_addr_copy(&port_ccb->dst_mac, &eth_hdr.d_addr);
@@ -606,17 +591,23 @@ STATUS build_padt(tPPP_PORT *port_ccb)
 	drv_xmit(buffer,mulen);
 
 	port_ccb->phase = END_PHASE;
-	if (--total_user == 0) {
-		printf("\n");
-		//rte_free(wan_mac);
-    	rte_ring_free(rte_ring);
-		rte_ring_free(uplink_q);
-		rte_ring_free(downlink_q);
-		rte_ring_free(rg_func_q);
-    	fclose(fp);
-		cmdline_stdin_exit(cl);
-		exit(0);
+	port_ccb->pppoe_phase.active = FALSE;
+	printf("User %u PPPoE session closed successfully\nvRG> ", port_ccb->vlan - BASE_VLAN_ID + 1);
+
+	if (quit_flag == TRUE) {
+		if (--cur_user == 0) {
+			printf("\n");
+			//rte_free(wan_mac);
+    		rte_ring_free(rte_ring);
+			rte_ring_free(uplink_q);
+			rte_ring_free(downlink_q);
+			rte_ring_free(rg_func_q);
+    		fclose(fp);
+			cmdline_stdin_exit(cl);
+			exit(0);
+		}
 	}
+
 	return TRUE;
 }
 

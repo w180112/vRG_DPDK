@@ -9,6 +9,8 @@ In nowadays high speed virtualized nerwork, tranditional network mechanism has n
 
 Intel DPDK 21.02, Linux kernel > 4.18, at least 4G ram, 8 cpu cores.
 
+Package required: make gcc pip3 pyelftools pkg-config
+
 ## How to use:
 
 Git clone this repository
@@ -36,6 +38,18 @@ e.g.
 
 	# ./src/build/vrg -l 0-7 -n 4
 
+Use command ***connect*** or ***disconnect*** to determine which user start/stop a PPPoE connection, e.g.: to start all subscribers PPPoE connection defined in ***pppd.h***.
+
+	vRG> connect all
+
+To start specific subscriber 1 PPPoE connection.
+
+	vRG> connect 1
+
+To disconnect all subscribers PPPoE connection.
+
+	vRG> disconnect all
+
 In this project 2 DPDK ethernet ports are needed, the first is used to receive packets from/send packets to LAN port and the second is used to receive packets from/send packets to WAN port.
 
 After Sessions established, there is a CLI. User can input "?" command to show available commands.
@@ -50,9 +64,9 @@ For hugepages, NIC binding and other system configuration, please refer to Intel
 
 1. The vRG system only support 3 LCP options, PAP authentication, Magic Number, Max receive unit so far.
 2. Users behind vRG should use DHCP to get IP address or set the default gateway address 192.168.2.1 to their end device.
-3. Administrator can assign how many PPPoE sessions will be established, the maximum support sessions are 4094, but only 2 sessions have been tested so far. 
-4. In default configuration, there are only 2 vRG PPPoE sessions. You can just modify the value ***MAX_USER*** in ***pppd.h*** file.
-5. In data plane, PPPoE session 1 uses single tag vlan 2, PPPoE session 2 uses single tag vlan 3. All data plane packets received at gateway should include a single tag vlan. If you don't need to run in VLAN environment, add ***-D_NON_VLAN*** compile option in ***src/Makefile***(Note: non-vlan mode only support 1 PPPoE session at the same time).
+3. Administrator can assign how many subscriber PPPoE sessions will be established, the maximum support sessions are 4094, but only 2 sessions have been tested so far. 
+4. In default configuration, there are only 2 vRG subscriber PPPoE sessions. You can just modify the value ***MAX_USER*** in ***pppd.h*** file. For example, there will be 4 subscriber PPPoE connection while the value is changed to 4.
+5. In data plane, subscriber 1 uses single tag vlan 2, subscriber 2 uses single tag vlan 3. All data plane packets received at gateway should include a single tag vlan. If you don't need to run in VLAN environment, add ***-D_NON_VLAN*** compile option in ***src/Makefile***(Note: non-vlan mode only support 1 subscriber PPPoE connection at the same time).
 6. Each user's account and password are stored in ***pap-setup*** file.
 7. All DPDK EAL lcores should be on same CPU socket.
 
@@ -63,13 +77,11 @@ For hugepages, NIC binding and other system configuration, please refer to Intel
 3. Successfully test control plane and data plane with CHT(Chunghwa Telecom Co., Ltd.) BRAS, open source RP-PPPoE and Spirent test center PPPoE server
 4. Intel DPDK 21.02 and GCC version 9 compiler
 
-## Example usage:
+## Example use case:
 
 ![image](https://github.com/w180112/vRG/blob/master/topo.png)
 
 ## TODO:
 
-1. DHCP server and passthrough
-2. Some LCP exception
-3. Add disconnect and connnect commands
-4. Support Intel 700 series NIC to make uplink checksum offload and support DPDK flow API
+1. Some LCP exception
+2. Support Intel 700 series NIC to make uplink checksum offload and support DPDK flow API

@@ -80,6 +80,4 @@
 #define LINK_DOWN           0x0
 #define LINK_UP             0x1 
 
-#define CLI_DISCONNECT_ALL  0x0
-
 #endif

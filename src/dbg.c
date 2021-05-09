@@ -34,6 +34,7 @@ void DBG_vRG(U8 level, U8 *ptr, const char *fmt,...)
 
 	va_start(ap, fmt); /* set ap pointer to 1st unnamed arg */
     vsnprintf(msg, DBG_VRG_MSG_LEN, fmt, ap);
+	printf("\n");
     if (level == DBGPPP) {
 		tPPP_PORT *port_ccb = (tPPP_PORT *)ptr;
     	if (port_ccb) {
