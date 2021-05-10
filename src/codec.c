@@ -373,7 +373,7 @@ STATUS check_nak_reject(uint8_t flag, pppoe_header_t *pppoe_header, __attribute_
 	for(ppp_options_t *cur=ppp_options; tmp_total_length<total_lcp_length; cur=(ppp_options_t *)((char *)cur + cur->length)) {
 		if (flag == CONFIG_NAK) {
 			#ifdef _NON_VLAN
-			if (cur->type == MRU && (cur->val[0] != 0x5 || cur->val[1] != 0xD4))
+			if (cur->type == MRU && (cur->val[0] != 0x5 || cur->val[1] != 0xD4)) {
 			#else
 			if (cur->type == MRU && (cur->val[0] != 0x5 || cur->val[1] != 0xD0)) {
 			#endif
@@ -594,6 +594,8 @@ STATUS build_padt(tPPP_PORT *port_ccb)
 	port_ccb->pppoe_phase.active = FALSE;
 	printf("User %u PPPoE session closed successfully\nvRG> ", port_ccb->vlan - BASE_VLAN_ID + 1);
 
+	rte_timer_stop(&port_ccb->ppp);
+	rte_timer_stop(&port_ccb->pppoe);
 	if (quit_flag == TRUE) {
 		if (--cur_user == 0) {
 			printf("\n");

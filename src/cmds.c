@@ -90,12 +90,17 @@ static void cmd_info_parsed(__attribute__((unused)) void *parsed_result,
 		case DATA_PHASE:
 			cmdline_printf(cl, "User %d is in PPPoE connection\n", i + 1);
 			cmdline_printf(cl, "User %d account is %s, password is %s\n", i + 1, ppp_ports[i].user_id, ppp_ports[i].passwd);
+			#ifdef _NON_VLAN
+			cmdline_printf(cl, "Session ID is 0x%x\n", rte_be_to_cpu_16(ppp_ports[i].session_id));
+			#else
 			cmdline_printf(cl, "Session ID is 0x%x, VLAN ID is 0x%x\n", rte_be_to_cpu_16(ppp_ports[i].session_id), ppp_ports[i].vlan);
+			#endif
 			cmdline_printf(cl, "WAN IP addr is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 "\n", *(((U8 *)&(ppp_ports[i].ipv4))), *(((U8 *)&(ppp_ports[i].ipv4))+1), *(((U8 *)&(ppp_ports[i].ipv4))+2), *(((U8 *)&(ppp_ports[i].ipv4))+3));
 			break;
 		default:
 			break;
 		}
+		cmdline_printf(cl, "WAN mac addr is %x:%x:%x:%x:%x:%x\n", ppp_ports[i].src_mac.addr_bytes[0], ppp_ports[i].src_mac.addr_bytes[1], ppp_ports[i].src_mac.addr_bytes[2], ppp_ports[i].src_mac.addr_bytes[3], ppp_ports[i].src_mac.addr_bytes[4], ppp_ports[i].src_mac.addr_bytes[5]);
 		cmdline_printf(cl, "LAN mac addr is %x:%x:%x:%x:%x:%x\n", ppp_ports[i].lan_mac.addr_bytes[0], ppp_ports[i].lan_mac.addr_bytes[1], ppp_ports[i].lan_mac.addr_bytes[2], ppp_ports[i].lan_mac.addr_bytes[3], ppp_ports[i].lan_mac.addr_bytes[4], ppp_ports[i].lan_mac.addr_bytes[5]);
 		cmdline_printf(cl, "DHCP server IP addr is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 "\n", (rte_be_to_cpu_32(dhcp_ccb[i].dhcp_server_ip) & 0xff000000) >> 24, (rte_be_to_cpu_32(dhcp_ccb[i].dhcp_server_ip) & 0x00ff0000) >> 16, (rte_be_to_cpu_32(dhcp_ccb[i].dhcp_server_ip) & 0x0000ff00) >> 8, rte_be_to_cpu_32(dhcp_ccb[i].dhcp_server_ip) & 0x000000ff);
 		for(U8 j=0; j<MAX_IP_POOL; j++) {

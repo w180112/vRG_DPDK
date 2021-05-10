@@ -9,12 +9,12 @@ get_script_dir () {
      echo "$DIR"
 }
 path=$(get_script_dir)
-cd $path/lib/dpdk && meson $path/lib/dpdk_build
+cd $path/lib/dpdk && meson $path/lib/dpdk_build || exit 1
 cd $path/lib/dpdk_build
-ninja && sudo ninja install
-ldconfig
+ninja && sudo ninja install || exit 1
+ldconfig || exit 1
 cd $path/lib/libutil
-make
+make || exit 1
 cd $path/src
 make
 cd $path

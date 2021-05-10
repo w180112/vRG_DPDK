@@ -448,6 +448,8 @@ int ppp_init(void)
 						RTE_LOG(INFO,EAL,"Session 0x%x connection disconnected.\n",rte_be_to_cpu_16(ppp_ports[session_index].session_id));
 						ppp_ports[session_index].phase = END_PHASE;
 						ppp_ports[session_index].pppoe_phase.active = FALSE;
+						rte_timer_stop(&(ppp_ports[session_index].ppp));
+						rte_timer_stop(&(ppp_ports[session_index].pppoe));
 						if (quit_flag == TRUE) {
 							if ((--total_user) == 0) {
                             	rte_ring_free(rte_ring);

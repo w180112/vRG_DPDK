@@ -88,55 +88,55 @@ typedef struct {
  */
 typedef struct vlan_header {
 	union tci_header {
-		uint16_t tci_value;
+		U16 tci_value;
 		struct tci_bit {
 			#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-			uint16_t vlan_id:12;
-			uint16_t DEI:1;
-			uint16_t priority:3;
+			U16 vlan_id:12;
+			U16 DEI:1;
+			U16 priority:3;
 			#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-			uint16_t priority:3;
-			uint16_t DEI:1;
-			uint16_t vlan_id:12;
+			U16 priority:3;
+			U16 DEI:1;
+			U16 vlan_id:12;
 			#endif
 		}tci_struct;
 	}tci_union;
-	uint16_t next_proto;
+	U16 next_proto;
 }__rte_aligned(2) vlan_header_t;
 
 typedef struct pppoe_header {
-	uint8_t ver_type;
-	uint8_t code;
-	uint16_t session_id;
-	uint16_t length;
+	U8 ver_type;
+	U8 code;
+	U16 session_id;
+	U16 length;
 } pppoe_header_t;
 
 typedef struct pppoe_header_tag {
-	uint16_t type;
-  	uint16_t length;
+	U16 type;
+  	U16 length;
   	// depend on the type and length.
-  	uint8_t value[0];
+  	U8 value[0];
 } pppoe_header_tag_t;
 
 typedef struct ppp_header {
-	uint8_t code;
-	uint8_t identifier;
-	uint16_t length;
+	U8 code;
+	U8 identifier;
+	U16 length;
 }ppp_header_t;
 
 typedef struct ppp_pap_ack_nak {
-	uint8_t msg_length;
-	uint8_t *msg;
+	U8 msg_length;
+	U8 *msg;
 }ppp_pap_ack_nak_t;
 
 typedef struct ppp_payload {
-	uint16_t ppp_protocol;
+	U16 ppp_protocol;
 }ppp_payload_t;
 
 typedef struct ppp_options {
-	uint8_t type;
-	uint8_t length;
-	uint8_t val[0];
+	U8 type;
+	U8 length;
+	U8 val[0];
 }ppp_options_t;
 
 typedef struct pppoe_phase {
@@ -144,8 +144,8 @@ typedef struct pppoe_phase {
 	vlan_header_t		*vlan_header;
 	pppoe_header_t 		*pppoe_header;
 	pppoe_header_tag_t	*pppoe_header_tag;
-	uint8_t 			max_retransmit;
-	uint8_t				timer_counter;
+	U8 					max_retransmit;
+	U8					timer_counter;
 	BOOL 				active;
 }pppoe_phase_t;
 
@@ -157,45 +157,45 @@ typedef struct ppp_phase {
 	ppp_payload_t 		*ppp_payload;
 	ppp_header_t 		*ppp_lcp;
 	ppp_options_t 		*ppp_options;
-	uint8_t 			max_retransmit;
-	uint8_t				timer_counter;
+	U8 					max_retransmit;
+	U8					timer_counter;
 }ppp_phase_t;
 
 typedef struct addr_table {
 	struct rte_ether_addr 	mac_addr;
-	uint32_t				src_ip;
-	uint32_t				dst_ip;
-	uint16_t				port_id;
+	U32						src_ip;
+	U32						dst_ip;
+	U16						port_id;
 	rte_atomic16_t 			is_fill;
 	rte_atomic16_t			is_alive;
 }__rte_cache_aligned addr_table_t;
 
 //========= The structure of port ===========
 typedef struct {
-	ppp_phase_t 		ppp_phase[2];
-	pppoe_phase_t		pppoe_phase;
-	uint8_t 			cp:1;	//cp is "control protocol", means we need to determine cp is LCP or NCP after parsing packet
-	uint8_t				phase:7;
-	uint16_t 			session_id;
-	uint16_t			user_num;
-	uint16_t 			vlan;
-	uint32_t			lan_ip;
+	ppp_phase_t 			ppp_phase[2];
+	pppoe_phase_t			pppoe_phase;
+	U8 						cp:1;	//cp is "control protocol", means we need to determine cp is LCP or NCP after parsing packet
+	U8						phase:7;
+	U16 					session_id;
+	U16						user_num;
+	U16 					vlan;
+	U32						lan_ip;
 
-	struct rte_ether_addr src_mac;
-	struct rte_ether_addr dst_mac;
-	struct rte_ether_addr lan_mac;
+	struct rte_ether_addr 	src_mac;
+	struct rte_ether_addr 	dst_mac;
+	struct rte_ether_addr 	lan_mac;
 
-	uint32_t    		ipv4;
-	uint32_t			ipv4_gw;
-	uint32_t			primary_dns;
-	uint32_t			second_dns;
+	U32    					ipv4;
+	U32						ipv4_gw;
+	U32						primary_dns;
+	U32						second_dns;
 
-	uint8_t				identifier;
-	uint32_t			magic_num;
+	U8						identifier;
+	U32						magic_num;
 
-	BOOL				is_pap_auth;
-	unsigned char 		*user_id;
-	unsigned char 		*passwd;
+	BOOL					is_pap_auth;
+	unsigned char 			*user_id;
+	unsigned char 			*passwd;
 
 	BOOL				data_plane_start;
 
@@ -229,7 +229,7 @@ typedef struct {
 
 typedef struct nic_vendor {
 	const char 		*vendor;
-	uint8_t			vendor_id;
+	U8				vendor_id;
 }nic_vendor_t;
 
 extern tPPP_PORT	ppp_ports[MAX_USER];

@@ -9,7 +9,7 @@ In nowadays high speed virtualized nerwork, tranditional network mechanism has n
 
 Intel DPDK 21.02, Linux kernel > 4.18, at least 4G ram, 8 cpu cores.
 
-Package required: make gcc pip3 pyelftools pkg-config
+Package required: make gcc pip3 pyelftools pkg-config meson
 
 ## How to use:
 
