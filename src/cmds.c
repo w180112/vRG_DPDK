@@ -106,7 +106,7 @@ static void cmd_info_parsed(__attribute__((unused)) void *parsed_result,
 		for(U8 j=0; j<MAX_IP_POOL; j++) {
 			if (dhcp_ccb[i].ip_pool[j].used) {
 				rte_ether_format_addr(buf, 18, &dhcp_ccb[i].ip_pool[j].mac_addr);
-				cmdline_printf(cl, "DHCP ip pool index %" PRIu8 " IP addr is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 " is used by %s\n", j, (rte_be_to_cpu_32(dhcp_ccb[i].ip_pool[j].ip_addr) & 0xff000000) >> 24, (rte_be_to_cpu_32(dhcp_ccb[i].ip_pool[j].ip_addr) & 0x00ff0000) >> 16, (rte_be_to_cpu_32(dhcp_ccb[i].ip_pool[j].ip_addr) & 0x0000ff00) >> 8, rte_be_to_cpu_32(dhcp_ccb[i].ip_pool[j].ip_addr) & 0x000000ff, buf);
+				cmdline_printf(cl, "DHCP ip pool index %" PRIu8 " IP addr %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 " is used by %s\n", j, (rte_be_to_cpu_32(dhcp_ccb[i].ip_pool[j].ip_addr) & 0xff000000) >> 24, (rte_be_to_cpu_32(dhcp_ccb[i].ip_pool[j].ip_addr) & 0x00ff0000) >> 16, (rte_be_to_cpu_32(dhcp_ccb[i].ip_pool[j].ip_addr) & 0x0000ff00) >> 8, rte_be_to_cpu_32(dhcp_ccb[i].ip_pool[j].ip_addr) & 0x000000ff, buf);
 			}
 		}
 		cmdline_printf(cl, "================================================================================\n");
@@ -174,7 +174,7 @@ static void cmd_help_parsed(__attribute__((unused)) void *parsed_result,
 		 			  "info is to show all pppoe users' info\n"
 					  "help to show usage commands\n"
 					  "disconnect < user id | all > to disconnect session(s)\n"
-					  "connect < user id | all > to connect session(s)"
+					  "connect < user id | all > to connect session(s)\n"
 					  "quit to quit entire process\n");
 }
 
@@ -213,11 +213,20 @@ static void cmd_connect_parsed( void *parsed_result,
     
 	if (strcmp(res->user_id, "all") == 0)
 		msg->user_id = 0;
-	else 
+	else {
 		msg->user_id = strtoul(res->user_id, NULL, 10);
+		if (msg->user_id <= 0) {
+			printf("Wrong user id\nvRG> ");
+			rte_free(mail);
+			return;
+		}
+	}
 	
-	if (msg->user_id > MAX_USER)
-		printf("vRG> Too large user id\n");
+	if (msg->user_id > MAX_USER) {
+		printf("Too large user id\nvRG> ");
+		rte_free(mail);
+		return;
+	}
 
 	mail->type = IPC_EV_TYPE_CLI;
 	mail->len = sizeof(cli_to_main_msg_t);

@@ -13,7 +13,7 @@
 static int init_mem(void);
 static int init_ring(void);
 
-struct rte_ring    *rte_ring, *rg_func_q, *uplink_q, *downlink_q;
+struct rte_ring    *rte_ring, *gateway_q, *uplink_q, *downlink_q;
 struct rte_mempool *direct_pool[PORT_AMOUNT];
 struct rte_mempool *indirect_pool[PORT_AMOUNT];
 
@@ -44,13 +44,6 @@ static int init_mem(void)
 
     /* Creates a new mempool in memory to hold the mbufs. */
     for(int i=0; i<PORT_AMOUNT; i++) {
-        /*if (rte_lcore_is_enabled(i) == 0)
-			continue;
-
-		socket = rte_lcore_to_socket_id(i);
-
-		if (socket == SOCKET_ID_ANY)
-			socket = 0;*/
         if (direct_pool[i] == NULL) {
 		    RTE_LOG(INFO, EAL, "Creating direct mempool on port %i\n", i);
 		    snprintf(buf, sizeof(buf), "pool_direct_%i", i);
@@ -83,8 +76,8 @@ static int init_ring(void)
     rte_ring = rte_ring_create("state_machine",RING_SIZE,rte_socket_id(),0);
     if (!rte_ring)
 		return rte_errno;
-	rg_func_q = rte_ring_create("rg_function",RING_SIZE,rte_socket_id(),0);
-	if (!rg_func_q)
+	gateway_q = rte_ring_create("rg-function",RING_SIZE,rte_socket_id(),0);
+	if (!gateway_q)
         return rte_errno;
     uplink_q = rte_ring_create("upstream",RING_SIZE,rte_socket_id(),0);
 	if (!uplink_q)

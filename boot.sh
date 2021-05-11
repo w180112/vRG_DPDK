@@ -11,8 +11,8 @@ get_script_dir () {
 path=$(get_script_dir)
 cd $path/lib/dpdk && meson $path/lib/dpdk_build || exit 1
 cd $path/lib/dpdk_build
-ninja && sudo ninja install || exit 1
-ldconfig || exit 1
+sudo ninja && sudo ninja install || exit 1
+sudo ldconfig || exit 1
 cd $path/lib/libutil
 make || exit 1
 cd $path/src

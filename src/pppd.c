@@ -71,22 +71,33 @@ nic_vendor_t vendor[] = {
 	{ NULL, 0 }
 };
 
+struct lcore_map {
+	U8 ctrl_thread;
+	U8 wan_thread;
+	U8 down_thread;
+	U8 lan_thread;
+	U8 up_thread;
+	U8 gateway_thread;
+	U8 timer_thread;
+};
+
 int main(int argc, char **argv)
 {
 	uint16_t 				portid;
 	uint16_t 				user_id_length, passwd_length;
 	struct ethtool_drvinfo 	info;
+	struct lcore_map 		lcore;
 	
 	if (argc < 5) {
 		puts("Too less parameter.");
-		puts("Type ./pppoeclient <eal_options>");
+		puts("Type vrg <eal_options>");
 		return ERROR;
 	}
 	int ret = rte_eal_init(argc,argv);
 	if (ret < 0)
-		rte_exit(EXIT_FAILURE, "rte initlize fail.");
+		rte_exit(EXIT_FAILURE, "rte initlize fail.\n");
 
-	fp = fopen("./pppoeclient.log","w+");
+	fp = fopen("./vrg.log","w+");
 	eal_log_set_default(fp);
 	if (rte_lcore_count() < 8)
 		rte_exit(EXIT_FAILURE, "We need at least 8 cores.\n");
@@ -99,7 +110,7 @@ int main(int argc, char **argv)
 		FILE *account = fopen("pap-setup","r");
     	if (!account) {
         	perror("file doesnt exist");
-        	return -1;
+        	rte_exit(EXIT_FAILURE, "PPPoE subscriptor account/password cannot find\n");
     	}
 		char user_info[MAX_USER][256], user_name[256], passwd[256];
 		uint16_t user_id = 0;
@@ -185,14 +196,20 @@ int main(int argc, char **argv)
 		rte_exit(EXIT_FAILURE, "error in creating flow");
 	}
 	#endif
-
-	rte_eal_remote_launch((lcore_function_t *)control_plane,NULL,CTRL_LCORE);
-	rte_eal_remote_launch((lcore_function_t *)ppp_recvd,NULL,PPP_RECVD_LCORE);
-	rte_eal_remote_launch((lcore_function_t *)downlink,NULL,DOWNLINK_LCORE);
-	rte_eal_remote_launch((lcore_function_t *)gateway,NULL,GATEWAY_LCORE);
-	rte_eal_remote_launch((lcore_function_t *)uplink,NULL,UPLINK_LCORE);
-	rte_eal_remote_launch((lcore_function_t *)rg_func,NULL,RG_FUNC_LCORE);
-	rte_eal_remote_launch((lcore_function_t *)timer_loop,NULL,TIMER_LOOP_LCORE);
+	lcore.ctrl_thread = rte_get_next_lcore(-1, 1, 0);
+	lcore.wan_thread = rte_get_next_lcore(lcore.ctrl_thread, 1, 0);
+	lcore.down_thread = rte_get_next_lcore(lcore.wan_thread, 1, 0);
+	lcore.lan_thread = rte_get_next_lcore(lcore.down_thread, 1, 0);
+	lcore.up_thread = rte_get_next_lcore(lcore.lan_thread, 1, 0);
+	lcore.gateway_thread = rte_get_next_lcore(lcore.up_thread, 1, 0);
+	lcore.timer_thread = rte_get_next_lcore(lcore.gateway_thread, 1, 0);
+	rte_eal_remote_launch((lcore_function_t *)control_plane,NULL,lcore.ctrl_thread);
+	rte_eal_remote_launch((lcore_function_t *)wan_recvd,NULL,lcore.wan_thread);
+	rte_eal_remote_launch((lcore_function_t *)downlink,NULL,lcore.down_thread);
+	rte_eal_remote_launch((lcore_function_t *)lan_recvd,NULL,lcore.lan_thread);
+	rte_eal_remote_launch((lcore_function_t *)uplink,NULL,lcore.up_thread);
+	rte_eal_remote_launch((lcore_function_t *)gateway,NULL,lcore.gateway_thread);
+	rte_eal_remote_launch((lcore_function_t *)timer_loop,NULL,lcore.timer_thread);
 	
 	//while(prompt == FALSE);
 	sleep(1);
@@ -241,13 +258,14 @@ void PPP_bye(tPPP_PORT *port_ccb)
 					rte_ring_free(rte_ring);
 					rte_ring_free(uplink_q);
 					rte_ring_free(downlink_q);
-					rte_ring_free(rg_func_q);
+					rte_ring_free(gateway_q);
             		fclose(fp);
 					cmdline_stdin_exit(cl);
 					#ifdef RTE_LIBRTE_PDUMP
 					/*uninitialize packet capture framework */
 					rte_pdump_uninit();
 					#endif
+					puts("Bye!");
 					exit(0);
 				}
 			}
@@ -280,7 +298,7 @@ void PPP_int(void)
     rte_ring_free(rte_ring);
 	rte_ring_free(uplink_q);
 	rte_ring_free(downlink_q);
-	rte_ring_free(rg_func_q);
+	rte_ring_free(gateway_q);
     fclose(fp);
 	cmdline_stdin_exit(cl);
 	printf("bye!\n");
@@ -310,7 +328,7 @@ int pppdInit(void)
 		ppp_ports[i].phase = END_PHASE;
 		ppp_ports[i].is_pap_auth = TRUE;
 		ppp_ports[i].lan_ip = rte_cpu_to_be_32(0xc0a80201);
-		for(int j=0; j<65536; j++) {
+		for(int j=0; j<TOTAL_SOCK_PORT; j++) {
 			rte_atomic16_init(&ppp_ports[i].addr_table[j].is_alive);
 			rte_atomic16_init(&ppp_ports[i].addr_table[j].is_fill);
 		}
@@ -379,22 +397,6 @@ int ppp_init(void)
 				if (vlan_header.next_proto == rte_cpu_to_be_16(ETH_P_PPP_DIS)) {
 					switch(pppoe_header.code) {
 					case PADO:
-						/*for(session_index=0; session_index<MAX_USER; session_index++) {
-							int j;
-							for(j=0; j<ETH_ALEN; j++) {
-								if (ppp_ports[session_index].dst_mac[j] != 0)
-									break;
-							}
-							if (j == ETH_ALEN)
-								break;
-    					}
-    					if (session_index >= MAX_USER) {
-							RTE_LOG(INFO,EAL,"Too many pppoe users.\nDiscard.\n");
-							#ifdef _DP_DBG
-    						puts("Too many pppoe users.\nDiscard.");
-							#endif
-    						continue;
-    					}*/
 						if (ppp_ports[session_index].pppoe_phase.active == TRUE)
 							continue;
 						ppp_ports[session_index].pppoe_phase.active = TRUE;
@@ -455,7 +457,7 @@ int ppp_init(void)
                             	rte_ring_free(rte_ring);
 								rte_ring_free(uplink_q);
 								rte_ring_free(downlink_q);
-								rte_ring_free(rg_func_q);
+								rte_ring_free(gateway_q);
                             	fclose(fp);
 								cmdline_stdin_exit(cl);
 								exit(0);
@@ -490,7 +492,6 @@ int ppp_init(void)
 				break;
 			case IPC_EV_TYPE_CLI:
 				switch (mail[i]->refp[0]) {
-					/* TODO: user disconnect and connect command */
 					case CLI_DISCONNECT:
 						if (mail[i]->refp[1] == 0) {
 							for(int j=0; j<MAX_USER; j++) {
@@ -524,7 +525,7 @@ int ppp_init(void)
 						}
 						else {
 							if (ppp_ports[mail[i]->refp[1]-1].phase > END_PHASE) {
-								printf("\nvRG> Error! User %u is in a pppoe connection", mail[i]->refp[1]);
+								printf("Error! User %u is in a pppoe connection\nvRG> ", mail[i]->refp[1]);
 								break;
 							}
 							ppp_ports[mail[i]->refp[1]-1].phase = PPPOE_PHASE;
@@ -539,7 +540,6 @@ int ppp_init(void)
 						quit_flag = TRUE;
 						for(int j=0; j<MAX_USER; j++)
  							PPP_bye(&(ppp_ports[j]));
-						puts("Bye!");
 						break;
 					default:
 						;

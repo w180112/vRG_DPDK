@@ -707,6 +707,7 @@ STATUS A_this_layer_up(__attribute__((unused)) struct rte_timer *tim, __attribut
     	printf("\n");
         printf("Now we can start to send data via pppoe session id 0x%x.\n", rte_cpu_to_be_16(port_ccb->session_id));
     	printf("Our PPPoE client IP address is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 ", PPPoE server IP address is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 "\n", *(((uint8_t *)&(port_ccb->ipv4))), *(((uint8_t *)&(port_ccb->ipv4))+1), *(((uint8_t *)&(port_ccb->ipv4))+2), *(((uint8_t *)&(port_ccb->ipv4))+3), *(((uint8_t *)&(port_ccb->ipv4_gw))), *(((uint8_t *)&(port_ccb->ipv4_gw))+1), *(((uint8_t *)&(port_ccb->ipv4_gw))+2), *(((uint8_t *)&(port_ccb->ipv4_gw))+3));
+        printf("vRG> ");
         //prompt = TRUE;
     }
 

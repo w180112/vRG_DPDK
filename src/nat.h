@@ -20,7 +20,7 @@
 #include <rte_memcpy.h>
 #include "pppd.h"
 
-extern uint16_t 	get_checksum(const void *const addr, const size_t bytes);
+extern U16 get_checksum(const void *const addr, const size_t bytes);
 
 static inline void nat_icmp_learning(struct rte_ether_hdr *eth_hdr, struct rte_ipv4_hdr *ip_hdr, struct rte_icmp_hdr *icmphdr, uint32_t *new_port_id, addr_table_t addr_table[]);
 static inline void nat_udp_learning(struct rte_ether_hdr *eth_hdr, struct rte_ipv4_hdr *ip_hdr, struct rte_udp_hdr *udphdr, uint32_t *new_port_id, addr_table_t addr_table[]);
@@ -31,7 +31,7 @@ static inline void nat_icmp_learning(struct rte_ether_hdr *eth_hdr, struct rte_i
 	*new_port_id = rte_be_to_cpu_16(icmphdr->icmp_ident + (ip_hdr->src_addr) % 10000);
 	if (*new_port_id > 0xffff)
 		*new_port_id = *new_port_id / 0xffff + 1000;
-	for(int j=1000,shift=0; j<65535; j++) {
+	for(int j=1000,shift=0; j<TOTAL_SOCK_PORT-1; j++) {
 		if (likely(rte_atomic16_read(&addr_table[*new_port_id].is_fill) == 1 )) {
 			if (likely(addr_table[*new_port_id].src_ip == ip_hdr->src_addr && addr_table[*new_port_id].dst_ip == ip_hdr->dst_addr))
 				return;
@@ -60,7 +60,7 @@ static inline void nat_udp_learning(struct rte_ether_hdr *eth_hdr, struct rte_ip
 	*new_port_id = rte_be_to_cpu_16(udphdr->src_port + (ip_hdr->src_addr) % 10000);
 	if (*new_port_id > 0xffff)
 		*new_port_id = *new_port_id / 0xffff + 1000;
-	for(int j=1000,shift=0; j<65535; j++) {
+	for(int j=1000,shift=0; j<TOTAL_SOCK_PORT-1; j++) {
 		if (likely(rte_atomic16_read(&addr_table[*new_port_id].is_fill) == 1)) {
 			if (likely(addr_table[*new_port_id].src_ip == ip_hdr->src_addr && addr_table[*new_port_id].dst_ip == ip_hdr->dst_addr))
 				return;
@@ -89,7 +89,7 @@ static inline void nat_tcp_learning(struct rte_ether_hdr *eth_hdr, struct rte_ip
 	*new_port_id = rte_be_to_cpu_16(tcphdr->src_port + (ip_hdr->src_addr) % 10000);
 	if (*new_port_id > 0xffff)
 		*new_port_id = *new_port_id / 0xffff + 1000;
-	for(int j=1000,shift=0; j<65535; j++) {
+	for(int j=1000,shift=0; j<TOTAL_SOCK_PORT-1; j++) {
 		if (likely(rte_atomic16_read(&addr_table[*new_port_id].is_fill) == 1)) {
 			if (likely(addr_table[*new_port_id].src_ip == ip_hdr->src_addr && addr_table[*new_port_id].dst_ip == ip_hdr->dst_addr))
 				return;

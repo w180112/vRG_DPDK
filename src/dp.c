@@ -37,7 +37,7 @@
 extern tPPP_PORT				ppp_ports[MAX_USER];
 extern struct rte_mempool 		*direct_pool[PORT_AMOUNT], *indirect_pool[PORT_AMOUNT];
 extern struct rte_ring 			*rte_ring;
-extern struct rte_ring 			*rg_func_q, *uplink_q, *downlink_q;
+extern struct rte_ring 			*gateway_q, *uplink_q, *downlink_q;
 extern rte_atomic16_t			cp_recv_cums;
 uint8_t 						cp_recv_prod;
 extern uint8_t					vendor_id;
@@ -57,9 +57,9 @@ static struct rte_eth_conf port_conf_default = {
 extern uint16_t 	get_checksum(const void *const addr, const size_t bytes);
 extern STATUS 		PPP_FSM(struct rte_timer *ppp, tPPP_PORT *port_ccb, U16 event);
 int 				PPP_PORT_INIT(uint16_t port);
-int 				ppp_recvd(void);
+int 				wan_recvd(void);
 int 				control_plane_dequeue(tPPP_MBX **mail);
-int 				gateway(void);
+int 				lan_recvd(void);
 void 				drv_xmit(U8 *mu, U16 mulen);
 static int			lsi_event_callback(uint16_t port_id, enum rte_eth_event_type type, void *param);
 
@@ -122,7 +122,7 @@ int PPP_PORT_INIT(uint16_t port/*, uint32_t lcore_id*/)
 	return 0;
 }
 
-int ppp_recvd(void)
+int wan_recvd(void)
 {
 	struct rte_mbuf 	*single_pkt;
 	uint64_t 			total_tx = 0;
@@ -440,7 +440,7 @@ int us_mc(void)
 	return 0;
 }
 #endif
-int gateway(void)
+int lan_recvd(void)
 {
 	struct rte_mbuf 	*single_pkt;
 	uint64_t 			total_tx = 0;
@@ -473,7 +473,7 @@ int gateway(void)
 				continue;
 			}
 			if (unlikely(rte_is_broadcast_ether_addr(&eth_hdr->d_addr))) {
-				rte_ring_enqueue_burst(rg_func_q, (void **)&single_pkt, 1, NULL);
+				rte_ring_enqueue_burst(gateway_q, (void **)&single_pkt, 1, NULL);
 				continue;
 			}
 			rte_rmb();
@@ -487,7 +487,7 @@ int gateway(void)
 
 			if (unlikely(vlan_header->next_proto == rte_cpu_to_be_16(FRAME_TYPE_ARP))) { 
 				/* We only reply arp request to us */
-				rte_ring_enqueue_burst(rg_func_q, (void **)&single_pkt, 1, NULL);
+				rte_ring_enqueue_burst(gateway_q, (void **)&single_pkt, 1, NULL);
 				continue;
 			}
 			else if (unlikely(vlan_header->next_proto == rte_cpu_to_be_16(ETH_P_PPP_DIS) || (vlan_header->next_proto == rte_cpu_to_be_16(ETH_P_PPP_SES))))
@@ -496,7 +496,7 @@ int gateway(void)
 			else if (likely(vlan_header->next_proto == rte_cpu_to_be_16(FRAME_TYPE_IP))) {
 				ip_hdr = (struct rte_ipv4_hdr *)(rte_pktmbuf_mtod(single_pkt, unsigned char *) + sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t));
 				if (ip_hdr->dst_addr == ppp_ports[user_index].lan_ip) {
-					rte_ring_enqueue_burst(rg_func_q, (void **)&single_pkt, 1, NULL);
+					rte_ring_enqueue_burst(gateway_q, (void **)&single_pkt, 1, NULL);
 					continue;
 				}
 				else if (unlikely((ip_hdr->src_addr) << 8 != ppp_ports[user_index].lan_ip << 8)) {
@@ -598,7 +598,7 @@ int gateway(void)
 
 
 /* process RG function such as DHCP server, gateway ARP replying */
-int rg_func(void)
+int gateway(void)
 {
 	/*struct rte_udp_hdr 	*udphdr;
 	char 				*cur;
@@ -619,7 +619,7 @@ int rg_func(void)
 		//pkt[i] = rte_pktmbuf_alloc(direct_pool[0]);
 
 	for(;;) {
-		burst_size = rte_ring_dequeue_burst(rg_func_q,(void **)pkt,BURST_SIZE,NULL);
+		burst_size = rte_ring_dequeue_burst(gateway_q,(void **)pkt,BURST_SIZE,NULL);
 		//total_tx = 0;
 		for(i=0; i<burst_size; i++) {
 			single_pkt = pkt[i];

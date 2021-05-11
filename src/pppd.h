@@ -43,13 +43,15 @@
 #define IXGBEVF					5
 #define I40EVF					6
 
+#define TOTAL_SOCK_PORT			65536
+
 enum {
 	CTRL_LCORE = 1,
-	PPP_RECVD_LCORE,
+	WAN_LCORE,
 	DOWNLINK_LCORE,
-	GATEWAY_LCORE,
+	LAN_LCORE,
 	UPLINK_LCORE,
-	RG_FUNC_LCORE,
+	GATEWAY_LCORE,
 	TIMER_LOOP_LCORE,
 };
 
@@ -199,7 +201,7 @@ typedef struct {
 
 	BOOL				data_plane_start;
 
-	addr_table_t 		addr_table[65536];
+	addr_table_t 		addr_table[TOTAL_SOCK_PORT];
 
 	struct rte_timer 	pppoe;
 	struct rte_timer 	ppp;
