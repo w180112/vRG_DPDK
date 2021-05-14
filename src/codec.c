@@ -53,7 +53,7 @@ STATUS PPP_decode_frame(tPPP_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_head
 
 	rte_memcpy(ppp_payload,tmp_ppp_payload,sizeof(ppp_payload_t));
 	rte_memcpy(ppp_lcp,tmp_ppp_lcp,sizeof(ppp_header_t));
-	rte_memcpy(ppp_options,tmp_ppp_lcp+1,rte_cpu_to_be_16(ppp_lcp->length)-4);
+	rte_memcpy(ppp_options,tmp_ppp_lcp+1,rte_cpu_to_be_16(ppp_lcp->length)-sizeof(ppp_header_t));
 
 	mulen = mail->len;
 
@@ -366,8 +366,8 @@ STATUS check_nak_reject(uint8_t flag, pppoe_header_t *pppoe_header, __attribute_
 	int 			bool_flag = 0;
 	uint16_t 		tmp_total_length = 4;
 	
-	memset(tmp_buf,0,MSG_BUF);
-	rte_memcpy(tmp_buf,ppp_options,MSG_BUF);
+	memset(tmp_buf, 0, MSG_BUF);
+	rte_memcpy(tmp_buf, ppp_options, rte_cpu_to_be_16(ppp_lcp->length)-sizeof(ppp_header_t));
 
 	ppp_lcp->length = sizeof(ppp_header_t);
 	for(ppp_options_t *cur=ppp_options; tmp_total_length<total_lcp_length; cur=(ppp_options_t *)((char *)cur + cur->length)) {

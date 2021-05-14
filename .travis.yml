@@ -4,7 +4,6 @@ language: C
 branches:
   only:
   - master
-  - non_vlan
 
 compiler:
   - gcc

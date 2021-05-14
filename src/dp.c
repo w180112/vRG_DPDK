@@ -484,7 +484,10 @@ int lan_recvd(void)
 				rte_pktmbuf_free(single_pkt);
 				continue;
 			}
-
+			if (unlikely(!rte_is_same_ether_addr(&eth_hdr->d_addr, &ppp_ports[user_index].lan_mac))) {
+				pkt[total_tx++] = single_pkt;
+				continue;
+			}
 			if (unlikely(vlan_header->next_proto == rte_cpu_to_be_16(FRAME_TYPE_ARP))) { 
 				/* We only reply arp request to us */
 				rte_ring_enqueue_burst(gateway_q, (void **)&single_pkt, 1, NULL);
@@ -676,10 +679,18 @@ int gateway(void)
 						/* start to process dhcp client packet here */
 						//printf("recv dhcp client pkt\n");
 						ret = dhcpd(single_pkt, eth_hdr, vlan_header, ip_hdr, udp_hdr, user_index);
-						if (ret == 0)
+						if (ret == 0) {
+							#ifdef _NON_VLAN
+							rte_vlan_strip(single_pkt);
+							#endif
 							rte_eth_tx_burst(1, gen_port_q, &single_pkt, 1);
-						else if (ret > 0)
+						}
+						else if (ret > 0) {
+							#ifdef _NON_VLAN
+							rte_vlan_strip(single_pkt);
+							#endif
 							rte_eth_tx_burst(0, gen_port_q, &single_pkt, 1);
+						}
 						continue;
 					}
 					break;
