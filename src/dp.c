@@ -472,10 +472,6 @@ int lan_recvd(void)
 				rte_pktmbuf_free(single_pkt);
 				continue;
 			}
-			if (unlikely(rte_is_broadcast_ether_addr(&eth_hdr->d_addr))) {
-				rte_ring_enqueue_burst(gateway_q, (void **)&single_pkt, 1, NULL);
-				continue;
-			}
 			rte_rmb();
 			vlan_header = (vlan_header_t *)(eth_hdr + 1);
 			/* translate from vlan id to user index, we mention vlan_id - BASE_VLAN_ID = user_id */
@@ -484,32 +480,31 @@ int lan_recvd(void)
 				rte_pktmbuf_free(single_pkt);
 				continue;
 			}
-			if (unlikely(!rte_is_same_ether_addr(&eth_hdr->d_addr, &ppp_ports[user_index].lan_mac))) {
-				pkt[total_tx++] = single_pkt;
-				continue;
-			}
 			if (unlikely(vlan_header->next_proto == rte_cpu_to_be_16(FRAME_TYPE_ARP))) { 
 				/* We only reply arp request to us */
 				rte_ring_enqueue_burst(gateway_q, (void **)&single_pkt, 1, NULL);
 				continue;
 			}
 			else if (unlikely(vlan_header->next_proto == rte_cpu_to_be_16(ETH_P_PPP_DIS) || (vlan_header->next_proto == rte_cpu_to_be_16(ETH_P_PPP_SES))))
-				//pkt[total_tx++] = single_pkt;
+				#ifdef _TEST_MODE
 				rte_pktmbuf_free(single_pkt);
+				#else
+				pkt[total_tx++] = single_pkt;
+				#endif
 			else if (likely(vlan_header->next_proto == rte_cpu_to_be_16(FRAME_TYPE_IP))) {
 				ip_hdr = (struct rte_ipv4_hdr *)(rte_pktmbuf_mtod(single_pkt, unsigned char *) + sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t));
-				if (ip_hdr->dst_addr == ppp_ports[user_index].lan_ip) {
+				if (unlikely(((ip_hdr->dst_addr << 8) ^ (ppp_ports[user_index].lan_ip << 8)) == 0)) {
 					rte_ring_enqueue_burst(gateway_q, (void **)&single_pkt, 1, NULL);
-					continue;
-				}
-				else if (unlikely((ip_hdr->src_addr) << 8 != ppp_ports[user_index].lan_ip << 8)) {
-					rte_pktmbuf_free(single_pkt);
 					continue;
 				}
 				single_pkt->l2_len = sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t) + sizeof(pppoe_header_t) + sizeof(ppp_payload_t);
 				single_pkt->l3_len = sizeof(struct rte_ipv4_hdr);
 				
 				if (ip_hdr->next_proto_id == PROTO_TYPE_ICMP) {
+					if (unlikely(!rte_is_same_ether_addr(&eth_hdr->d_addr, &ppp_ports[user_index].lan_mac))) {
+						pkt[total_tx++] = single_pkt;
+						continue;
+					}
 					//single_pkt->ol_flags |= PKT_TX_IPV4 | PKT_TX_IP_CKSUM;
 					icmphdr = (struct rte_icmp_hdr *)(rte_pktmbuf_mtod(single_pkt, unsigned char *) + sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t) + sizeof(struct rte_ipv4_hdr));
 					if (unlikely(ppp_ports[user_index].data_plane_start == FALSE)) {
@@ -555,8 +550,16 @@ int lan_recvd(void)
 					#endif
 				}
 				else if (ip_hdr->next_proto_id == IPPROTO_IGMP)
+					#ifdef _TEST_MODE
+					rte_pktmbuf_free(single_pkt);
+					#else
 					pkt[total_tx++] = single_pkt;
+					#endif
 				else if (ip_hdr->next_proto_id == PROTO_TYPE_TCP) {
+					if (unlikely(!rte_is_same_ether_addr(&eth_hdr->d_addr, &ppp_ports[user_index].lan_mac))) {
+						pkt[total_tx++] = single_pkt;
+						continue;
+					}
 					if (unlikely(ppp_ports[user_index].data_plane_start == FALSE)) {
 						rte_pktmbuf_free(single_pkt);
 						continue;
@@ -564,6 +567,15 @@ int lan_recvd(void)
 					rte_ring_enqueue_burst(uplink_q, (void **)&single_pkt, 1, NULL);
 				}
 				else if (ip_hdr->next_proto_id == PROTO_TYPE_UDP) {
+					struct rte_udp_hdr *udp_hdr = (struct rte_udp_hdr *)(ip_hdr + 1);
+					if (unlikely(udp_hdr->dst_port == rte_be_to_cpu_16(67))) {
+						rte_ring_enqueue_burst(gateway_q, (void **)&single_pkt, 1, NULL);
+						continue;
+					}
+					if (unlikely(!rte_is_same_ether_addr(&eth_hdr->d_addr, &ppp_ports[user_index].lan_mac))) {
+						pkt[total_tx++] = single_pkt;
+						continue;
+					}
 					if (unlikely(ppp_ports[user_index].data_plane_start == FALSE)) {
 						rte_pktmbuf_free(single_pkt);
 						continue;
@@ -646,7 +658,19 @@ int gateway(void)
 					rte_eth_tx_burst(0, gen_port_q, &single_pkt, 1);
 					continue;
 				}
-				rte_pktmbuf_free(single_pkt);
+				else if ((arphdr->arp_data.arp_tip << 8) ^ (ppp_ports[user_index].lan_ip << 8)) {
+					#ifdef _NON_VLAN
+					rte_vlan_strip(single_pkt);
+					#endif
+					rte_eth_tx_burst(0, gen_port_q, &single_pkt, 1);
+					continue;
+				}
+				else {
+					#ifdef _NON_VLAN
+					rte_vlan_strip(single_pkt);
+					#endif
+					rte_eth_tx_burst(1, gen_port_q, &single_pkt, 1);
+				}
 				continue;
 			}
 			else if (likely(vlan_header->next_proto == rte_cpu_to_be_16(FRAME_TYPE_IP))) {
@@ -672,12 +696,22 @@ int gateway(void)
 						rte_eth_tx_burst(0, gen_port_q, &single_pkt, 1);
 						continue;
 					}
+					else {
+						#ifdef _NON_VLAN
+						rte_vlan_strip(single_pkt);
+						#endif
+						rte_eth_tx_burst(0, gen_port_q, &single_pkt, 1);
+						continue;
+					}
 					break;
 				case PROTO_TYPE_UDP:
 					udp_hdr = (struct rte_udp_hdr *)(ip_hdr + 1);
 					if (udp_hdr->dst_port == rte_be_to_cpu_16(67)) {
 						/* start to process dhcp client packet here */
-						//printf("recv dhcp client pkt\n");
+						if (rte_atomic16_read(&ppp_ports[user_index].dhcp_bool) == 0) {
+							rte_pktmbuf_free(single_pkt);
+							continue;
+						}
 						ret = dhcpd(single_pkt, eth_hdr, vlan_header, ip_hdr, udp_hdr, user_index);
 						if (ret == 0) {
 							#ifdef _NON_VLAN
@@ -691,6 +725,8 @@ int gateway(void)
 							#endif
 							rte_eth_tx_burst(0, gen_port_q, &single_pkt, 1);
 						}
+						else 
+							rte_pktmbuf_free(single_pkt);
 						continue;
 					}
 					break;

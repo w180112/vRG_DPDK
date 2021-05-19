@@ -102,7 +102,10 @@ static void cmd_info_parsed(__attribute__((unused)) void *parsed_result,
 		}
 		cmdline_printf(cl, "WAN mac addr is %x:%x:%x:%x:%x:%x\n", ppp_ports[i].src_mac.addr_bytes[0], ppp_ports[i].src_mac.addr_bytes[1], ppp_ports[i].src_mac.addr_bytes[2], ppp_ports[i].src_mac.addr_bytes[3], ppp_ports[i].src_mac.addr_bytes[4], ppp_ports[i].src_mac.addr_bytes[5]);
 		cmdline_printf(cl, "LAN mac addr is %x:%x:%x:%x:%x:%x\n", ppp_ports[i].lan_mac.addr_bytes[0], ppp_ports[i].lan_mac.addr_bytes[1], ppp_ports[i].lan_mac.addr_bytes[2], ppp_ports[i].lan_mac.addr_bytes[3], ppp_ports[i].lan_mac.addr_bytes[4], ppp_ports[i].lan_mac.addr_bytes[5]);
-		cmdline_printf(cl, "DHCP server IP addr is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 "\n", (rte_be_to_cpu_32(dhcp_ccb[i].dhcp_server_ip) & 0xff000000) >> 24, (rte_be_to_cpu_32(dhcp_ccb[i].dhcp_server_ip) & 0x00ff0000) >> 16, (rte_be_to_cpu_32(dhcp_ccb[i].dhcp_server_ip) & 0x0000ff00) >> 8, rte_be_to_cpu_32(dhcp_ccb[i].dhcp_server_ip) & 0x000000ff);
+		if (rte_atomic16_read(&ppp_ports[i].dhcp_bool) == 1) 
+			cmdline_printf(cl, "DHCP server is on and IP addr is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 "\n", (rte_be_to_cpu_32(dhcp_ccb[i].dhcp_server_ip) & 0xff000000) >> 24, (rte_be_to_cpu_32(dhcp_ccb[i].dhcp_server_ip) & 0x00ff0000) >> 16, (rte_be_to_cpu_32(dhcp_ccb[i].dhcp_server_ip) & 0x0000ff00) >> 8, rte_be_to_cpu_32(dhcp_ccb[i].dhcp_server_ip) & 0x000000ff);
+		else if (rte_atomic16_read(&ppp_ports[i].dhcp_bool) == 0)
+			cmdline_printf(cl, "DHCP server is off\n");
 		for(U8 j=0; j<MAX_IP_POOL; j++) {
 			if (dhcp_ccb[i].ip_pool[j].used) {
 				rte_ether_format_addr(buf, 18, &dhcp_ccb[i].ip_pool[j].mac_addr);
@@ -148,7 +151,7 @@ static void cmd_quit_parsed(__attribute__((unused)) void *parsed_result,
 }
 
 cmdline_parse_token_string_t cmd_quit_quit =
-	TOKEN_STRING_INITIALIZER(struct cmd_quit_result, quit, "quit");
+	TOKEN_STRING_INITIALIZER(struct cmd_quit_result, quit, "quit#exit");
 
 cmdline_parse_inst_t cmd_quit = {
 	.f = cmd_quit_parsed,  /* function to call */
@@ -173,9 +176,10 @@ static void cmd_help_parsed(__attribute__((unused)) void *parsed_result,
 	cmdline_printf(cl,"usage: \n"
 		 			  "info is to show all pppoe users' info\n"
 					  "help to show usage commands\n"
-					  "disconnect < user id | all > to disconnect session(s)\n"
-					  "connect < user id | all > to connect session(s)\n"
-					  "quit to quit entire process\n");
+					  "disconnect <user id | all> to disconnect session(s)\n"
+					  "connect <user id | all> to connect session(s)\n"
+					  "dhcp <start | stop> <user id | all> to start/stop dhcp server function\n"
+					  "quit/exit to quit entire process\n");
 }
 
 cmdline_parse_token_string_t cmd_help_help =
@@ -250,11 +254,80 @@ cmdline_parse_inst_t cmd_connect = {
 	},
 };
 
+/**********************************************************/
+
+struct cmd_dhcp_result {
+	cmdline_fixed_string_t dhcp;
+	cmdline_fixed_string_t cmd;
+	cmdline_fixed_string_t user_id;
+};
+
+static void cmd_dhcp_parsed( void *parsed_result,
+			    __attribute__((unused)) struct cmdline *cl,
+			    __attribute__((unused)) void *data)
+{
+	struct cmd_dhcp_result *res = parsed_result;
+	tPPP_MBX *mail = (tPPP_MBX *)rte_malloc(NULL,sizeof(tPPP_MBX),0);
+	cli_to_main_msg_t *msg = (cli_to_main_msg_t *)mail->refp;
+
+	if (strcmp(res->cmd, "start") == 0)
+		msg->type = CLI_DHCP_START;
+	else if (strcmp(res->cmd, "stop") == 0)
+		msg->type = CLI_DHCP_STOP;
+	else {
+		printf("Wrong dhcp cmd\nvRG> ");
+		rte_free(mail);
+		return;
+	}
+    
+	if (strcmp(res->user_id, "all") == 0)
+		msg->user_id = 0;
+	else {
+		msg->user_id = strtoul(res->user_id, NULL, 10);
+		if (msg->user_id <= 0) {
+			printf("Wrong user id\nvRG> ");
+			rte_free(mail);
+			return;
+		}
+	}
+	
+	if (msg->user_id > MAX_USER) {
+		printf("Too large user id\nvRG> ");
+		rte_free(mail);
+		return;
+	}
+
+	mail->type = IPC_EV_TYPE_CLI;
+	mail->len = sizeof(cli_to_main_msg_t);
+	//enqueue cli quit event to main thread
+	rte_ring_enqueue_burst(rte_ring,(void **)&mail,1,NULL);
+}
+
+cmdline_parse_token_string_t cmd_dhcp_dhcp =
+	TOKEN_STRING_INITIALIZER(struct cmd_dhcp_result, dhcp, "dhcp-server");
+cmdline_parse_token_string_t cmd_dhcp_cmd =
+	TOKEN_STRING_INITIALIZER(struct cmd_dhcp_result, cmd, "start#stop");
+cmdline_parse_token_string_t cmd_dhcp_user_id =
+	TOKEN_STRING_INITIALIZER(struct cmd_dhcp_result, user_id, NULL);
+
+cmdline_parse_inst_t cmd_dhcp = {
+	.f = cmd_dhcp_parsed,  /* function to call */
+	.data = NULL,      /* 2nd arg of func */
+	.help_str = "start/stop dhcp server",
+	.tokens = {        /* token list, NULL terminated */
+		(void *)&cmd_dhcp_dhcp,
+		(void *)&cmd_dhcp_cmd,
+		(void *)&cmd_dhcp_user_id,
+		NULL,
+	},
+};
+
 /****** CONTEXT (list of instruction) */
 cmdline_parse_ctx_t ctx[] = {
 		(cmdline_parse_inst_t *)&cmd_info,
 		(cmdline_parse_inst_t *)&cmd_quit,
 		(cmdline_parse_inst_t *)&cmd_help,
 		(cmdline_parse_inst_t *)&cmd_connect,
+		(cmdline_parse_inst_t *)&cmd_dhcp,
 	NULL,
 };

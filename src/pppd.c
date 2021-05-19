@@ -178,6 +178,7 @@ int main(int argc, char **argv)
 		rte_timer_init(&(ppp_ports[i].ppp));
 		rte_timer_init(&(ppp_ports[i].nat));
 		ppp_ports[i].data_plane_start = FALSE;
+		rte_atomic16_init(&ppp_ports[i].dhcp_bool);
 	}
 
 	rte_atomic16_init(&cp_recv_cums);
@@ -357,7 +358,7 @@ int ppp_init(void)
 	vlan_header_t		vlan_header;
 	pppoe_header_t 		pppoe_header;
 	ppp_payload_t		ppp_payload;
-	ppp_header_t		ppp_lcp;
+	ppp_header_t		ppp_hdr;
 	ppp_options_t		*ppp_options = (ppp_options_t *)rte_malloc(NULL,40*sizeof(char),0);
 #if 0	
 	for(int i=0; i<MAX_USER; i++) {
@@ -392,7 +393,7 @@ int ppp_init(void)
 					continue;
 				}
 #pragma GCC diagnostic pop   // require GCC 4.6
-				if (PPP_decode_frame(mail[i],&eth_hdr,&vlan_header,&pppoe_header,&ppp_payload,&ppp_lcp,ppp_options,&event,&(ppp_ports[session_index].ppp),&ppp_ports[session_index]) == FALSE)					
+				if (PPP_decode_frame(mail[i],&eth_hdr,&vlan_header,&pppoe_header,&ppp_payload,&ppp_hdr,ppp_options,&event,&(ppp_ports[session_index].ppp),&ppp_ports[session_index]) == FALSE)					
 					continue;
 				if (vlan_header.next_proto == rte_cpu_to_be_16(ETH_P_PPP_DIS)) {
 					switch(pppoe_header.code) {
@@ -422,7 +423,7 @@ int ppp_init(void)
 							ppp_ports[session_index].ppp_phase[i].vlan_header = &vlan_header;
     						ppp_ports[session_index].ppp_phase[i].pppoe_header = &pppoe_header;
     						ppp_ports[session_index].ppp_phase[i].ppp_payload = &ppp_payload;
-    						ppp_ports[session_index].ppp_phase[i].ppp_lcp = &ppp_lcp;
+    						ppp_ports[session_index].ppp_phase[i].ppp_hdr = &ppp_hdr;
     						ppp_ports[session_index].ppp_phase[i].ppp_options = ppp_options;
    						}
     					PPP_FSM(&(ppp_ports[session_index].ppp),&ppp_ports[session_index],E_OPEN);
@@ -478,9 +479,9 @@ int ppp_init(void)
 				ppp_ports[session_index].ppp_phase[0].ppp_options = ppp_options;
 				ppp_ports[session_index].ppp_phase[1].ppp_options = ppp_options;
 				if (ppp_payload.ppp_protocol == rte_cpu_to_be_16(AUTH_PROTOCOL)) {
-					if (ppp_lcp.code == AUTH_NAK)
+					if (ppp_hdr.code == AUTH_NAK)
 						goto out;
-					else if (ppp_lcp.code == AUTH_ACK) {
+					else if (ppp_hdr.code == AUTH_ACK) {
 						ppp_ports[session_index].cp = 1;
 						PPP_FSM(&(ppp_ports[session_index].ppp),&ppp_ports[session_index],E_OPEN);
 						continue;
@@ -512,7 +513,7 @@ int ppp_init(void)
 						if (mail[i]->refp[1] == 0) {
 							for(int j=0; j<MAX_USER; j++) {
 								if (ppp_ports[j].phase > END_PHASE) {
-									printf("\nvRG> Error! User %u is in a pppoe connection", j);
+									printf("Error! User %u is in a pppoe connection\nvRG> ", j);
 									continue;
 								}
 								ppp_ports[j].phase = PPPOE_PHASE;
@@ -535,7 +536,43 @@ int ppp_init(void)
     							PPP_bye(&(ppp_ports[mail[i]->refp[1]-1]));
     						rte_timer_reset(&(ppp_ports[mail[i]->refp[1]-1].pppoe),rte_get_timer_hz(),PERIODICAL,TIMER_LOOP_LCORE,(rte_timer_cb_t)build_padi,&(ppp_ports[mail[i]->refp[1]-1]));
 						}
-						break;					
+						break;	
+					case CLI_DHCP_START:
+						if (mail[i]->refp[1] == 0) {
+							for(int j=0; j<MAX_USER; j++) {
+								if (rte_atomic16_read(&ppp_ports[j].dhcp_bool) == 1) {
+									printf("Error! User %u dhcp server is already on\nvRG> ", j);
+									continue;
+								}
+								rte_atomic16_set(&ppp_ports[j].dhcp_bool, 1);
+							}
+						}
+						else {
+							if (rte_atomic16_read(&ppp_ports[mail[i]->refp[1]-1].dhcp_bool) == 1) {
+								printf("Error! User %u dhcp server is already on\nvRG> ", mail[i]->refp[1]);
+								break;
+							}
+							rte_atomic16_set(&ppp_ports[mail[i]->refp[1]-1].dhcp_bool, 1);
+						}
+						break;
+					case CLI_DHCP_STOP:
+						if (mail[i]->refp[1] == 0) {
+							for(int j=0; j<MAX_USER; j++) {
+								if (rte_atomic16_read(&ppp_ports[j].dhcp_bool) == 0) {
+									printf("Error! User %u dhcp server is already off\nvRG> ", j);
+									continue;
+								}
+								rte_atomic16_set(&ppp_ports[j].dhcp_bool, 0);
+							}
+						}
+						else {
+							if (rte_atomic16_read(&ppp_ports[mail[i]->refp[1]-1].dhcp_bool) == 0) {
+								printf("Error! User %u dhcp server is already on\nvRG> ", mail[i]->refp[1]);
+								break;
+							}
+							rte_atomic16_set(&ppp_ports[mail[i]->refp[1]-1].dhcp_bool, 0);
+						}
+						break;				
 					case CLI_QUIT:
 						quit_flag = TRUE;
 						for(int j=0; j<MAX_USER; j++)

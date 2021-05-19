@@ -281,8 +281,8 @@ STATUS build_dhcp_ack(dhcp_ccb_t *dhcp_ccb)
     cur = (dhcp_opt_t *)(((char *)cur) + sizeof(dhcp_opt_t) + cur->len);
     cur->opt_type = DHCP_SUBNET_MASK;
     cur->len = 0x4;
-    cur->val[0] = 0x00;
-    cur->val[1] = cur->val[2] = cur->val[3] = 0xff;
+    cur->val[3] = 0x00;
+    cur->val[0] = cur->val[1] = cur->val[2] = 0xff;
     dhcp_ccb->udp_hdr->dgram_len += sizeof(dhcp_opt_t) + cur->len;
 
     cur = (dhcp_opt_t *)(((char *)cur) + sizeof(dhcp_opt_t) + cur->len);
@@ -301,7 +301,7 @@ STATUS build_dhcp_ack(dhcp_ccb_t *dhcp_ccb)
     cur = (dhcp_opt_t *)(((char *)cur) + sizeof(dhcp_opt_t) + cur->len);
     cur->opt_type = DHCP_DNS;
     cur->len = 0x8;
-    U32 dns[2] = { rte_cpu_to_be_32(0x08080808), rte_cpu_to_be_32(0x01010101)};
+    U32 dns[2] = { rte_cpu_to_be_32(0x08080808), rte_cpu_to_be_32(0x01010101) };
     rte_memcpy(cur->val, &dns, cur->len);
     dhcp_ccb->udp_hdr->dgram_len += sizeof(dhcp_opt_t) + cur->len;
 

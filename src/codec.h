@@ -13,8 +13,8 @@
 #include "fsm.h"
 #include <rte_timer.h>
 
-extern STATUS PPP_decode_frame(tPPP_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_header_t *vlan_header, pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp_header_t *ppp_lcp, ppp_options_t *ppp_options, uint16_t *event, struct rte_timer *tim, tPPP_PORT *port_ccb);
-extern STATUS decode_ipcp(pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp_header_t *ppp_lcp, ppp_options_t *ppp_options, uint16_t total_lcp_length, uint16_t *event, struct rte_timer *tim, tPPP_PORT *port_ccb);
+extern STATUS PPP_decode_frame(tPPP_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_header_t *vlan_header, pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp_header_t *ppp_hdr, ppp_options_t *ppp_options, uint16_t *event, struct rte_timer *tim, tPPP_PORT *port_ccb);
+extern STATUS decode_ipcp(pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp_header_t *ppp_hdr, ppp_options_t *ppp_options, uint16_t total_lcp_length, uint16_t *event, struct rte_timer *tim, tPPP_PORT *port_ccb);
 
 extern void   DECODE_OBJID(U8 *vp, U8 vlen, U32 *oids, U8 *oids_len);
 
@@ -28,8 +28,8 @@ extern STATUS build_echo_reply(unsigned char *buffer, tPPP_PORT *port_ccb, uint1
 extern STATUS build_auth_request_pap(unsigned char *buffer, tPPP_PORT *port_ccb, uint16_t *mulen);
 extern STATUS build_auth_ack_pap(unsigned char *buffer, tPPP_PORT *port_ccb, uint16_t *mulen);
 
-STATUS check_nak_reject(uint8_t flag, pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp_header_t *ppp_lcp, ppp_options_t *ppp_options, uint16_t total_lcp_length);
-STATUS check_ipcp_nak_rej(uint8_t flag, pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp_header_t *ppp_lcp, ppp_options_t *ppp_options, uint16_t total_lcp_length);
+STATUS check_nak_reject(uint8_t flag, pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp_header_t *ppp_hdr, ppp_options_t *ppp_options, uint16_t total_lcp_length);
+STATUS check_ipcp_nak_rej(uint8_t flag, pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp_header_t *ppp_hdr, ppp_options_t *ppp_options, uint16_t total_lcp_length);
 
 STATUS build_padi(__attribute__((unused)) struct rte_timer *tim, tPPP_PORT *port_ccb);
 STATUS build_padr(__attribute__((unused)) struct rte_timer *tim, tPPP_PORT *port_ccb);

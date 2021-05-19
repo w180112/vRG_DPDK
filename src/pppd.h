@@ -157,7 +157,7 @@ typedef struct ppp_phase {
 	vlan_header_t		*vlan_header;
 	pppoe_header_t 		*pppoe_header;
 	ppp_payload_t 		*ppp_payload;
-	ppp_header_t 		*ppp_lcp;
+	ppp_header_t 		*ppp_hdr;
 	ppp_options_t 		*ppp_options;
 	U8 					max_retransmit;
 	U8					timer_counter;
@@ -198,7 +198,7 @@ typedef struct {
 	BOOL					is_pap_auth;
 	unsigned char 			*user_id;
 	unsigned char 			*passwd;
-
+	rte_atomic16_t 			dhcp_bool;
 	BOOL				data_plane_start;
 
 	addr_table_t 		addr_table[TOTAL_SOCK_PORT];

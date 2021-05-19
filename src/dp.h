@@ -7,7 +7,6 @@
 #ifndef _DP_H_
 #define _DP_H_
 
-
 extern void drv_xmit(U8 *mu, U16 mulen);
 extern int wan_recvd(void);
 extern int uplink(void);

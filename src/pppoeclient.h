@@ -73,9 +73,13 @@
 #define MAX_RECV			ETH_MTU - sizeof(pppoe_header_t) - sizeof(ppp_payload_t) - sizeof(vlan_header_t)
 #define MAX_RETRAN			10
 
-#define CLI_QUIT            0x0
-#define CLI_DISCONNECT      0x1
-#define CLI_CONNECT         0x2
+enum {
+    CLI_QUIT = 0,
+    CLI_DISCONNECT,
+    CLI_CONNECT,
+    CLI_DHCP_START,
+    CLI_DHCP_STOP,
+};
 
 #define LINK_DOWN           0x0
 #define LINK_UP             0x1 
