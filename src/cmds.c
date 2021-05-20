@@ -12,6 +12,7 @@
 #include <sys/queue.h>
 
 #include <rte_common.h>
+#include <rte_ethdev.h>
 #include <rte_memory.h>
 #include <rte_eal.h>
 #include <rte_atomic.h>
@@ -58,6 +59,7 @@ static void cmd_info_parsed(__attribute__((unused)) void *parsed_result,
 		__attribute__((unused)) void *data)
 {
 	char buf[64];
+	struct rte_eth_stats ethdev_stat;
 
 	if (vendor_id == 0)
 		cmdline_printf(cl,"We are using unexcepted driver\n");
@@ -70,6 +72,15 @@ static void cmd_info_parsed(__attribute__((unused)) void *parsed_result,
 		}
 	}
 	
+	rte_eth_stats_get(0, &ethdev_stat);
+	cmdline_printf(cl, "LAN port total rx %" PRIu64 " pkts, tx %" PRIu64 " pkts. ", ethdev_stat.ipackets, ethdev_stat.opackets);
+	cmdline_printf(cl, "Rx %" PRIu64 " bytes, tx %" PRIu64 " bytes. ", ethdev_stat.ibytes, ethdev_stat.obytes);
+	cmdline_printf(cl, "Rx drops %" PRIu64 " pkts.\n", ethdev_stat.imissed);
+	rte_eth_stats_get(1, &ethdev_stat);
+	cmdline_printf(cl, "WAN port total rx %" PRIu64 " pkts, tx %" PRIu64 " pkts. ", ethdev_stat.ipackets, ethdev_stat.opackets);
+	cmdline_printf(cl, "Rx %" PRIu64 " bytes, tx %" PRIu64 " bytes. ", ethdev_stat.ibytes, ethdev_stat.obytes);
+	cmdline_printf(cl, "Rx drops %" PRIu64 " pkts.\n", ethdev_stat.imissed);
+
 	for(int i=0; i<MAX_USER; i++) {
 		switch (ppp_ports[i].phase) {
 		case END_PHASE:
@@ -100,6 +111,7 @@ static void cmd_info_parsed(__attribute__((unused)) void *parsed_result,
 		default:
 			break;
 		}
+
 		cmdline_printf(cl, "WAN mac addr is %x:%x:%x:%x:%x:%x\n", ppp_ports[i].src_mac.addr_bytes[0], ppp_ports[i].src_mac.addr_bytes[1], ppp_ports[i].src_mac.addr_bytes[2], ppp_ports[i].src_mac.addr_bytes[3], ppp_ports[i].src_mac.addr_bytes[4], ppp_ports[i].src_mac.addr_bytes[5]);
 		cmdline_printf(cl, "LAN mac addr is %x:%x:%x:%x:%x:%x\n", ppp_ports[i].lan_mac.addr_bytes[0], ppp_ports[i].lan_mac.addr_bytes[1], ppp_ports[i].lan_mac.addr_bytes[2], ppp_ports[i].lan_mac.addr_bytes[3], ppp_ports[i].lan_mac.addr_bytes[4], ppp_ports[i].lan_mac.addr_bytes[5]);
 		if (rte_atomic16_read(&ppp_ports[i].dhcp_bool) == 1) 

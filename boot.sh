@@ -14,6 +14,8 @@ cd $path/lib/dpdk_build
 sudo ninja && sudo ninja install || exit 1
 sudo ldconfig || exit 1
 cd $path/lib/libutil
+autoreconf --install || exit 1
+./configure || exit 1
 make || exit 1
 cd $path/src
 make
