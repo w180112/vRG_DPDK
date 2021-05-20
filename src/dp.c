@@ -485,12 +485,14 @@ int lan_recvd(void)
 				rte_ring_enqueue_burst(gateway_q, (void **)&single_pkt, 1, NULL);
 				continue;
 			}
-			else if (unlikely(vlan_header->next_proto == rte_cpu_to_be_16(ETH_P_PPP_DIS) || (vlan_header->next_proto == rte_cpu_to_be_16(ETH_P_PPP_SES))))
+			else if (unlikely(vlan_header->next_proto == rte_cpu_to_be_16(ETH_P_PPP_DIS) || (vlan_header->next_proto == rte_cpu_to_be_16(ETH_P_PPP_SES)))) {
 				#ifdef _TEST_MODE
 				rte_pktmbuf_free(single_pkt);
+				continue;
 				#else
 				pkt[total_tx++] = single_pkt;
 				#endif
+			}
 			else if (likely(vlan_header->next_proto == rte_cpu_to_be_16(FRAME_TYPE_IP))) {
 				ip_hdr = (struct rte_ipv4_hdr *)(rte_pktmbuf_mtod(single_pkt, unsigned char *) + sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t));
 				if (unlikely(((ip_hdr->dst_addr << 8) ^ (ppp_ports[user_index].lan_ip << 8)) == 0)) {
@@ -549,12 +551,14 @@ int lan_recvd(void)
 					puts("nat icmp at port 0");
 					#endif
 				}
-				else if (ip_hdr->next_proto_id == IPPROTO_IGMP)
+				else if (ip_hdr->next_proto_id == IPPROTO_IGMP) {
 					#ifdef _TEST_MODE
 					rte_pktmbuf_free(single_pkt);
+					continue;
 					#else
 					pkt[total_tx++] = single_pkt;
 					#endif
+				}
 				else if (ip_hdr->next_proto_id == PROTO_TYPE_TCP) {
 					if (unlikely(!rte_is_same_ether_addr(&eth_hdr->d_addr, &ppp_ports[user_index].lan_mac))) {
 						pkt[total_tx++] = single_pkt;
@@ -645,7 +649,7 @@ int gateway(void)
 			if (unlikely(vlan_header->next_proto == rte_cpu_to_be_16(FRAME_TYPE_ARP))) {
 				arphdr = (struct rte_arp_hdr *)(rte_pktmbuf_mtod(single_pkt, unsigned char *) + sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t));
 				if (arphdr->arp_opcode == rte_cpu_to_be_16(RTE_ARP_OP_REQUEST) && arphdr->arp_data.arp_tip == ppp_ports[user_index].lan_ip) {
-					rte_ether_addr_copy(&eth_hdr->d_addr, &eth_hdr->s_addr);
+					rte_ether_addr_copy(&eth_hdr->s_addr, &eth_hdr->d_addr);
 					rte_ether_addr_copy(&ppp_ports[user_index].lan_mac, &eth_hdr->s_addr);
 					rte_ether_addr_copy(&arphdr->arp_data.arp_sha, &arphdr->arp_data.arp_tha);
 					rte_ether_addr_copy(&ppp_ports[user_index].lan_mac, &arphdr->arp_data.arp_sha);
@@ -658,13 +662,13 @@ int gateway(void)
 					rte_eth_tx_burst(0, gen_port_q, &single_pkt, 1);
 					continue;
 				}
-				else if ((arphdr->arp_data.arp_tip << 8) ^ (ppp_ports[user_index].lan_ip << 8)) {
+				/*else if ((arphdr->arp_data.arp_tip << 8) ^ (ppp_ports[user_index].lan_ip << 8)) {
 					#ifdef _NON_VLAN
 					rte_vlan_strip(single_pkt);
 					#endif
 					rte_eth_tx_burst(0, gen_port_q, &single_pkt, 1);
 					continue;
-				}
+				}*/
 				else {
 					#ifdef _NON_VLAN
 					rte_vlan_strip(single_pkt);
