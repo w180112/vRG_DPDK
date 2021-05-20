@@ -164,7 +164,10 @@ int wan_recvd(void)
 					ip_hdr = (struct rte_ipv4_hdr *)(rte_pktmbuf_mtod(single_pkt, unsigned char *) + sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t));
 					if (ip_hdr->next_proto_id == PROTO_TYPE_UDP) { //use 4001 vlan tag to detect IPTV and VOD packet
 						uint16_t vlan_id = rte_be_to_cpu_16(vlan_header->tci_union.tci_value) & 0xFFF;
+						struct rte_udp_hdr *udp_hdr = (struct rte_udp_hdr *)(ip_hdr + 1);
 						if (likely(vlan_id == MULTICAST_TAG || ((ip_hdr->dst_addr) & 0xFFFFFF00) == 10)) // VOD pkt dst ip is always 10.x.x.x
+							pkt[total_tx++] = single_pkt;
+						else if (udp_hdr->dst_port == rte_be_to_cpu_16(68))
 							pkt[total_tx++] = single_pkt;
 						else
 							rte_pktmbuf_free(single_pkt);
