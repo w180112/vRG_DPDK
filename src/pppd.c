@@ -21,7 +21,6 @@
 #include 				<cmdline_parse_string.h>
 #include 				<cmdline_socket.h>
 #include 				<cmdline.h>
-#include 				<linux/ethtool.h>
 
 #include				<rte_memcpy.h>
 #include 				<rte_flow.h>
@@ -41,35 +40,24 @@
 BOOL					ppp_testEnable = FALSE;
 U32						ppp_interval;
 U16						ppp_init_delay;
-uint8_t					ppp_max_msg_per_query;
+U8						ppp_max_msg_per_query;
 
 rte_atomic16_t			cp_recv_cums;
-uint8_t					vendor_id = 0;
 
 tPPP_PORT				ppp_ports[MAX_USER];
 
 extern int 				timer_loop(__attribute__((unused)) void *arg);
-extern int 				rte_ethtool_get_drvinfo(uint16_t port_id, struct ethtool_drvinfo *drvinfo);
 extern STATUS			PPP_FSM(struct rte_timer *ppp, tPPP_PORT *port_ccb, U16 event);
 BOOL 					is_valid(char *token, char *next);
 BOOL 					string_split(char *ori_str, char *str1, char *str2, char split_tok);
 void 					PPP_int(void);
+void 					exit_ppp(__attribute__((unused)) struct rte_timer *tim, tPPP_PORT *port_ccb);
 
 struct rte_ether_addr 	wan_mac;
 int 					log_type;
 FILE 					*fp;
 volatile BOOL			/*prompt = FALSE, */quit_flag = FALSE;
 struct cmdline 			*cl;
-
-nic_vendor_t vendor[] = {
-	{ "mlx5_pci", MLX5 },
-	{ "net_ixgbe", IXGBE },
-	{ "net_vmxnet3", VMXNET3 },
-	{ "net_ixgbe_vf", IXGBEVF },
-	{ "net_i40e", I40E },
-	{ "net_i40e_vf", I40EVF },
-	{ NULL, 0 }
-};
 
 struct lcore_map {
 	U8 ctrl_thread;
@@ -83,10 +71,8 @@ struct lcore_map {
 
 int main(int argc, char **argv)
 {
-	uint16_t 				portid;
-	uint16_t 				user_id_length, passwd_length;
-	struct ethtool_drvinfo 	info;
-	struct lcore_map 		lcore;
+	U16 				user_id_length, passwd_length;
+	struct lcore_map 	lcore;
 	
 	if (argc < 5) {
 		puts("Too less parameter.");
@@ -142,43 +128,15 @@ int main(int argc, char **argv)
 	}
 
 	rte_eth_macaddr_get(1, &wan_mac);
-	ret = sys_init();
+
+	cl = cmdline_stdin_new(ctx, "vRG> ");
+	if (cl == NULL)
+		rte_exit(EXIT_FAILURE, "Cannot create cmdline instance\n");
+
+	ret = sys_init(cl);
 	if (ret) {
 		rte_strerror(ret);
 		rte_exit(EXIT_FAILURE, "System initiation failed\n");
-	}
-
-	/* Initialize all ports. */
-	//uint32_t lcore_id = 2;
-	RTE_ETH_FOREACH_DEV(portid) {
-		memset(&info, 0, sizeof(info));
-		if (rte_ethtool_get_drvinfo(portid, &info)) {
-			printf("Error getting info for port %i\n", portid);
-			return -1;
-		}
-		for(int i=0; vendor[i].vendor; i++) {
-			if (strcmp((const char *)info.driver, vendor[i].vendor) == 0) {
-				vendor_id = vendor[i].vendor_id;
-				break;
-			}
-		}
-
-		printf("vRG> Port %i driver: %s (ver: %s)\n", portid, info.driver, info.version);
-		printf("vRG> firmware-version: %s\n", info.fw_version);
-		printf("vRG> bus-info: %s\n", info.bus_info);
-
-		if (PPP_PORT_INIT(portid/*, lcore_id*/) != 0)
-			rte_exit(EXIT_FAILURE, "Cannot init port %"PRIu8 "\n",portid);
-		//lcore_id += 2;
-	}
-
-	/* init structures */
-	for(int i=0; i<MAX_USER; i++) {
-		rte_timer_init(&(ppp_ports[i].pppoe));
-		rte_timer_init(&(ppp_ports[i].ppp));
-		rte_timer_init(&(ppp_ports[i].nat));
-		ppp_ports[i].data_plane_start = FALSE;
-		rte_atomic16_init(&ppp_ports[i].dhcp_bool);
 	}
 
 	rte_atomic16_init(&cp_recv_cums);
@@ -211,13 +169,8 @@ int main(int argc, char **argv)
 	rte_eal_remote_launch((lcore_function_t *)uplink,NULL,lcore.up_thread);
 	rte_eal_remote_launch((lcore_function_t *)gateway,NULL,lcore.gateway_thread);
 	rte_eal_remote_launch((lcore_function_t *)timer_loop,NULL,lcore.timer_thread);
-	
-	//while(prompt == FALSE);
-	sleep(1);
-	puts("type ? or help to show all available commands");
-	cl = cmdline_stdin_new(ctx, "vRG> ");
-	if (cl == NULL)
-		rte_exit(EXIT_FAILURE, "Cannot create cmdline instance\n");
+
+	cmdline_printf(cl, "vRG> type ? or help to show all available commands\n");
 	cmdline_interact(cl);
 
 	rte_eal_mp_wait_lcore();
@@ -312,7 +265,7 @@ void PPP_int(void)
  **************************************************************/
 int pppdInit(void)
 {	
-	ppp_interval = (uint32_t)(3*SECOND); 
+	ppp_interval = (U32)(3*SECOND); 
     
     //--------- default of all ports ----------
     for(int i=0; i<MAX_USER; i++) {
@@ -348,35 +301,26 @@ int pppdInit(void)
  ***************************************************************/
 int ppp_init(void)
 {
-	uint8_t 			total_user = MAX_USER;
+	U8 					total_user = MAX_USER;
 	tPPP_MBX			*mail[BURST_SIZE];
 	int 				cp;
-	uint16_t			event, session_index = 0;
-	uint16_t			burst_size;
-	uint16_t			recv_type;
+	U16					event, session_index = 0;
+	U16					burst_size;
+	U16					recv_type;
 	struct rte_ether_hdr eth_hdr;
 	vlan_header_t		vlan_header;
 	pppoe_header_t 		pppoe_header;
 	ppp_payload_t		ppp_payload;
 	ppp_header_t		ppp_hdr;
 	ppp_options_t		*ppp_options = (ppp_options_t *)rte_malloc(NULL,40*sizeof(char),0);
-#if 0	
-	for(int i=0; i<MAX_USER; i++) {
-		ppp_ports[i].phase = PPPOE_PHASE;
-		ppp_ports[i].pppoe_phase.max_retransmit = MAX_RETRAN;
-		ppp_ports[i].pppoe_phase.timer_counter = 0;
-    	if (build_padi(&(ppp_ports[i].pppoe),&(ppp_ports[i])) == FALSE)
-    		PPP_bye(&(ppp_ports[i]));
-    	rte_timer_reset(&(ppp_ports[i].pppoe),rte_get_timer_hz(),PERIODICAL,TIMER_LOOP_LCORE,(rte_timer_cb_t)build_padi,&(ppp_ports[i]));
-    }
-#endif
+
 	for(;;) {
 		burst_size = control_plane_dequeue(mail);
 		rte_atomic16_add(&cp_recv_cums,burst_size);
 		if (rte_atomic16_read(&cp_recv_cums) > 32)
 			rte_atomic16_sub(&cp_recv_cums,32);
 		for(int i=0; i<burst_size; i++) {
-	    	recv_type = *(uint16_t *)mail[i];
+	    	recv_type = *(U16 *)mail[i];
 			switch(recv_type) {
 			case IPC_EV_TYPE_TMR:
 				break;
@@ -410,8 +354,10 @@ int ppp_init(void)
 						rte_timer_stop(&(ppp_ports[session_index].pppoe));
 						rte_ether_addr_copy(&eth_hdr.d_addr, &ppp_ports[session_index].src_mac);
 						rte_ether_addr_copy(&eth_hdr.s_addr, &ppp_ports[session_index].dst_mac);
-						if (build_padr(&(ppp_ports[session_index].pppoe),&(ppp_ports[session_index])) == FALSE)
-							goto out;
+						if (build_padr(&(ppp_ports[session_index].pppoe),&(ppp_ports[session_index])) == FALSE) {
+							exit_ppp(&(ppp_ports[session_index].pppoe), &(ppp_ports[session_index]));
+							continue;
+						}
 						rte_timer_reset(&(ppp_ports[session_index].pppoe),rte_get_timer_hz(),PERIODICAL,TIMER_LOOP_LCORE,(rte_timer_cb_t)build_padr,&(ppp_ports[session_index]));
 						continue;
 					case PADS:
@@ -453,6 +399,7 @@ int ppp_init(void)
 						ppp_ports[session_index].pppoe_phase.active = FALSE;
 						rte_timer_stop(&(ppp_ports[session_index].ppp));
 						rte_timer_stop(&(ppp_ports[session_index].pppoe));
+						ppp_ports[session_index].ppp_processing = FALSE;
 						if (quit_flag == TRUE) {
 							if ((--total_user) == 0) {
                             	rte_ring_free(rte_ring);
@@ -479,8 +426,12 @@ int ppp_init(void)
 				ppp_ports[session_index].ppp_phase[0].ppp_options = ppp_options;
 				ppp_ports[session_index].ppp_phase[1].ppp_options = ppp_options;
 				if (ppp_payload.ppp_protocol == rte_cpu_to_be_16(AUTH_PROTOCOL)) {
-					if (ppp_hdr.code == AUTH_NAK)
-						goto out;
+					if (ppp_hdr.code == AUTH_NAK) {
+						RTE_LOG(INFO,EAL,"Session 0x%x received auth info error(AUTH NAK) and start closing connection.\n", rte_cpu_to_be_16(ppp_ports[session_index].session_id));
+    					ppp_ports[session_index].cp = 0;
+    					ppp_ports[session_index].phase--;
+    					PPP_FSM(&(ppp_ports[session_index].ppp),&ppp_ports[session_index],E_CLOSE);
+					}
 					else if (ppp_hdr.code == AUTH_ACK) {
 						ppp_ports[session_index].cp = 1;
 						PPP_FSM(&(ppp_ports[session_index].ppp),&ppp_ports[session_index],E_OPEN);
@@ -496,31 +447,53 @@ int ppp_init(void)
 					case CLI_DISCONNECT:
 						if (mail[i]->refp[1] == 0) {
 							for(int j=0; j<MAX_USER; j++) {
+								if (ppp_ports[j].phase == END_PHASE) {
+									printf("Error! User %u is in init phase\nvRG> ", j + 1);
+									continue;
+								}
+								if (ppp_ports[j].ppp_processing == TRUE) {
+									printf("Error! User %u is disconnecting pppoe connection, please wait...\nvRG> ", j + 1);
+									continue;
+								}
+								ppp_ports[j].ppp_processing = TRUE;
 								ppp_ports[j].phase--;
     							ppp_ports[j].data_plane_start = FALSE;
     							ppp_ports[j].cp = 1;
     							PPP_FSM(&(ppp_ports[j].ppp), &ppp_ports[j], E_CLOSE);
+								rte_atomic16_set(&ppp_ports[j].ppp_bool, 0);
 							}
 						}
 						else {
+							if (ppp_ports[mail[i]->refp[1]-1].phase == END_PHASE) {
+								printf("Error! User %u is in init phase\nvRG> ", mail[i]->refp[1]);
+								break;
+							}
+							if (ppp_ports[mail[i]->refp[1]-1].ppp_processing == TRUE) {
+								printf("Error! User %u is disconnecting pppoe connection, please wait...\nvRG> ", mail[i]->refp[1]);	
+								break;
+							}
+							ppp_ports[mail[i]->refp[1]-1].ppp_processing = TRUE;
 							ppp_ports[mail[i]->refp[1]-1].phase--;
     						ppp_ports[mail[i]->refp[1]-1].data_plane_start = FALSE;
     						ppp_ports[mail[i]->refp[1]-1].cp = 1;
     						PPP_FSM(&(ppp_ports[mail[i]->refp[1]-1].ppp), &ppp_ports[mail[i]->refp[1]-1], E_CLOSE);
+							rte_atomic16_set(&ppp_ports[mail[i]->refp[1]-1].ppp_bool, 0);
 						}
 						break;
 					case CLI_CONNECT:
 						if (mail[i]->refp[1] == 0) {
 							for(int j=0; j<MAX_USER; j++) {
 								if (ppp_ports[j].phase > END_PHASE) {
-									printf("Error! User %u is in a pppoe connection\nvRG> ", j);
+									printf("Error! User %u is in a pppoe connection\nvRG> ", j + 1);
 									continue;
 								}
 								ppp_ports[j].phase = PPPOE_PHASE;
 								ppp_ports[j].pppoe_phase.max_retransmit = MAX_RETRAN;
 								ppp_ports[j].pppoe_phase.timer_counter = 0;
     							if (build_padi(&(ppp_ports[j].pppoe),&(ppp_ports[j])) == FALSE)
-    								PPP_bye(&(ppp_ports[j]));
+									PPP_bye(&(ppp_ports[j]));
+								
+								rte_atomic16_set(&ppp_ports[j].ppp_bool, 1);
     							rte_timer_reset(&(ppp_ports[j].pppoe),rte_get_timer_hz(),PERIODICAL,TIMER_LOOP_LCORE,(rte_timer_cb_t)build_padi,&(ppp_ports[j]));
 							}
 						}
@@ -533,7 +506,9 @@ int ppp_init(void)
 							ppp_ports[mail[i]->refp[1]-1].pppoe_phase.max_retransmit = MAX_RETRAN;
 							ppp_ports[mail[i]->refp[1]-1].pppoe_phase.timer_counter = 0;
     						if (build_padi(&(ppp_ports[mail[i]->refp[1]-1].pppoe), &(ppp_ports[mail[i]->refp[1]-1])) == FALSE)
-    							PPP_bye(&(ppp_ports[mail[i]->refp[1]-1]));
+								PPP_bye(&(ppp_ports[mail[i]->refp[1]-1]));
+							
+							rte_atomic16_set(&ppp_ports[mail[i]->refp[1]-1].ppp_bool, 1);
     						rte_timer_reset(&(ppp_ports[mail[i]->refp[1]-1].pppoe),rte_get_timer_hz(),PERIODICAL,TIMER_LOOP_LCORE,(rte_timer_cb_t)build_padi,&(ppp_ports[mail[i]->refp[1]-1]));
 						}
 						break;	
@@ -585,18 +560,14 @@ int ppp_init(void)
 				rte_free(mail[i]);
 				break;
 			case IPC_EV_TYPE_REG:
-				if (mail[i]->refp[0] == LINK_DOWN) {
-					for(int i=0; i<MAX_USER; i++) {
-						ppp_ports[i].cp = 0;
-						PPP_FSM(&(ppp_ports[i].ppp),&ppp_ports[i],E_DOWN);
-						ppp_ports[i].cp = 1;
-						PPP_FSM(&(ppp_ports[i].ppp),&ppp_ports[i],E_DOWN);
+				if ((U16)(mail[i]->refp[1]) == 1) {
+					if (mail[i]->refp[0] == LINK_DOWN) {
+						for(int j=0; j<MAX_USER; j++)
+							rte_timer_reset(&(ppp_ports[j].link),10*rte_get_timer_hz(),SINGLE,TIMER_LOOP_LCORE,(rte_timer_cb_t)exit_ppp,&(ppp_ports[j]));
 					}
-				}
-				else if (mail[i]->refp[0] == LINK_UP) {
-					for(int i=0; i<MAX_USER; i++) {
-						ppp_ports[i].cp = 0;
-						PPP_FSM(&(ppp_ports[i].ppp),&ppp_ports[i],E_UP);
+					else if (mail[i]->refp[0] == LINK_UP) {
+						for(int j=0; j<MAX_USER; j++)
+							rte_timer_stop(&(ppp_ports[j].link));
 					}
 				}
 				rte_free(mail[i]);
@@ -607,8 +578,6 @@ int ppp_init(void)
 			mail[i] = NULL;
 		}
     }
-out:
-	kill(getpid(), SIGINT);
 	return ERROR;
 }
 
@@ -650,4 +619,13 @@ BOOL string_split(char *ori_str, char *str1, char *str2, char split_tok)
 	*(str2+j) = '\0';
 	
 	return TRUE;
+}
+
+void exit_ppp(__attribute__((unused)) struct rte_timer *tim, tPPP_PORT *port_ccb)
+{
+	rte_atomic16_cmpset((U16 *)&(port_ccb->ppp_bool.cnt), 1, 0);
+	port_ccb->phase = END_PHASE;
+	port_ccb->ppp_phase[0].state = S_INIT;
+	port_ccb->ppp_phase[1].state = S_INIT;
+	port_ccb->pppoe_phase.active = FALSE;
 }

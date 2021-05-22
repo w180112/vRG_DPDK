@@ -596,6 +596,7 @@ STATUS build_padt(tPPP_PORT *port_ccb)
 
 	rte_timer_stop(&port_ccb->ppp);
 	rte_timer_stop(&port_ccb->pppoe);
+	port_ccb->ppp_processing = FALSE;
 	if (quit_flag == TRUE) {
 		if (--cur_user == 0) {
 			printf("\n");

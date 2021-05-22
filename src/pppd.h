@@ -199,13 +199,16 @@ typedef struct {
 	unsigned char 			*user_id;
 	unsigned char 			*passwd;
 	rte_atomic16_t 			dhcp_bool;
-	BOOL				data_plane_start;
+	rte_atomic16_t 			ppp_bool;
+	BOOL					data_plane_start;
+	BOOL					ppp_processing;
 
 	addr_table_t 		addr_table[TOTAL_SOCK_PORT];
 
 	struct rte_timer 	pppoe;
 	struct rte_timer 	ppp;
 	struct rte_timer 	nat;
+	struct rte_timer 	link;
 }__rte_cache_aligned tPPP_PORT;
 
 extern tPPP_PORT		ppp_ports[MAX_USER];
@@ -228,11 +231,6 @@ typedef struct {
 	U8          	refp[ETH_MTU];
 	int	        	len;
 } tPPP_MBX;
-
-typedef struct nic_vendor {
-	const char 		*vendor;
-	U8				vendor_id;
-}nic_vendor_t;
 
 extern tPPP_PORT	ppp_ports[MAX_USER];
 

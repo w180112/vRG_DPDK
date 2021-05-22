@@ -37,6 +37,7 @@
 #include "pppd.h"
 #include "pppoeclient.h"
 #include "dhcp_codec.h"
+#include "init.h"
 
 extern struct rte_ring *rte_ring;
 extern nic_vendor_t 	vendor[];
@@ -191,7 +192,7 @@ static void cmd_help_parsed(__attribute__((unused)) void *parsed_result,
 					  "disconnect <user id | all> to disconnect session(s)\n"
 					  "connect <user id | all> to connect session(s)\n"
 					  "dhcp <start | stop> <user id | all> to start/stop dhcp server function\n"
-					  "quit/exit to quit entire process\n");
+					  "quit/exit to quit vRG system\n");
 }
 
 cmdline_parse_token_string_t cmd_help_help =

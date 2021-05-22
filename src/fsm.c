@@ -912,7 +912,6 @@ STATUS A_send_padt(__attribute__((unused)) struct rte_timer *tim, __attribute__(
 {
     if (build_padt(port_ccb) < 0)
         return FALSE;
-    port_ccb->phase--;
 
     return TRUE;
 }
@@ -924,7 +923,7 @@ STATUS A_create_close_to_lower_layer(__attribute__((unused)) struct rte_timer *t
     puts("Notify lower layer to close connection.");
     #endif
     port_ccb->cp = 0;
-    port_ccb->phase--;
+    port_ccb->phase -= 2;
     PPP_FSM(tim,port_ccb,E_CLOSE);
 
     return TRUE;

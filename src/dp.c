@@ -155,11 +155,10 @@ int wan_recvd(void)
 				continue;
 			}
 			vlan_header = (vlan_header_t *)(rte_pktmbuf_mtod(single_pkt, unsigned char *) + sizeof(struct rte_ether_hdr));
-#ifndef _NON_VLAN
+			user_index = (rte_be_to_cpu_16(vlan_header->tci_union.tci_value) & 0xFFF) - BASE_VLAN_ID;
 			/* We need to detect IGMP and multicast msg here */
 			if (unlikely(vlan_header->next_proto != rte_cpu_to_be_16(ETH_P_PPP_SES) && vlan_header->next_proto != rte_cpu_to_be_16(ETH_P_PPP_DIS))) {
 				if (vlan_header->next_proto == rte_cpu_to_be_16(FRAME_TYPE_IP)) {
-					user_index = (rte_be_to_cpu_16(vlan_header->tci_union.tci_value) & 0xFFF) - BASE_VLAN_ID;
 					//uint16_t vlan_id = rte_be_to_cpu_16(vlan_header->tci_union.tci_value) & 0xFFF;
 					ip_hdr = (struct rte_ipv4_hdr *)(rte_pktmbuf_mtod(single_pkt, unsigned char *) + sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t));
 					if (ip_hdr->next_proto_id == PROTO_TYPE_UDP) { //use 4001 vlan tag to detect IPTV and VOD packet
@@ -192,9 +191,13 @@ int wan_recvd(void)
 				rte_pktmbuf_free(single_pkt);
 				continue;
 			}
-#endif
+			
 			ppp_payload = ((ppp_payload_t *)((char *)eth_hdr + sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t) + sizeof(pppoe_header_t)));
 			if (unlikely(vlan_header->next_proto == rte_cpu_to_be_16(ETH_P_PPP_DIS) || (ppp_payload->ppp_protocol == rte_cpu_to_be_16(LCP_PROTOCOL) || ppp_payload->ppp_protocol == rte_cpu_to_be_16(AUTH_PROTOCOL) || ppp_payload->ppp_protocol == rte_cpu_to_be_16(IPCP_PROTOCOL)))) {
+				if (unlikely(rte_atomic16_read(&ppp_ports[user_index].ppp_bool) == 0)) {
+					rte_pktmbuf_free(single_pkt);
+					continue;
+				}
 				/* We need to maintain our ring queue */
 				if (rte_atomic16_read(&cp_recv_cums) != ((cp_recv_prod + 1) % 32)) {
 					rte_memcpy((mail+cp_recv_prod)->refp, eth_hdr, single_pkt->data_len);
@@ -221,7 +224,7 @@ int wan_recvd(void)
 			single_pkt->data_len -= 8;
 			eth_hdr = (struct rte_ether_hdr *)((char *)eth_hdr + 8);
 			vlan_header = (vlan_header_t *)(eth_hdr + 1);
-			user_index = (rte_be_to_cpu_16(vlan_header->tci_union.tci_value) & 0xFFF) - BASE_VLAN_ID;
+			
 			if (unlikely(ppp_ports[user_index].data_plane_start == FALSE)) {
 				rte_pktmbuf_free(single_pkt);
 				continue;
@@ -807,6 +810,7 @@ static int lsi_event_callback(U16 port_id, enum rte_eth_event_type type, void *p
 			(link.link_duplex == ETH_LINK_FULL_DUPLEX) ?
 				("full-duplex") : ("half-duplex"));
 		mail->refp[0] = LINK_UP;
+		*(U16 *)&(mail->refp[1]) = port_id;
 		mail->type = IPC_EV_TYPE_REG;
 		mail->len = 1;
 		//enqueue up event to main thread
@@ -815,6 +819,7 @@ static int lsi_event_callback(U16 port_id, enum rte_eth_event_type type, void *p
 	else {
 		printf("Port %d Link Down\n\n", port_id);
 		mail->refp[0] = LINK_DOWN;
+		*(U16 *)&(mail->refp[1]) = port_id;
 		mail->type = IPC_EV_TYPE_REG;
 		mail->len = 1;
 		//enqueue down event to main thread
