@@ -90,16 +90,30 @@ int main(int argc, char **argv)
 	if (rte_eth_dev_count_avail() < 2)
 		rte_exit(EXIT_FAILURE, "We need at least 2 eth ports.\n");
 	
+	lcore.ctrl_thread = rte_get_next_lcore(-1, 1, 0);
+	lcore.wan_thread = rte_get_next_lcore(lcore.ctrl_thread, 1, 0);
+	lcore.down_thread = rte_get_next_lcore(lcore.wan_thread, 1, 0);
+	lcore.lan_thread = rte_get_next_lcore(lcore.down_thread, 1, 0);
+	lcore.up_thread = rte_get_next_lcore(lcore.lan_thread, 1, 0);
+	lcore.gateway_thread = rte_get_next_lcore(lcore.up_thread, 1, 0);
+	lcore.timer_thread = rte_get_next_lcore(lcore.gateway_thread, 1, 0);
+
+
+	if (rte_eth_dev_socket_id(0) > 0 && rte_eth_dev_socket_id(0) != (int)rte_lcore_to_socket_id(lcore.lan_thread))
+		printf("WARNING, LAN port is on remote NUMA node to polling thread.\n\tPerformance will not be optimal.\n");
+	if (rte_eth_dev_socket_id(1) > 0 && rte_eth_dev_socket_id(1) != (int)rte_lcore_to_socket_id(lcore.wan_thread))
+		printf("WARNING, WAN port is on remote NUMA node to polling thread.\n\tPerformance will not be optimal.\n");
+
 	rte_prefetch2(ppp_ports);
 	/* init users and ports info */
 	{
 		FILE *account = fopen("pap-setup","r");
     	if (!account) {
         	perror("file doesnt exist");
-        	rte_exit(EXIT_FAILURE, "PPPoE subscriptor account/password cannot find\n");
+        	rte_exit(EXIT_FAILURE, "PPPoE subscriptor account/password cannot be found\n");
     	}
 		char user_info[MAX_USER][256], user_name[256], passwd[256];
-		uint16_t user_id = 0;
+		U16 user_id = 0;
 		for(int i=0; fgets(user_info[i],256,account) != NULL; i++) {
         	if (string_split(user_info[i], user_name, passwd, ' ') == FALSE) {
 				i--;
@@ -155,13 +169,7 @@ int main(int argc, char **argv)
 		rte_exit(EXIT_FAILURE, "error in creating flow");
 	}
 	#endif
-	lcore.ctrl_thread = rte_get_next_lcore(-1, 1, 0);
-	lcore.wan_thread = rte_get_next_lcore(lcore.ctrl_thread, 1, 0);
-	lcore.down_thread = rte_get_next_lcore(lcore.wan_thread, 1, 0);
-	lcore.lan_thread = rte_get_next_lcore(lcore.down_thread, 1, 0);
-	lcore.up_thread = rte_get_next_lcore(lcore.lan_thread, 1, 0);
-	lcore.gateway_thread = rte_get_next_lcore(lcore.up_thread, 1, 0);
-	lcore.timer_thread = rte_get_next_lcore(lcore.gateway_thread, 1, 0);
+	
 	rte_eal_remote_launch((lcore_function_t *)control_plane,NULL,lcore.ctrl_thread);
 	rte_eal_remote_launch((lcore_function_t *)wan_recvd,NULL,lcore.wan_thread);
 	rte_eal_remote_launch((lcore_function_t *)downlink,NULL,lcore.down_thread);
