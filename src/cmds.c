@@ -43,6 +43,7 @@ extern struct rte_ring *rte_ring;
 extern nic_vendor_t 	vendor[];
 extern uint8_t			vendor_id;
 extern dhcp_ccb_t 		dhcp_ccb[MAX_USER];
+extern FILE 			*fp;
 
 typedef struct cli_to_main_msg {
 	uint8_t type;
@@ -115,16 +116,17 @@ static void cmd_info_parsed(__attribute__((unused)) void *parsed_result,
 
 		cmdline_printf(cl, "WAN mac addr is %x:%x:%x:%x:%x:%x\n", ppp_ports[i].src_mac.addr_bytes[0], ppp_ports[i].src_mac.addr_bytes[1], ppp_ports[i].src_mac.addr_bytes[2], ppp_ports[i].src_mac.addr_bytes[3], ppp_ports[i].src_mac.addr_bytes[4], ppp_ports[i].src_mac.addr_bytes[5]);
 		cmdline_printf(cl, "LAN mac addr is %x:%x:%x:%x:%x:%x\n", ppp_ports[i].lan_mac.addr_bytes[0], ppp_ports[i].lan_mac.addr_bytes[1], ppp_ports[i].lan_mac.addr_bytes[2], ppp_ports[i].lan_mac.addr_bytes[3], ppp_ports[i].lan_mac.addr_bytes[4], ppp_ports[i].lan_mac.addr_bytes[5]);
-		if (rte_atomic16_read(&ppp_ports[i].dhcp_bool) == 1) 
+		if (rte_atomic16_read(&ppp_ports[i].dhcp_bool) == 1) {
 			cmdline_printf(cl, "DHCP server is on and IP addr is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 "\n", (rte_be_to_cpu_32(dhcp_ccb[i].dhcp_server_ip) & 0xff000000) >> 24, (rte_be_to_cpu_32(dhcp_ccb[i].dhcp_server_ip) & 0x00ff0000) >> 16, (rte_be_to_cpu_32(dhcp_ccb[i].dhcp_server_ip) & 0x0000ff00) >> 8, rte_be_to_cpu_32(dhcp_ccb[i].dhcp_server_ip) & 0x000000ff);
-		else if (rte_atomic16_read(&ppp_ports[i].dhcp_bool) == 0)
-			cmdline_printf(cl, "DHCP server is off\n");
-		for(U8 j=0; j<MAX_IP_POOL; j++) {
-			if (dhcp_ccb[i].ip_pool[j].used) {
-				rte_ether_format_addr(buf, 18, &dhcp_ccb[i].ip_pool[j].mac_addr);
-				cmdline_printf(cl, "DHCP ip pool index %" PRIu8 " IP addr %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 " is used by %s\n", j, (rte_be_to_cpu_32(dhcp_ccb[i].ip_pool[j].ip_addr) & 0xff000000) >> 24, (rte_be_to_cpu_32(dhcp_ccb[i].ip_pool[j].ip_addr) & 0x00ff0000) >> 16, (rte_be_to_cpu_32(dhcp_ccb[i].ip_pool[j].ip_addr) & 0x0000ff00) >> 8, rte_be_to_cpu_32(dhcp_ccb[i].ip_pool[j].ip_addr) & 0x000000ff, buf);
+			for(U8 j=0; j<MAX_IP_POOL; j++) {
+				if (dhcp_ccb[i].ip_pool[j].used) {
+					rte_ether_format_addr(buf, 18, &dhcp_ccb[i].ip_pool[j].mac_addr);
+					cmdline_printf(cl, "DHCP ip pool index %" PRIu8 " IP addr %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 " is used by %s\n", j, (rte_be_to_cpu_32(dhcp_ccb[i].ip_pool[j].ip_addr) & 0xff000000) >> 24, (rte_be_to_cpu_32(dhcp_ccb[i].ip_pool[j].ip_addr) & 0x00ff0000) >> 16, (rte_be_to_cpu_32(dhcp_ccb[i].ip_pool[j].ip_addr) & 0x0000ff00) >> 8, rte_be_to_cpu_32(dhcp_ccb[i].ip_pool[j].ip_addr) & 0x000000ff, buf);
+				}
 			}
 		}
+		else if (rte_atomic16_read(&ppp_ports[i].dhcp_bool) == 0)
+			cmdline_printf(cl, "DHCP server is off\n");
 		cmdline_printf(cl, "================================================================================\n");
 	}
 }
@@ -138,6 +140,36 @@ cmdline_parse_inst_t cmd_info = {
 	.help_str = "show user info",
 	.tokens = {        /* token list, NULL terminated */
 			(void *)&cmd_info_info_token,
+			NULL,
+	},
+};
+
+/**********************************************************/
+
+struct cmd_log_result {
+	cmdline_fixed_string_t log_token;
+};
+
+static void cmd_log_parsed(__attribute__((unused)) void *parsed_result,
+		struct cmdline *cl,
+		__attribute__((unused)) void *data)
+{
+	char log_buf[256];
+
+	while (fgets(log_buf, 256, fp) != NULL)
+        cmdline_printf(cl, "%s", log_buf);
+    cmdline_printf(cl, "\n");
+}
+
+cmdline_parse_token_string_t cmd_log_log_token =
+	TOKEN_STRING_INITIALIZER(struct cmd_log_result, log_token, "log");
+
+cmdline_parse_inst_t cmd_log = {
+	.f = cmd_log_parsed,  /* function to call */
+	.data = NULL,      /* 2nd arg of func */
+	.help_str = "show vRG log file",
+	.tokens = {        /* token list, NULL terminated */
+			(void *)&cmd_log_log_token,
 			NULL,
 	},
 };
@@ -342,5 +374,6 @@ cmdline_parse_ctx_t ctx[] = {
 		(cmdline_parse_inst_t *)&cmd_help,
 		(cmdline_parse_inst_t *)&cmd_connect,
 		(cmdline_parse_inst_t *)&cmd_dhcp,
+		(cmdline_parse_inst_t *)&cmd_log,
 	NULL,
 };

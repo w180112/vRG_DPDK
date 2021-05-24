@@ -198,10 +198,10 @@ typedef struct {
 	BOOL					is_pap_auth;
 	unsigned char 			*user_id;
 	unsigned char 			*passwd;
-	rte_atomic16_t 			dhcp_bool;
-	rte_atomic16_t 			ppp_bool;
+	rte_atomic16_t 			dhcp_bool; //boolean value for accept dhcp packets at data plane
+	rte_atomic16_t 			ppp_bool; //boolean value for accept ppp packets at data plane
 	BOOL					data_plane_start;
-	BOOL					ppp_processing;
+	BOOL					ppp_processing; //boolean value for checking ppp is disconnecting
 
 	addr_table_t 		addr_table[TOTAL_SOCK_PORT];
 

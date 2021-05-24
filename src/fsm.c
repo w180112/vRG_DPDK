@@ -47,7 +47,7 @@ tPPP_STATE_TBL  ppp_fsm_tbl[2][122] = {
 { S_STARTING,		E_OPEN,    							    		S_STARTING,		    { 0 }},
 
 /* these actions are "this layer finish" (tlf) and should retern "DOWN" event */
-{ S_STARTING,		E_CLOSE,    						    		S_INIT,			    { A_this_layer_finish, 0 }},
+{ S_STARTING,		E_CLOSE,    						    		S_INIT,			    { A_this_layer_finish, A_send_padt, 0 }},
 
 /*---------------------------------------------------------------------------*/
 { S_CLOSED,			E_UP, 							      		    S_CLOSED,			{ 0 }},
@@ -86,7 +86,7 @@ tPPP_STATE_TBL  ppp_fsm_tbl[2][122] = {
 
 { S_STOPPED,		E_OPEN,     						   			S_STOPPED,		    { A_create_down_event, A_create_up_event, 0 }},
 
-{ S_STOPPED,		E_CLOSE,     						   			S_CLOSED,		    { 0 }},
+{ S_STOPPED,		E_CLOSE,     						   			S_CLOSED,		    { A_send_padt, 0 }},
 
 { S_STOPPED,		E_RECV_GOOD_CONFIG_REQUEST,						S_ACK_SENT,		    { A_init_restart_config, A_send_config_request, A_send_config_ack, 0 }},
 
@@ -912,6 +912,7 @@ STATUS A_send_padt(__attribute__((unused)) struct rte_timer *tim, __attribute__(
 {
     if (build_padt(port_ccb) < 0)
         return FALSE;
+    port_ccb->phase = END_PHASE;
 
     return TRUE;
 }

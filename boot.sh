@@ -13,6 +13,8 @@ cd $path/lib/dpdk && meson $path/lib/dpdk_build || exit 1
 cd $path/lib/dpdk_build
 sudo ninja && sudo ninja install || exit 1
 sudo ldconfig || exit 1
+cd $path/lib/dpdk-kmods/linux/igb_uio
+make || exit 1
 cd $path/lib/libutil
 autoreconf --install || exit 1
 ./configure || exit 1

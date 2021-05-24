@@ -45,6 +45,7 @@ U8						ppp_max_msg_per_query;
 rte_atomic16_t			cp_recv_cums;
 
 tPPP_PORT				ppp_ports[MAX_USER];
+U8 						cur_user;
 
 extern int 				timer_loop(__attribute__((unused)) void *arg);
 extern STATUS			PPP_FSM(struct rte_timer *ppp, tPPP_PORT *port_ccb, U16 event);
@@ -84,7 +85,8 @@ int main(int argc, char **argv)
 		rte_exit(EXIT_FAILURE, "rte initlize fail.\n");
 
 	fp = fopen("./vrg.log","w+");
-	eal_log_set_default(fp);
+	if (fp)
+        rte_openlog_stream(fp);
 	if (rte_lcore_count() < 8)
 		rte_exit(EXIT_FAILURE, "We need at least 8 cores.\n");
 	if (rte_eth_dev_count_avail() < 2)
@@ -156,7 +158,7 @@ int main(int argc, char **argv)
 	rte_atomic16_init(&cp_recv_cums);
 
 	dhcp_init();
-
+	cur_user = 0;
 	#ifdef RTE_LIBRTE_PDUMP
 	/* initialize packet capture framework */
 	rte_pdump_init();
@@ -211,12 +213,14 @@ void PPP_ter(void)
 
 void PPP_bye(tPPP_PORT *port_ccb)
 {
-	static U8 total_user = MAX_USER;
-
+	rte_timer_stop(&(port_ccb->ppp));
+	rte_timer_stop(&(port_ccb->pppoe));
+	rte_atomic16_set(&port_ccb->ppp_bool, 0);
    	switch(port_ccb->phase) {
 		case END_PHASE:
-			if (quit_flag == TRUE) {
-				if ((--total_user) == 0) {
+			port_ccb->ppp_processing = FALSE;
+			if ((--cur_user) == 0) {
+				if (quit_flag == TRUE) {
 					rte_ring_free(rte_ring);
 					rte_ring_free(uplink_q);
 					rte_ring_free(downlink_q);
@@ -233,16 +237,22 @@ void PPP_bye(tPPP_PORT *port_ccb)
 			}
 			break;
    		case PPPOE_PHASE:
+			port_ccb->phase--;
+		   	PPP_bye(port_ccb);
     		break;
     	case LCP_PHASE:
+			port_ccb->ppp_processing = TRUE;
     		port_ccb->cp = 0;
+			rte_timer_stop(&(port_ccb->ppp));
     		PPP_FSM(&(port_ccb->ppp),port_ccb,E_CLOSE);
     		break;
     	case DATA_PHASE:
     		port_ccb->phase--;
     		port_ccb->data_plane_start = FALSE;
     	case IPCP_PHASE:
+			port_ccb->ppp_processing = TRUE;
     		port_ccb->cp = 1;
+			rte_timer_stop(&(port_ccb->ppp));
     		PPP_FSM(&(port_ccb->ppp),port_ccb,E_CLOSE);
     		break;
     	default:
@@ -309,7 +319,6 @@ int pppdInit(void)
  ***************************************************************/
 int ppp_init(void)
 {
-	U8 					total_user = MAX_USER;
 	tPPP_MBX			*mail[BURST_SIZE];
 	int 				cp;
 	U16					event, session_index = 0;
@@ -405,20 +414,7 @@ int ppp_init(void)
 						RTE_LOG(INFO,EAL,"Session 0x%x connection disconnected.\n",rte_be_to_cpu_16(ppp_ports[session_index].session_id));
 						ppp_ports[session_index].phase = END_PHASE;
 						ppp_ports[session_index].pppoe_phase.active = FALSE;
-						rte_timer_stop(&(ppp_ports[session_index].ppp));
-						rte_timer_stop(&(ppp_ports[session_index].pppoe));
-						ppp_ports[session_index].ppp_processing = FALSE;
-						if (quit_flag == TRUE) {
-							if ((--total_user) == 0) {
-                            	rte_ring_free(rte_ring);
-								rte_ring_free(uplink_q);
-								rte_ring_free(downlink_q);
-								rte_ring_free(gateway_q);
-                            	fclose(fp);
-								cmdline_stdin_exit(cl);
-								exit(0);
-							}
-						}
+						PPP_bye(&ppp_ports[session_index]);
 						continue;		
 					case PADM:
 						RTE_LOG(INFO,EAL,"recv active discovery message\n");
@@ -463,12 +459,7 @@ int ppp_init(void)
 									printf("Error! User %u is disconnecting pppoe connection, please wait...\nvRG> ", j + 1);
 									continue;
 								}
-								ppp_ports[j].ppp_processing = TRUE;
-								ppp_ports[j].phase--;
-    							ppp_ports[j].data_plane_start = FALSE;
-    							ppp_ports[j].cp = 1;
-    							PPP_FSM(&(ppp_ports[j].ppp), &ppp_ports[j], E_CLOSE);
-								rte_atomic16_set(&ppp_ports[j].ppp_bool, 0);
+								PPP_bye(&ppp_ports[j]);
 							}
 						}
 						else {
@@ -480,12 +471,7 @@ int ppp_init(void)
 								printf("Error! User %u is disconnecting pppoe connection, please wait...\nvRG> ", mail[i]->refp[1]);	
 								break;
 							}
-							ppp_ports[mail[i]->refp[1]-1].ppp_processing = TRUE;
-							ppp_ports[mail[i]->refp[1]-1].phase--;
-    						ppp_ports[mail[i]->refp[1]-1].data_plane_start = FALSE;
-    						ppp_ports[mail[i]->refp[1]-1].cp = 1;
-    						PPP_FSM(&(ppp_ports[mail[i]->refp[1]-1].ppp), &ppp_ports[mail[i]->refp[1]-1], E_CLOSE);
-							rte_atomic16_set(&ppp_ports[mail[i]->refp[1]-1].ppp_bool, 0);
+							PPP_bye(&ppp_ports[mail[i]->refp[1]-1]);
 						}
 						break;
 					case CLI_CONNECT:
@@ -495,6 +481,7 @@ int ppp_init(void)
 									printf("Error! User %u is in a pppoe connection\nvRG> ", j + 1);
 									continue;
 								}
+								cur_user++;
 								ppp_ports[j].phase = PPPOE_PHASE;
 								ppp_ports[j].pppoe_phase.max_retransmit = MAX_RETRAN;
 								ppp_ports[j].pppoe_phase.timer_counter = 0;
@@ -510,6 +497,7 @@ int ppp_init(void)
 								printf("Error! User %u is in a pppoe connection\nvRG> ", mail[i]->refp[1]);
 								break;
 							}
+							cur_user++;
 							ppp_ports[mail[i]->refp[1]-1].phase = PPPOE_PHASE;
 							ppp_ports[mail[i]->refp[1]-1].pppoe_phase.max_retransmit = MAX_RETRAN;
 							ppp_ports[mail[i]->refp[1]-1].pppoe_phase.timer_counter = 0;
@@ -558,8 +546,11 @@ int ppp_init(void)
 						break;				
 					case CLI_QUIT:
 						quit_flag = TRUE;
-						for(int j=0; j<MAX_USER; j++)
+						for(int j=0; j<MAX_USER; j++) {
+							if (ppp_ports[j].phase == END_PHASE)
+								cur_user++;
  							PPP_bye(&(ppp_ports[j]));
+						}
 						break;
 					default:
 						;

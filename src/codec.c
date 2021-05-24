@@ -15,6 +15,7 @@ extern struct rte_ether_addr wan_mac;
 extern struct cmdline 		*cl;
 extern FILE					*fp;
 extern BOOL					quit_flag;
+extern U8 					cur_user;
 
 /*============================ DECODE ===============================*/
 
@@ -566,7 +567,6 @@ STATUS build_padt(tPPP_PORT *port_ccb)
 	struct rte_ether_hdr 	eth_hdr;
 	vlan_header_t		vlan_header;
 	pppoe_header_t 		pppoe_header;
-	static uint16_t		cur_user = MAX_USER;
 
 	rte_ether_addr_copy(&port_ccb->src_mac, &eth_hdr.s_addr);
 	rte_ether_addr_copy(&port_ccb->dst_mac, &eth_hdr.d_addr);
@@ -594,22 +594,7 @@ STATUS build_padt(tPPP_PORT *port_ccb)
 	port_ccb->pppoe_phase.active = FALSE;
 	printf("User %u PPPoE session closed successfully\nvRG> ", port_ccb->vlan - BASE_VLAN_ID + 1);
 
-	rte_timer_stop(&port_ccb->ppp);
-	rte_timer_stop(&port_ccb->pppoe);
-	port_ccb->ppp_processing = FALSE;
-	if (quit_flag == TRUE) {
-		if (--cur_user == 0) {
-			printf("\n");
-			//rte_free(wan_mac);
-    		rte_ring_free(rte_ring);
-			rte_ring_free(uplink_q);
-			rte_ring_free(downlink_q);
-			rte_ring_free(gateway_q);
-    		fclose(fp);
-			cmdline_stdin_exit(cl);
-			exit(0);
-		}
-	}
+	PPP_bye(port_ccb);
 
 	return TRUE;
 }
