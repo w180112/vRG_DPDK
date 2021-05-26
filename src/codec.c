@@ -153,6 +153,8 @@ STATUS PPP_decode_frame(tPPP_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_head
 			case ECHO_REQUEST:
 				if (port_ccb->phase < LCP_PHASE)
     				return FALSE;
+				rte_timer_stop(&(port_ccb->ppp_alive));
+				rte_timer_reset(&(port_ccb->ppp_alive), ppp_interval*rte_get_timer_hz(), SINGLE, TIMER_LOOP_LCORE, (rte_timer_cb_t)exit_ppp, port_ccb);
 				*event = E_RECV_ECHO_REPLY_REQUEST_DISCARD_REQUEST;
 				return TRUE;
 			case ECHO_REPLY:

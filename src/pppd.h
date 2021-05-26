@@ -208,7 +208,8 @@ typedef struct {
 	struct rte_timer 	pppoe;
 	struct rte_timer 	ppp;
 	struct rte_timer 	nat;
-	struct rte_timer 	link;
+	struct rte_timer 	link; //for physical link checking timer
+	struct rte_timer 	ppp_alive; //for checking PPP connection alive
 }__rte_cache_aligned tPPP_PORT;
 
 extern tPPP_PORT		ppp_ports[MAX_USER];
@@ -216,6 +217,7 @@ extern U32				ppp_interval;
 extern U8				ppp_max_msg_per_query;
 
 extern void 		PPP_int(void);
+extern void 		exit_ppp(__attribute__((unused)) struct rte_timer *tim, tPPP_PORT *port_ccb);
 
 int 				ppp_init(void);
 int 				pppdInit(void);

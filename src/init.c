@@ -63,6 +63,7 @@ int sys_init(struct cmdline *cl)
 		rte_timer_init(&(ppp_ports[i].ppp));
 		rte_timer_init(&(ppp_ports[i].nat));
 		rte_timer_init(&(ppp_ports[i].link));
+		rte_timer_init(&(ppp_ports[i].ppp_alive));
 		ppp_ports[i].data_plane_start = FALSE;
 		rte_atomic16_init(&ppp_ports[i].dhcp_bool);
 		rte_atomic16_init(&ppp_ports[i].ppp_bool);

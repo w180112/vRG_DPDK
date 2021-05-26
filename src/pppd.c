@@ -283,7 +283,7 @@ void PPP_int(void)
  **************************************************************/
 int pppdInit(void)
 {	
-	ppp_interval = (U32)(3*SECOND); 
+	ppp_interval = 20; 
     
     //--------- default of all ports ----------
     for(int i=0; i<MAX_USER; i++) {
