@@ -4,9 +4,9 @@
 
 #define MAX_PATTERN_NUM		4
 
-struct rte_flow *generate_flow(uint16_t port_id, uint16_t rx_q, struct rte_flow_error *error);
+struct rte_flow *generate_flow(U16 port_id, U16 rx_q, struct rte_flow_error *error);
 
-struct rte_flow *generate_flow(uint16_t port_id, uint16_t rx_q, struct rte_flow_error *error)
+struct rte_flow *generate_flow(U16 port_id, U16 rx_q, struct rte_flow_error *error)
 {
 	struct rte_flow_attr attr;
 	struct rte_flow_item pattern[MAX_PATTERN_NUM];

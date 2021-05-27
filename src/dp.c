@@ -39,11 +39,11 @@ extern struct rte_mempool 		*direct_pool[PORT_AMOUNT], *indirect_pool[PORT_AMOUN
 extern struct rte_ring 			*rte_ring;
 extern struct rte_ring 			*gateway_q, *uplink_q, *downlink_q;
 extern rte_atomic16_t			cp_recv_cums;
-uint8_t 						cp_recv_prod;
-extern uint8_t					vendor_id;
+U8 								cp_recv_prod;
+extern U8						vendor_id;
 
-static uint16_t 				nb_rxd = RX_RING_SIZE;
-static uint16_t 				nb_txd = TX_RING_SIZE;
+static U16 						nb_rxd = RX_RING_SIZE;
+static U16 						nb_txd = TX_RING_SIZE;
 
 static struct rte_eth_conf port_conf_default = {
 	.rxmode = { .max_rx_pkt_len = RTE_ETHER_MAX_LEN, }, 
@@ -54,24 +54,24 @@ static struct rte_eth_conf port_conf_default = {
 	.intr_conf = {
         .lsc = 1, /**< link status interrupt feature enabled */ },
 };
-extern uint16_t 	get_checksum(const void *const addr, const size_t bytes);
+extern U16 	get_checksum(const void *const addr, const size_t bytes);
 extern STATUS 		PPP_FSM(struct rte_timer *ppp, tPPP_PORT *port_ccb, U16 event);
-int 				PPP_PORT_INIT(uint16_t port);
+int 				PPP_PORT_INIT(U16 port);
 int 				wan_recvd(void);
 int 				control_plane_dequeue(tPPP_MBX **mail);
 int 				lan_recvd(void);
 void 				drv_xmit(U8 *mu, U16 mulen);
-static int			lsi_event_callback(uint16_t port_id, enum rte_eth_event_type type, void *param);
+static int			lsi_event_callback(U16 port_id, enum rte_eth_event_type type, void *param);
 
-int PPP_PORT_INIT(uint16_t port/*, uint32_t lcore_id*/)
+int PPP_PORT_INIT(U16 port)
 {
 	struct rte_eth_conf port_conf = port_conf_default;
 	struct rte_eth_dev_info dev_info;
 	struct rte_eth_rxconf rxq_conf;
 	struct rte_eth_txconf *txconf;
-	const uint16_t rx_rings = 1, tx_rings = 4;
+	const U16 rx_rings = 1, tx_rings = 4;
 	int retval;
-	uint16_t q;
+	U16 q;
 
 	if (vendor_id > VMXNET3)
 		port_conf.intr_conf.lsc = 0;
@@ -131,13 +131,13 @@ int wan_recvd(void)
 	struct rte_ipv4_hdr *ip_hdr;
 	struct rte_icmp_hdr	*icmphdr;
 	struct rte_mbuf 	*pkt[BURST_SIZE];
-	uint16_t 			ori_port_id, nb_rx;
+	U16 				ori_port_id, nb_rx;
 	ppp_payload_t 		*ppp_payload;
 	tPPP_MBX 			*mail = rte_malloc(NULL,sizeof(tPPP_MBX)*32,65536);
 	int 				i;
-	uint32_t 			icmp_new_cksum;
+	U32 				icmp_new_cksum;
 	char 				*cur;
-	uint16_t 			user_index;
+	U16 				user_index;
 	
 	usleep(500000);
 	for(;;) {
@@ -159,10 +159,10 @@ int wan_recvd(void)
 			/* We need to detect IGMP and multicast msg here */
 			if (unlikely(vlan_header->next_proto != rte_cpu_to_be_16(ETH_P_PPP_SES) && vlan_header->next_proto != rte_cpu_to_be_16(ETH_P_PPP_DIS))) {
 				if (vlan_header->next_proto == rte_cpu_to_be_16(FRAME_TYPE_IP)) {
-					//uint16_t vlan_id = rte_be_to_cpu_16(vlan_header->tci_union.tci_value) & 0xFFF;
+					//U16 vlan_id = rte_be_to_cpu_16(vlan_header->tci_union.tci_value) & 0xFFF;
 					ip_hdr = (struct rte_ipv4_hdr *)(rte_pktmbuf_mtod(single_pkt, unsigned char *) + sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t));
 					if (ip_hdr->next_proto_id == PROTO_TYPE_UDP) { //use 4001 vlan tag to detect IPTV and VOD packet
-						uint16_t vlan_id = rte_be_to_cpu_16(vlan_header->tci_union.tci_value) & 0xFFF;
+						U16 vlan_id = rte_be_to_cpu_16(vlan_header->tci_union.tci_value) & 0xFFF;
 						struct rte_udp_hdr *udp_hdr = (struct rte_udp_hdr *)(ip_hdr + 1);
 						if (likely(vlan_id == MULTICAST_TAG || ((ip_hdr->dst_addr) & 0xFFFFFF00) == 10)) { // VOD pkt dst ip is always 10.x.x.x
 							#ifdef _NON_VLAN
@@ -251,7 +251,7 @@ int wan_recvd(void)
 
 					if (((icmp_new_cksum = icmp_cksum_diff + icmphdr->icmp_cksum) >> 16) != 0)
 						icmp_new_cksum = (icmp_new_cksum & 0xFFFF) + (icmp_new_cksum >> 16);
-					icmphdr->icmp_cksum = (uint16_t)icmp_new_cksum;
+					icmphdr->icmp_cksum = (U16)icmp_new_cksum;
 					ip_hdr->hdr_checksum = 0;
 					ip_hdr->hdr_checksum = rte_ipv4_cksum(ip_hdr);
 					#ifdef _NON_VLAN
@@ -272,9 +272,9 @@ int wan_recvd(void)
 			}
 		}
 		if (likely(total_tx > 0)) {
-			uint16_t nb_tx = rte_eth_tx_burst(0, gen_port_q, pkt, total_tx);
+			U16 nb_tx = rte_eth_tx_burst(0, gen_port_q, pkt, total_tx);
 			if (unlikely(nb_tx < total_tx)) {
-				for(uint16_t buf=nb_tx; buf<total_tx; buf++)
+				for(U16 buf=nb_tx; buf<total_tx; buf++)
 					rte_pktmbuf_free(pkt[buf]);
 			}
 			total_tx = 0;
@@ -287,7 +287,7 @@ int ds_mc(void)
 {
 	struct rte_mbuf 	*pkt[BURST_SIZE], *single_pkt;
 	uint64_t 			total_tx;
-	uint16_t			burst_size;
+	U16			burst_size;
 	struct rte_ipv4_hdr *ip_hdr;
 	vlan_header_t		*vlan_header;
 	int 				i;
@@ -305,7 +305,7 @@ int ds_mc(void)
 			rte_prefetch0(rte_pktmbuf_mtod(single_pkt, void *));
 			/* Need to check whether the packet is multicast or VOD */
 			vlan_header = (vlan_header_t *)(rte_pktmbuf_mtod(single_pkt, unsigned char *) + sizeof(struct rte_ether_hdr));
-			uint16_t vlan_id = rte_be_to_cpu_16(vlan_header->tci_union.tci_value) & 0xFFF;
+			U16 vlan_id = rte_be_to_cpu_16(vlan_header->tci_union.tci_value) & 0xFFF;
 			ip_hdr = (struct rte_ipv4_hdr *)(rte_pktmbuf_mtod(single_pkt, unsigned char *) + sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t));
 			if (likely(vlan_id == MULTICAST_TAG || ((ip_hdr->dst_addr) & 0xFFFFFF00) == 10)) // VOD pkt dst ip is always 10.x.x.x
 				pkt[total_tx++] = single_pkt;
@@ -313,9 +313,9 @@ int ds_mc(void)
 				//rte_pktmbuf_free(single_pkt);
 		}
 		if (likely(total_tx > 0)) {
-			uint16_t nb_tx = rte_eth_tx_burst(0, mc_port_q, pkt, total_tx);
+			U16 nb_tx = rte_eth_tx_burst(0, mc_port_q, pkt, total_tx);
 			if (unlikely(nb_tx < total_tx)) {
-				for(uint16_t buf=nb_tx; buf<total_tx; buf++)
+				for(U16 buf=nb_tx; buf<total_tx; buf++)
 					rte_pktmbuf_free(pkt[buf]);
 			}
 		}
@@ -330,7 +330,7 @@ int downlink(void)
 	struct rte_ether_hdr *eth_hdr;
 	vlan_header_t		*vlan_header;
 	struct rte_ipv4_hdr *ip_hdr;
-	uint16_t 			burst_size, user_index;
+	U16 				burst_size, user_index;
 	struct rte_mbuf 	*pkt[BURST_SIZE], *single_pkt;
 	int 				i;
 	int 				pkt_num;
@@ -373,7 +373,7 @@ int downlink(void)
 
 int control_plane_dequeue(tPPP_MBX **mail)
 {
-	uint16_t burst_size;
+	U16 burst_size;
 
 	for(;;) {
 		burst_size = rte_ring_dequeue_burst(rte_ring,(void **)mail,BURST_SIZE,NULL);
@@ -388,9 +388,9 @@ int uplink(void)
 {
 	struct rte_mbuf 	*pkt[BURST_SIZE], *single_pkt;
 	uint64_t 			total_tx;
-	uint16_t			burst_size;
+	U16					burst_size;
 	struct rte_ether_hdr *eth_hdr;
-	uint16_t			user_index;
+	U16					user_index;
 	vlan_header_t		*vlan_header;
 	struct rte_ipv4_hdr *ip_hdr;
 	int 				i;
@@ -407,7 +407,7 @@ int uplink(void)
 			eth_hdr = rte_pktmbuf_mtod(single_pkt,struct rte_ether_hdr*);
 			vlan_header = (vlan_header_t *)(eth_hdr + 1);
 			user_index = (rte_be_to_cpu_16(vlan_header->tci_union.tci_value) & 0xFFF) - BASE_VLAN_ID;
-			ip_hdr = (struct rte_ipv4_hdr *)rte_pktmbuf_adj(single_pkt, (uint16_t)(sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t)));
+			ip_hdr = (struct rte_ipv4_hdr *)rte_pktmbuf_adj(single_pkt, (U16)(sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t)));
 			if (ip_hdr->next_proto_id == PROTO_TYPE_UDP)
 				pkt_num = encaps_udp(&single_pkt, eth_hdr, vlan_header, ip_hdr, user_index);
 			else if (ip_hdr->next_proto_id == PROTO_TYPE_TCP)
@@ -435,7 +435,7 @@ int us_mc(void)
 {
 	struct rte_mbuf 	*pkt[BURST_SIZE], *single_pkt;
 	uint64_t 			total_tx;
-	uint16_t			burst_size;
+	U16			burst_size;
 	int 				i;
 	
 	for(i=0; i<BURST_SIZE; i++)
@@ -466,15 +466,12 @@ int lan_recvd(void)
 	struct rte_ipv4_hdr *ip_hdr;
 	struct rte_icmp_hdr *icmphdr;
 	struct rte_mbuf 	*pkt[BURST_SIZE];
-	//unsigned char 		mac_addr[6];
 	char 				*cur;
 	int 				i;
 	pppoe_header_t 		*pppoe_header;
-	uint16_t 			nb_tx, nb_rx, user_index;
-	//uint32_t			lan_ip = rte_cpu_to_be_32(0xc0a80201); //192.168.2.1
+	U16 				nb_tx, nb_rx, user_index;
 
 	usleep(500000);
-	//rte_eth_macaddr_get(0, (struct rte_ether_addr *)mac_addr);
 	for(;;) {
 		nb_rx = rte_eth_rx_burst(0, gen_port_q, pkt, BURST_SIZE);
 		for(i=0; i<nb_rx; i++) {
@@ -533,8 +530,8 @@ int lan_recvd(void)
 						rte_pktmbuf_free(single_pkt);
 						continue;
 					}
-					uint32_t 			new_port_id;
-					uint32_t			icmp_new_cksum;
+					U32 		new_port_id;
+					U32			icmp_new_cksum;
 
 					nat_icmp_learning(eth_hdr, ip_hdr, icmphdr, &new_port_id, ppp_ports[user_index].addr_table);
 					ip_hdr->src_addr = ppp_ports[user_index].ipv4;
@@ -545,7 +542,7 @@ int lan_recvd(void)
 
 					if (((icmp_new_cksum = icmphdr->icmp_cksum + ppp_ports[user_index].addr_table[new_port_id].port_id - rte_cpu_to_be_16(new_port_id)) >> 16) != 0)
 						icmp_new_cksum = (icmp_new_cksum & 0xFFFF) + (icmp_new_cksum >> 16);
-					icmphdr->icmp_cksum = (uint16_t)icmp_new_cksum;
+					icmphdr->icmp_cksum = (U16)icmp_new_cksum;
 						
 					rte_ether_addr_copy(&ppp_ports[user_index].src_mac, &eth_hdr->s_addr);
 					rte_ether_addr_copy(&ppp_ports[user_index].dst_mac, &eth_hdr->d_addr);
@@ -559,7 +556,7 @@ int lan_recvd(void)
 					pppoe_header->code = 0;
 					pppoe_header->session_id = ppp_ports[user_index].session_id;
 					pppoe_header->length = rte_cpu_to_be_16((single_pkt->pkt_len) - 18 + 2);
-					*((uint16_t *)(cur+sizeof(struct rte_ether_hdr)+sizeof(vlan_header_t)+sizeof(pppoe_header_t))) = rte_cpu_to_be_16(IP_PROTOCOL);
+					*((U16 *)(cur+sizeof(struct rte_ether_hdr)+sizeof(vlan_header_t)+sizeof(pppoe_header_t))) = rte_cpu_to_be_16(IP_PROTOCOL);
 					single_pkt->data_off -= 8;
 					single_pkt->pkt_len += 8;
 					single_pkt->data_len += 8;
@@ -648,27 +645,21 @@ int lan_recvd(void)
 /* process RG function such as DHCP server, gateway ARP replying */
 int gateway(void)
 {
-	/*struct rte_udp_hdr 	*udphdr;
-	char 				*cur;
-	uint32_t 			new_port_id;
-	pppoe_header_t 		*pppoe_header;*/
 	struct rte_mbuf 	*pkt[BURST_SIZE], *single_pkt;
-	//uint64_t 			total_tx;
-	uint16_t			burst_size, user_index;
+	U16					burst_size, user_index;
 	struct rte_ether_hdr *eth_hdr;
 	vlan_header_t		*vlan_header;
 	struct rte_ipv4_hdr *ip_hdr;
 	int 				i, ret;
 	struct rte_arp_hdr	*arphdr;
 	struct rte_icmp_hdr *icmphdr;
-	struct rte_udp_hdr *udp_hdr;
+	struct rte_udp_hdr 	*udp_hdr;
 
 	//for(i=0; i<BURST_SIZE; i++)
 		//pkt[i] = rte_pktmbuf_alloc(direct_pool[0]);
 
 	for(;;) {
 		burst_size = rte_ring_dequeue_burst(gateway_q,(void **)pkt,BURST_SIZE,NULL);
-		//total_tx = 0;
 		for(i=0; i<burst_size; i++) {
 			single_pkt = pkt[i];
 			rte_prefetch0(rte_pktmbuf_mtod(single_pkt, void *));

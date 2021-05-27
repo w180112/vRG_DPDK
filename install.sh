@@ -13,3 +13,4 @@ path=$(get_script_dir)
 cd $path/src
 make
 cd $path
+cp $path/build/vrg /usr/local/bin/ || exit 1

@@ -22,27 +22,27 @@
 #include "pppd.h"
 
 void 		nat_rule_timer(__attribute__((unused)) struct rte_timer *tim, tPPP_PORT ppp_ports[]);
-uint16_t 	get_checksum(const void *const addr, const size_t bytes);
+U16 	get_checksum(const void *const addr, const size_t bytes);
 
 #pragma GCC diagnostic push  // require GCC 4.6
 #pragma GCC diagnostic ignored "-Wcast-qual"
-uint16_t get_checksum(const void *const addr, const size_t bytes)
+U16 get_checksum(const void *const addr, const size_t bytes)
 {
-	const uint16_t 	*word;
-	uint32_t 		sum;
-	uint16_t 		checksum;
-	size_t 			nleft;
+	const U16 	*word;
+	U32 		sum;
+	U16 		checksum;
+	size_t 		nleft;
 
 	assert(addr);
 	assert(bytes > 8 - 1);
-	word = (const uint16_t *)addr;
+	word = (const U16 *)addr;
 	nleft = bytes;
   
 	for(sum=0; nleft>1; nleft-=2) {
     	sum += *word;
       	++word;
     }
-  	sum += nleft ? *(uint8_t *)word : 0;
+  	sum += nleft ? *(U8 *)word : 0;
   	sum = (sum >> 16) + (sum & 0xffff);
   	sum += (sum >> 16);
   
@@ -52,7 +52,7 @@ uint16_t get_checksum(const void *const addr, const size_t bytes)
 
 void nat_rule_timer(__attribute__((unused)) struct rte_timer *tim, tPPP_PORT ppp_ports[])
 {
-	uint16_t user_id;
+	U16 user_id;
 	for(user_id=0; user_id<MAX_USER; user_id++) {
 		for(int i=0; i<TOTAL_SOCK_PORT-1; i++) {
 			if (rte_atomic16_read(&ppp_ports[user_id].addr_table[i].is_fill) == 1) {

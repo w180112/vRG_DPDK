@@ -53,7 +53,7 @@ BIT16 dhcp_decode(dhcp_ccb_t *dhcp_ccb, struct rte_ether_hdr *eth_hdr, vlan_head
         if (cur->opt_type == DHCP_ISP_ID)
             return 0;
         else if (cur->opt_type == DHCP_MSG_TYPE) {
-            switch (*(uint8_t *)(cur+1)) {
+            switch (*(U8 *)(cur+1)) {
             case DHCP_DISCOVER:
                 event = E_DISCOVER;
                 break;

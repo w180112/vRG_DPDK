@@ -22,3 +22,4 @@ make || exit 1
 cd $path/src
 make
 cd $path
+sudo cp $path/build/vrg /usr/local/bin/ || exit 1

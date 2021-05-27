@@ -15,7 +15,6 @@
 #include				<rte_malloc.h>
 #include 				<rte_ether.h>
 #include 				<rte_log.h>
-#include				<eal_private.h>
 #include 				<cmdline_rdline.h>
 #include 				<cmdline_parse.h>
 #include 				<cmdline_parse_string.h>
@@ -283,7 +282,7 @@ void PPP_int(void)
  **************************************************************/
 int pppdInit(void)
 {	
-	ppp_interval = 20; 
+	ppp_interval = 120; 
     
     //--------- default of all ports ----------
     for(int i=0; i<MAX_USER; i++) {
@@ -582,13 +581,13 @@ int ppp_init(void)
 
 BOOL is_valid(char *token, char *next)
 {
-	for(uint32_t i=0; i<strlen(token); i++)	{
+	for(U32 i=0; i<strlen(token); i++)	{
 		if (*(token+i) < 0x30 || (*(token+i) > 0x39 && *(token+i) < 0x40) || (*(token+i) > 0x5B && *(token+i) < 0x60) || *(token+i) > 0x7B) {
 			if (*(token+i) != 0x2E)
 				return FALSE;
 		}
 	}
-	for(uint32_t i=0; i<strlen(next); i++) {
+	for(U32 i=0; i<strlen(next); i++) {
 		if (*(next+i) < 0x30 || (*(next+i) > 0x39 && *(next+i) < 0x40) || (*(next+i) > 0x5B && *(next+i) < 0x60) || *(next+i) > 0x7B) {
 			if (*(next+i) != 0x2E)
 				return FALSE;

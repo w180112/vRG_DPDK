@@ -13,6 +13,8 @@ Package required: make gcc pip3 pyelftools pkg-config meson libnuma-dev autoconf
 
 ## How to use:
 
+In this project 2 DPDK ethernet ports are needed, the first is used to receive packets from/send packets to LAN port and the second is used to receive packets from/send packets to WAN port.
+
 Git clone this repository
 
 	# git clone https://github.com/w180112/vRG.git
@@ -32,11 +34,13 @@ For just vRG build, please use install.sh
 
 Then
 
-	# ./src/build/vrg <dpdk eal options>
+	# vrg <dpdk eal options>
 
 e.g.
 
-	# ./src/build/vrg -l 0-7 -n 4
+	# vrg -l 0-7 -n 4
+
+After vRG system started, there is a CLI. User can input "?" command to show available commands.
 
 Use command ***connect*** or ***disconnect*** to determine which user start/stop a PPPoE connection, e.g.: to start all subscribers PPPoE connection defined in ***pppd.h***.
 
@@ -50,9 +54,13 @@ To disconnect all subscribers PPPoE connection.
 
 	vRG> disconnect all
 
-In this project 2 DPDK ethernet ports are needed, the first is used to receive packets from/send packets to LAN port and the second is used to receive packets from/send packets to WAN port.
+To start specific subscriber 1 DHCP server.
 
-After Sessions established, there is a CLI. User can input "?" command to show available commands.
+	vRG> dhcp-server start 1
+
+To stop all subscribers DHCP server.
+
+	vRG> dhcp-server stop all
 
 To remove the binary files
 

@@ -13,7 +13,7 @@ extern int uplink(void);
 extern int downlink(void);
 extern int gateway(void);
 extern int lan_recvd(void);
-extern int PPP_PORT_INIT(uint16_t port/*, uint32_t lcore_id*/);
+extern int PPP_PORT_INIT(U16 port);
 extern int control_plane_dequeue(tPPP_MBX **mail);
 
 #endif

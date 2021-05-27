@@ -3,10 +3,11 @@
 #include <rte_ether.h>
 #include <rte_bus_pci.h>
 #include <linux/ethtool.h>
+#include <common.h>
 
-int rte_ethtool_get_drvinfo(uint16_t port_id, struct ethtool_drvinfo *drvinfo);
+int rte_ethtool_get_drvinfo(U16 port_id, struct ethtool_drvinfo *drvinfo);
 
-int rte_ethtool_get_drvinfo(uint16_t port_id, struct ethtool_drvinfo *drvinfo)
+int rte_ethtool_get_drvinfo(U16 port_id, struct ethtool_drvinfo *drvinfo)
 {
 	struct rte_eth_dev_info dev_info;
 	struct rte_dev_reg_info reg_info;

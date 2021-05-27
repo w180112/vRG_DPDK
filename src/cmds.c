@@ -41,13 +41,13 @@
 
 extern struct rte_ring *rte_ring;
 extern nic_vendor_t 	vendor[];
-extern uint8_t			vendor_id;
+extern U8			vendor_id;
 extern dhcp_ccb_t 		dhcp_ccb[MAX_USER];
 extern FILE 			*fp;
 
 typedef struct cli_to_main_msg {
-	uint8_t type;
-	uint8_t user_id;
+	U8 type;
+	U8 user_id;
 }cli_to_main_msg_t;
 
 /**********************************************************/
