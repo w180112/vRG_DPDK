@@ -190,33 +190,19 @@ int control_plane(void)
 {
 	if (pppdInit() == ERROR)
 		return ERROR;
-	if (ppp_init() == ERROR)
+	if (vrg_loop() == ERROR)
 		return ERROR;
 	return 0;
-}
-
-/*---------------------------------------------------------
- * ppp_ter : signal handler for SIGTERM only
- *--------------------------------------------------------*/
-void PPP_ter(void)
-{
-	tPPP_MBX *mail = (tPPP_MBX *)rte_malloc(NULL,sizeof(tPPP_MBX),0);
-
-    mail->refp[0] = CLI_QUIT;
-	
-	mail->type = IPC_EV_TYPE_CLI;
-	mail->len = 1;
-	//enqueue cli quit event to main thread
-	rte_ring_enqueue_burst(rte_ring,(void **)&mail,1,NULL);
 }
 
 void PPP_bye(tPPP_PORT *port_ccb)
 {
 	rte_timer_stop(&(port_ccb->ppp));
 	rte_timer_stop(&(port_ccb->pppoe));
-	rte_atomic16_set(&port_ccb->ppp_bool, 0);
+	rte_timer_stop(&(port_ccb->ppp_alive));
    	switch(port_ccb->phase) {
 		case END_PHASE:
+			rte_atomic16_set(&port_ccb->ppp_bool, 0);
 			port_ccb->ppp_processing = FALSE;
 			if ((--cur_user) == 0) {
 				if (quit_flag == TRUE) {
@@ -237,12 +223,14 @@ void PPP_bye(tPPP_PORT *port_ccb)
 			break;
    		case PPPOE_PHASE:
 			port_ccb->phase--;
+			port_ccb->ppp_phase[0].state = S_INIT;
+			port_ccb->ppp_phase[1].state = S_INIT;
 		   	PPP_bye(port_ccb);
     		break;
     	case LCP_PHASE:
 			port_ccb->ppp_processing = TRUE;
     		port_ccb->cp = 0;
-			rte_timer_stop(&(port_ccb->ppp));
+			port_ccb->ppp_phase[1].state = S_INIT;
     		PPP_FSM(&(port_ccb->ppp),port_ccb,E_CLOSE);
     		break;
     	case DATA_PHASE:
@@ -251,7 +239,6 @@ void PPP_bye(tPPP_PORT *port_ccb)
     	case IPCP_PHASE:
 			port_ccb->ppp_processing = TRUE;
     		port_ccb->cp = 1;
-			rte_timer_stop(&(port_ccb->ppp));
     		PPP_FSM(&(port_ccb->ppp),port_ccb,E_CLOSE);
     		break;
     	default:
@@ -289,7 +276,7 @@ int pppdInit(void)
 		ppp_ports[i].ppp_phase[0].state = S_INIT;
 		ppp_ports[i].ppp_phase[1].state = S_INIT;
 		ppp_ports[i].pppoe_phase.active = FALSE;
-		ppp_ports[i].user_num = i;
+		ppp_ports[i].user_num = i + 1;
 		ppp_ports[i].vlan = i + BASE_VLAN_ID;
 		
 		ppp_ports[i].ipv4 = 0;
@@ -316,7 +303,7 @@ int pppdInit(void)
  * pppd : 
  *
  ***************************************************************/
-int ppp_init(void)
+int vrg_loop(void)
 {
 	tPPP_MBX			*mail[BURST_SIZE];
 	int 				cp;
@@ -410,8 +397,8 @@ int ppp_init(void)
 						#ifdef _DP_DBG
 						printf("Session 0x%x connection disconnected.\n", rte_be_to_cpu_16(ppp_ports[session_index].session_id));
 						#endif
-						RTE_LOG(INFO,EAL,"Session 0x%x connection disconnected.\n",rte_be_to_cpu_16(ppp_ports[session_index].session_id));
-						ppp_ports[session_index].phase = END_PHASE;
+						RTE_LOG(INFO,EAL,"User %" PRIu16 " connection disconnected.\n",ppp_ports[session_index].user_num);
+						ppp_ports[session_index].phase = PPPOE_PHASE;
 						ppp_ports[session_index].pppoe_phase.active = FALSE;
 						PPP_bye(&ppp_ports[session_index]);
 						continue;		
@@ -430,7 +417,7 @@ int ppp_init(void)
 				ppp_ports[session_index].ppp_phase[1].ppp_options = ppp_options;
 				if (ppp_payload.ppp_protocol == rte_cpu_to_be_16(AUTH_PROTOCOL)) {
 					if (ppp_hdr.code == AUTH_NAK) {
-						RTE_LOG(INFO,EAL,"Session 0x%x received auth info error(AUTH NAK) and start closing connection.\n", rte_cpu_to_be_16(ppp_ports[session_index].session_id));
+						RTE_LOG(INFO,EAL,"User %" PRIu16 " received auth info error(AUTH NAK) and start closing connection.\n", ppp_ports[session_index].user_num);
     					ppp_ports[session_index].cp = 0;
     					ppp_ports[session_index].phase--;
     					PPP_FSM(&(ppp_ports[session_index].ppp),&ppp_ports[session_index],E_CLOSE);
@@ -622,6 +609,11 @@ BOOL string_split(char *ori_str, char *str1, char *str2, char split_tok)
 void exit_ppp(__attribute__((unused)) struct rte_timer *tim, tPPP_PORT *port_ccb)
 {
 	rte_atomic16_cmpset((U16 *)&(port_ccb->ppp_bool.cnt), 1, 0);
+	rte_timer_stop(&(port_ccb->ppp));
+	rte_timer_stop(&(port_ccb->pppoe));
+	rte_timer_stop(&(port_ccb->ppp_alive));
+	if (port_ccb->phase > END_PHASE)
+		cur_user--;
 	port_ccb->phase = END_PHASE;
 	port_ccb->ppp_phase[0].state = S_INIT;
 	port_ccb->ppp_phase[1].state = S_INIT;

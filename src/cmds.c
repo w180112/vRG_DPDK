@@ -106,7 +106,7 @@ static void cmd_info_parsed(__attribute__((unused)) void *parsed_result,
 			#ifdef _NON_VLAN
 			cmdline_printf(cl, "Session ID is 0x%x\n", rte_be_to_cpu_16(ppp_ports[i].session_id));
 			#else
-			cmdline_printf(cl, "Session ID is 0x%x, VLAN ID is 0x%x\n", rte_be_to_cpu_16(ppp_ports[i].session_id), ppp_ports[i].vlan);
+			cmdline_printf(cl, "Session ID is 0x%x, VLAN ID is %" PRIu16 "\n", rte_be_to_cpu_16(ppp_ports[i].session_id), ppp_ports[i].vlan);
 			#endif
 			cmdline_printf(cl, "WAN IP addr is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 "\n", *(((U8 *)&(ppp_ports[i].ipv4))), *(((U8 *)&(ppp_ports[i].ipv4))+1), *(((U8 *)&(ppp_ports[i].ipv4))+2), *(((U8 *)&(ppp_ports[i].ipv4))+3));
 			break;

@@ -15,7 +15,6 @@ extern struct rte_ether_addr wan_mac;
 extern struct cmdline 		*cl;
 extern FILE					*fp;
 extern BOOL					quit_flag;
-extern U8 					cur_user;
 
 /*============================ DECODE ===============================*/
 
@@ -32,6 +31,7 @@ STATUS PPP_decode_frame(tPPP_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_head
 
 	if (mail->len > ETH_MTU){
 	    DBG_vRG(DBGPPP,0,"error! too large frame(%d)\n",mail->len);
+		PRINT_MESSAGE(mail->refp, mail->len);
 	    return ERROR;
 	}
 
@@ -127,7 +127,7 @@ STATUS PPP_decode_frame(tPPP_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_head
 				return TRUE;
 			case CONFIG_REJECT :
 				*event = E_RECV_CONFIG_NAK_REJ;
-				RTE_LOG(INFO,EAL,"Session 0x%x rrecv LCP reject message with option %x.\n", rte_cpu_to_be_16(port_ccb->session_id), ppp_options->type);
+				RTE_LOG(INFO, EAL, "User %" PRIu16 " recv LCP reject message with option %x.\n", port_ccb->user_num, ppp_options->type);
 				#ifdef _DP_DBG
 				printf("recv LCP reject message with option %x\n", ppp_options->type);
 				#endif
@@ -174,7 +174,7 @@ STATUS PPP_decode_frame(tPPP_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_head
 		ppp_pap_ack_nak_t ppp_pap_ack_nak, *tmp_ppp_pap_ack_nak = (ppp_pap_ack_nak_t *)(tmp_ppp_hdr + 1);
 		rte_memcpy(&ppp_pap_ack_nak,tmp_ppp_pap_ack_nak,tmp_ppp_pap_ack_nak->msg_length + sizeof(U8));
 		if (ppp_hdr->code == AUTH_ACK) {
-			RTE_LOG(INFO,EAL,"Session 0x%x auth success.\n", rte_cpu_to_be_16(port_ccb->session_id));
+			RTE_LOG(INFO, EAL, "User %" PRIu16 " auth success.\n", port_ccb->user_num);
 			#ifdef _DP_DBG
 			puts("auth success.");
 			#endif
@@ -184,7 +184,7 @@ STATUS PPP_decode_frame(tPPP_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_head
 		else if (ppp_hdr->code == AUTH_NAK) {
     		port_ccb->phase = LCP_PHASE;
     		PPP_FSM(&(port_ccb->ppp),port_ccb,E_CLOSE);
-			RTE_LOG(INFO,EAL,"Session 0x%x auth fail.\n", rte_cpu_to_be_16(port_ccb->session_id));
+			RTE_LOG(INFO, EAL, "User %" PRIu16 " auth fail.\n", port_ccb->user_num);
 			#ifdef _DP_DBG
 			puts("auth fail.");
 			#endif
@@ -208,7 +208,7 @@ STATUS PPP_decode_frame(tPPP_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_head
 				return FALSE;
 				
 			drv_xmit(buffer,mulen);
-			RTE_LOG(INFO,EAL,"Session 0x%x recv pap request.\n", rte_cpu_to_be_16(port_ccb->session_id));
+			RTE_LOG(INFO, EAL, "User %" PRIu16 " recv pap request.\n", port_ccb->user_num);
 			#ifdef _DP_DBG
 			puts("recv pap request");
 			#endif
@@ -216,7 +216,7 @@ STATUS PPP_decode_frame(tPPP_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_head
 		}
 	}
 	else {
-		RTE_LOG(INFO,EAL,"Session 0x%x recv unknown PPP protocol.\n", rte_cpu_to_be_16(port_ccb->session_id));
+		RTE_LOG(INFO, EAL, "User %" PRIu16 " recv unknown PPP protocol.\n", port_ccb->user_num);
 		#ifdef _DP_DBG
 		puts("unknown PPP protocol");
 		#endif
@@ -279,7 +279,7 @@ STATUS decode_ipcp(pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp
 			*event = E_RECV_TERMINATE_REQUEST;
 			return TRUE;
 		case TERMIN_ACK :
-			RTE_LOG(INFO, EAL, "Session 0x%x vlan 0x%x recv termin ack.\n", rte_cpu_to_be_16(port_ccb->session_id), port_ccb->vlan);
+			RTE_LOG(INFO, EAL, "User %" PRIu16 " vlan 0x%x recv termin ack.\n", port_ccb->user_num, port_ccb->vlan);
 			rte_timer_stop(tim);
 			*event = E_RECV_TERMINATE_ACK;
 			return TRUE;
@@ -434,7 +434,7 @@ STATUS build_padi(__attribute__((unused)) struct rte_timer *tim, tPPP_PORT *port
 	pppoe_header_tag_t 	pppoe_header_tag;
 
 	if (port_ccb->pppoe_phase.timer_counter >= port_ccb->pppoe_phase.max_retransmit) {
-		RTE_LOG(INFO,EAL,"timeout when sending PADI\n");
+		RTE_LOG(INFO,EAL,"User %" PRIu16 " timeout when sending PADI\n", port_ccb->user_num);
 		#ifdef _DP_DBG
 		puts("timeout when sending PADI");
 		#endif
@@ -488,7 +488,7 @@ STATUS build_padr(__attribute__((unused)) struct rte_timer *tim, tPPP_PORT *port
 	pppoe_header_tag_t 	*tmp_pppoe_header_tag = (pppoe_header_tag_t *)((pppoe_header_t *)((vlan_header_t *)((struct rte_ether_hdr *)buffer + 1) + 1) + 1);
 
 	if (port_ccb->pppoe_phase.timer_counter >= port_ccb->pppoe_phase.max_retransmit) {
-		RTE_LOG(INFO,EAL,"timeout when sending PADR\n");
+		RTE_LOG(INFO,EAL,"User %" PRIu16 "timeout when sending PADR\n", port_ccb->user_num);
 		#ifdef _DP_DBG
 		puts("timeout when sending PADR");
 		#endif
@@ -592,9 +592,9 @@ STATUS build_padt(tPPP_PORT *port_ccb)
 	rte_memcpy(buffer+sizeof(struct rte_ether_hdr)+sizeof(vlan_header_t),&pppoe_header,sizeof(pppoe_header_t));
 	drv_xmit(buffer,mulen);
 
-	port_ccb->phase = END_PHASE;
+	port_ccb->phase = PPPOE_PHASE;
 	port_ccb->pppoe_phase.active = FALSE;
-	printf("User %u PPPoE session closed successfully\nvRG> ", port_ccb->vlan - BASE_VLAN_ID + 1);
+	printf("User %u PPPoE session closed successfully\nvRG> ", port_ccb->user_num);
 
 	PPP_bye(port_ccb);
 
@@ -700,7 +700,7 @@ STATUS build_config_request(unsigned char *buffer, tPPP_PORT *port_ccb, U16 *mul
  	rte_memcpy(buffer+14+sizeof(vlan_header_t)+sizeof(pppoe_header_t)+sizeof(ppp_payload_t),ppp_hdr,sizeof(ppp_header_t));
  	rte_memcpy(buffer+14+sizeof(vlan_header_t)+sizeof(pppoe_header_t)+sizeof(ppp_payload_t)+sizeof(ppp_header_t),ppp_options,rte_cpu_to_be_16(ppp_hdr->length) - sizeof(ppp_header_t));
 
-	RTE_LOG(INFO,EAL,"Session 0x%x config request built.\n", rte_cpu_to_be_16(port_ccb->session_id));
+	RTE_LOG(INFO,EAL,"User %" PRIu16 " config request built.\n", port_ccb->user_num);
 	#ifdef _DP_DBG
  	puts("config request built.");
 	#endif
@@ -741,7 +741,7 @@ STATUS build_config_ack(unsigned char* buffer, tPPP_PORT *port_ccb, U16 *mulen)
  	rte_memcpy(buffer+14+sizeof(vlan_header_t)+sizeof(pppoe_header_t)+sizeof(ppp_payload_t),ppp_hdr,sizeof(ppp_header_t));
  	rte_memcpy(buffer+14+sizeof(vlan_header_t)+sizeof(pppoe_header_t)+sizeof(ppp_payload_t)+sizeof(ppp_header_t),ppp_options,rte_cpu_to_be_16(ppp_hdr->length) - sizeof(ppp_header_t));
 
-	RTE_LOG(INFO,EAL,"Session 0x%x config ack built.\n", rte_cpu_to_be_16(port_ccb->session_id));
+	RTE_LOG(INFO,EAL,"User %" PRIu16 " config ack built.\n", port_ccb->user_num);
 	#ifdef _DP_DBG
  	puts("config ack built.");
 	#endif
@@ -780,7 +780,7 @@ STATUS build_config_nak_rej(unsigned char* buffer, tPPP_PORT *port_ccb, U16 *mul
  	rte_memcpy(buffer+14+sizeof(vlan_header_t)+sizeof(pppoe_header_t)+sizeof(ppp_payload_t),ppp_hdr,sizeof(ppp_header_t));
  	rte_memcpy(buffer+14+sizeof(vlan_header_t)+sizeof(pppoe_header_t)+sizeof(ppp_payload_t)+sizeof(ppp_header_t),ppp_options,ntohs(ppp_hdr->length) - sizeof(ppp_header_t));
 
-	RTE_LOG(INFO,EAL,"Session 0x%x config nak/rej built.\n", rte_cpu_to_be_16(port_ccb->session_id));
+	RTE_LOG(INFO,EAL,"User %" PRIu16 " config nak/rej built.\n", port_ccb->user_num);
 	#ifdef _DP_DBG
  	puts("config nak/rej built.");
 	#endif 
@@ -856,7 +856,7 @@ STATUS build_terminate_ack(unsigned char* buffer, tPPP_PORT *port_ccb, U16 *mule
  	rte_memcpy(buffer+14+sizeof(vlan_header_t)+sizeof(pppoe_header_t),ppp_payload,sizeof(ppp_payload_t));
  	rte_memcpy(buffer+14+sizeof(vlan_header_t)+sizeof(pppoe_header_t)+sizeof(ppp_payload_t),ppp_hdr,sizeof(ppp_header_t));
  	
-	RTE_LOG(INFO,EAL,"Session 0x%x terminate ack built.\n", rte_cpu_to_be_16(port_ccb->session_id));
+	RTE_LOG(INFO,EAL,"User %" PRIu16 " terminate ack built.\n", port_ccb->user_num);
 	#ifdef _DP_DBG
  	puts("terminate ack built.");
 	#endif
@@ -919,7 +919,7 @@ STATUS build_terminate_request(unsigned char* buffer, tPPP_PORT *port_ccb, U16 *
  	rte_memcpy(buffer+sizeof(struct rte_ether_hdr)+sizeof(vlan_header_t)+sizeof(pppoe_header_t),ppp_payload,sizeof(ppp_payload_t));
  	rte_memcpy(buffer+sizeof(struct rte_ether_hdr)+sizeof(vlan_header_t)+sizeof(pppoe_header_t)+sizeof(ppp_payload_t),ppp_hdr,sizeof(ppp_header_t));
  	
-	RTE_LOG(INFO,EAL,"Session 0x%x terminate request built.\n", rte_cpu_to_be_16(port_ccb->session_id));
+	RTE_LOG(INFO,EAL,"User %" PRIu16 " terminate request built.\n", port_ccb->user_num);
 	#ifdef _DP_DBG
 	puts("build terminate request.");
 	#endif
@@ -981,7 +981,7 @@ STATUS build_auth_request_pap(unsigned char* buffer, tPPP_PORT *port_ccb, U16 *m
  	rte_memcpy(buffer+sizeof(struct rte_ether_hdr)+sizeof(vlan_header_t)+sizeof(pppoe_header_t)+sizeof(ppp_payload_t)+sizeof(ppp_header_t)+sizeof(U8)+peer_id_length,&peer_passwd_length,sizeof(U8));
  	rte_memcpy(buffer+sizeof(struct rte_ether_hdr)+sizeof(vlan_header_t)+sizeof(pppoe_header_t)+sizeof(ppp_payload_t)+sizeof(ppp_header_t)+sizeof(U8)+peer_id_length+sizeof(U8),port_ccb->passwd,peer_passwd_length);
  	
-	RTE_LOG(INFO,EAL,"Session 0x%x pap request built.\n", rte_cpu_to_be_16(port_ccb->session_id));
+	RTE_LOG(INFO,EAL,"User %" PRIu16 " pap request built.\n", port_ccb->user_num);
 	#ifdef _DP_DBG
  	puts("pap request built.");
 	#endif 
@@ -1036,7 +1036,7 @@ STATUS build_auth_ack_pap(unsigned char *buffer, tPPP_PORT *port_ccb, U16 *mulen
  	rte_memcpy(buffer+14+sizeof(vlan_header_t)+sizeof(pppoe_header_t)+sizeof(ppp_payload_t),&ppp_pap_header,sizeof(ppp_header_t));
  	rte_memcpy(buffer+14+sizeof(vlan_header_t)+sizeof(pppoe_header_t)+sizeof(ppp_payload_t)+sizeof(ppp_header_t),&ppp_pap_ack_nak,sizeof(ppp_pap_ack_nak.msg_length)+ppp_pap_ack_nak.msg_length);
  	
-	RTE_LOG(INFO,EAL,"Session 0x%x pap ack built.\n", rte_cpu_to_be_16(port_ccb->session_id));
+	RTE_LOG(INFO,EAL,"User %" PRIu16 " pap ack built.\n", port_ccb->user_num);
 	#ifdef _DP_DBG
  	puts("pap ack built.");
 	#endif

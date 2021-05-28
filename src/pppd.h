@@ -32,7 +32,7 @@
 
 #define MULTICAST_TAG 			4001
 
-#define MAX_USER				2
+#define MAX_USER				20
 
 #define BASE_VLAN_ID			2
 
@@ -219,10 +219,9 @@ extern U8				ppp_max_msg_per_query;
 extern void 		PPP_int(void);
 extern void 		exit_ppp(__attribute__((unused)) struct rte_timer *tim, tPPP_PORT *port_ccb);
 
-int 				ppp_init(void);
+int 				vrg_loop(void);
 int 				pppdInit(void);
 void 				PPP_bye(tPPP_PORT *port_ccb);
-void 				PPP_ter(void);
 int 				control_plane(void);
 
 /*-----------------------------------------

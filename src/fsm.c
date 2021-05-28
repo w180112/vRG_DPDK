@@ -623,8 +623,8 @@ STATUS PPP_FSM(struct rte_timer *ppp, tPPP_PORT *port_ccb, U16 event)
     #endif
 
     if (ppp_fsm_tbl[port_ccb->cp][i].state == S_INVLD) {
-        DBG_vRG(DBGPPP,(U8 *)port_ccb,"Error! unknown state(%d) specified for the event(%d)\n",
-        	port_ccb->ppp_phase[port_ccb->cp].state,event);
+        DBG_vRG(DBGPPP,(U8 *)port_ccb,"Error! user %" PRIu16 " unknown state(%d) specified for the event(%d)\n",
+        	port_ccb->user_num, port_ccb->ppp_phase[port_ccb->cp].state,event);
         return FALSE;
     }
 
@@ -637,8 +637,8 @@ STATUS PPP_FSM(struct rte_timer *ppp, tPPP_PORT *port_ccb, U16 event)
             break;
     
     if (ppp_fsm_tbl[port_ccb->cp][i].state != port_ccb->ppp_phase[port_ccb->cp].state) { /* search until meet the next state */
-        DBG_vRG(DBGPPP,(U8 *)port_ccb,"error! invalid event(%d) in state(%s)\n",
-            event, PPP_state2str(port_ccb->ppp_phase[port_ccb->cp].state));
+        DBG_vRG(DBGPPP,(U8 *)port_ccb,"Error! user %" PRIu16 " invalid event(%d) in state(%s)\n",
+            port_ccb->user_num, event, PPP_state2str(port_ccb->ppp_phase[port_ccb->cp].state));
   		return TRUE; /* still pass to endpoint */
     }
     
@@ -649,7 +649,7 @@ STATUS PPP_FSM(struct rte_timer *ppp, tPPP_PORT *port_ccb, U16 event)
         #ifdef _DP_DBG
         DBG_vRG(DBGPPP,(U8 *)port_ccb,"state changed from %s to %s\n",str1,str2);
         #endif
-        RTE_LOG(INFO,EAL,"Session 0x%x %s state changed from %s to %s.\n", rte_cpu_to_be_16(port_ccb->session_id), (port_ccb->cp == 1 ? "IPCP" : "LCP"), str1, str2);
+        RTE_LOG(INFO,EAL,"User %" PRIu16 " %s state changed from %s to %s.\n", port_ccb->user_num, (port_ccb->cp == 1 ? "IPCP" : "LCP"), str1, str2);
         port_ccb->ppp_phase[port_ccb->cp].state = ppp_fsm_tbl[port_ccb->cp][i].next_state;
     }
     
@@ -688,8 +688,8 @@ STATUS A_this_layer_up(__attribute__((unused)) struct rte_timer *tim, __attribut
     	if (build_auth_request_pap(buffer,port_ccb,&mulen) < 0)
     		return FALSE;
     	drv_xmit(buffer,mulen);
-        RTE_LOG(INFO,EAL,"Session 0x%x LCP connection establish successfully.\n", rte_cpu_to_be_16(port_ccb->session_id));
-        RTE_LOG(INFO,EAL,"Session 0x%x starting Authentication.\n", rte_cpu_to_be_16(port_ccb->session_id));
+        RTE_LOG(INFO,EAL,"User %" PRIu16 " LCP connection establish successfully.\n", port_ccb->user_num);
+        RTE_LOG(INFO,EAL,"User %" PRIu16 " starting Authentication.\n", port_ccb->user_num);
         #ifdef _DP_DBG
     	puts("LCP connection establish successfully.");
     	puts("Starting Authentication.");
@@ -699,17 +699,13 @@ STATUS A_this_layer_up(__attribute__((unused)) struct rte_timer *tim, __attribut
     	port_ccb->data_plane_start = TRUE;
     	port_ccb->phase = DATA_PHASE;
     	rte_timer_reset(&(port_ccb->nat),rte_get_timer_hz(),PERIODICAL,TIMER_LOOP_LCORE,(rte_timer_cb_t)nat_rule_timer,ppp_ports);
-        RTE_LOG(INFO,EAL,"Session 0x%x IPCP connection establish successfully.\n", rte_cpu_to_be_16(port_ccb->session_id));
-        #ifdef _DP_DBG
-    	puts("IPCP connection establish successfully.");
-        #endif
-        RTE_LOG(INFO,EAL,"Now we can start to send data via pppoe session id 0x%x and vlan is 0x%x.\n", rte_cpu_to_be_16(port_ccb->session_id), port_ccb->vlan);
-        RTE_LOG(INFO,EAL,"Our PPPoE client IP address is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 ", PPPoE server IP address is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 "\n", *(((U8 *)&(port_ccb->ipv4))), *(((U8 *)&(port_ccb->ipv4))+1), *(((U8 *)&(port_ccb->ipv4))+2), *(((U8 *)&(port_ccb->ipv4))+3), *(((U8 *)&(port_ccb->ipv4_gw))), *(((U8 *)&(port_ccb->ipv4_gw))+1), *(((U8 *)&(port_ccb->ipv4_gw))+2), *(((U8 *)&(port_ccb->ipv4_gw))+3));
+        RTE_LOG(INFO,EAL,"User %" PRIu16 " IPCP connection establish successfully.\n", port_ccb->user_num);
+        RTE_LOG(INFO,EAL,"Now user %" PRIu16 " can start to send data via pppoe session id 0x%x and vlan is %" PRIu16 ".\n", port_ccb->user_num, rte_cpu_to_be_16(port_ccb->session_id), port_ccb->vlan);
+        RTE_LOG(INFO,EAL,"User %" PRIu16 " PPPoE client IP address is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 ", PPPoE server IP address is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 "\n", port_ccb->user_num, *(((U8 *)&(port_ccb->ipv4))), *(((U8 *)&(port_ccb->ipv4))+1), *(((U8 *)&(port_ccb->ipv4))+2), *(((U8 *)&(port_ccb->ipv4))+3), *(((U8 *)&(port_ccb->ipv4_gw))), *(((U8 *)&(port_ccb->ipv4_gw))+1), *(((U8 *)&(port_ccb->ipv4_gw))+2), *(((U8 *)&(port_ccb->ipv4_gw))+3));
     	printf("\n");
-        printf("Now we can start to send data via pppoe session id 0x%x.\n", rte_cpu_to_be_16(port_ccb->session_id));
-    	printf("Our PPPoE client IP address is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 ", PPPoE server IP address is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 "\n", *(((U8 *)&(port_ccb->ipv4))), *(((U8 *)&(port_ccb->ipv4))+1), *(((U8 *)&(port_ccb->ipv4))+2), *(((U8 *)&(port_ccb->ipv4))+3), *(((U8 *)&(port_ccb->ipv4_gw))), *(((U8 *)&(port_ccb->ipv4_gw))+1), *(((U8 *)&(port_ccb->ipv4_gw))+2), *(((U8 *)&(port_ccb->ipv4_gw))+3));
+        printf("Now user %" PRIu16 " can start to send data via pppoe session id 0x%x and vlan is %" PRIu16 ".\n", port_ccb->user_num, rte_cpu_to_be_16(port_ccb->session_id), port_ccb->vlan);
+    	printf("User %" PRIu16 " PPPoE client IP address is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 ", PPPoE server IP address is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 "\n", port_ccb->user_num, *(((U8 *)&(port_ccb->ipv4))), *(((U8 *)&(port_ccb->ipv4))+1), *(((U8 *)&(port_ccb->ipv4))+2), *(((U8 *)&(port_ccb->ipv4))+3), *(((U8 *)&(port_ccb->ipv4_gw))), *(((U8 *)&(port_ccb->ipv4_gw))+1), *(((U8 *)&(port_ccb->ipv4_gw))+2), *(((U8 *)&(port_ccb->ipv4_gw))+3));
         printf("vRG> ");
-        //prompt = TRUE;
     }
 
     return TRUE;
@@ -754,7 +750,7 @@ STATUS A_init_restart_count(__attribute__((unused)) struct rte_timer *tim, __att
 
 STATUS A_init_restart_config(__attribute__((unused)) struct rte_timer *tim, __attribute__((unused)) tPPP_PORT *port_ccb)
 {
-    RTE_LOG(INFO,EAL,"Session 0x%x init config req timer start.\n", rte_cpu_to_be_16(port_ccb->session_id));
+    RTE_LOG(INFO,EAL,"User %" PRIu16 " init config req timer start.\n", port_ccb->user_num);
     #ifdef _DP_DBG
     printf("init config req timer start\n");
     #endif
@@ -767,7 +763,7 @@ STATUS A_init_restart_config(__attribute__((unused)) struct rte_timer *tim, __at
 
 STATUS A_init_restart_termin(__attribute__((unused)) struct rte_timer *tim, __attribute__((unused)) tPPP_PORT *port_ccb)
 {
-    RTE_LOG(INFO,EAL,"Session 0x%x init termin req timer start.\n", rte_cpu_to_be_16(port_ccb->session_id));
+    RTE_LOG(INFO,EAL,"User %" PRIu16 " init termin req timer start.\n", port_ccb->user_num);
     #ifdef _DP_DBG
     printf("init termin req timer start\n");
     #endif
@@ -785,7 +781,7 @@ STATUS A_send_config_request(__attribute__((unused)) struct rte_timer *tim, __at
 
     if (port_ccb->ppp_phase[port_ccb->cp].timer_counter == 0) {
     	rte_timer_stop(tim);
-        RTE_LOG(INFO,EAL,"Session 0x%x config request timeout.\n", rte_cpu_to_be_16(port_ccb->session_id));
+        RTE_LOG(INFO,EAL,"User %" PRIu16 " config request timeout.\n", port_ccb->user_num);
         #ifdef _DP_DBG
     	puts("config request timeout.");
         #endif
@@ -830,7 +826,7 @@ STATUS A_send_terminate_request(__attribute__((unused)) struct rte_timer *tim, _
 
     if (port_ccb->ppp_phase[port_ccb->cp].timer_counter == 0) {
     	rte_timer_stop(tim);
-        RTE_LOG(INFO,EAL,"Session 0x%x terminate request timeout.\n", rte_cpu_to_be_16(port_ccb->session_id));
+        RTE_LOG(INFO,EAL,"User %" PRIu16 " terminate request timeout.\n", port_ccb->user_num);
         #ifdef _DP_DBG
     	puts("termin request timeout.");
         #endif
@@ -920,7 +916,7 @@ STATUS A_send_padt(__attribute__((unused)) struct rte_timer *tim, __attribute__(
 
 STATUS A_create_close_to_lower_layer(__attribute__((unused)) struct rte_timer *tim, __attribute__((unused)) tPPP_PORT *port_ccb)
 {
-    RTE_LOG(INFO,EAL,"Session 0x%x notify lower layer to close connection.\n", rte_cpu_to_be_16(port_ccb->session_id));
+    RTE_LOG(INFO,EAL,"User %" PRIu16 " notify lower layer to close connection.\n", port_ccb->user_num);
     #ifdef _DP_DBG
     puts("Notify lower layer to close connection.");
     #endif

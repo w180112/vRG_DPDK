@@ -12,7 +12,7 @@ void release_lan_user(lan_user_info_t *lan_user_info);
 
 struct rte_ether_addr zero_mac;
 
-int dhcp_init()
+int dhcp_init(void)
 {
     for(int i=0; i<RTE_ETHER_ADDR_LEN; i++)
         zero_mac.addr_bytes[i] = 0;
