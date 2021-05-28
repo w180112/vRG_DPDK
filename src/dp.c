@@ -594,6 +594,10 @@ int lan_recvd(void)
 					rte_ring_enqueue_burst(uplink_q, (void **)&single_pkt, 1, NULL);
 				}
 				else if (ip_hdr->next_proto_id == PROTO_TYPE_UDP) {
+					if (unlikely(RTE_IS_IPV4_MCAST(rte_be_to_cpu_32(ip_hdr->dst_addr)))) {
+						rte_pktmbuf_free(single_pkt);
+						continue;
+					}
 					struct rte_udp_hdr *udp_hdr = (struct rte_udp_hdr *)(ip_hdr + 1);
 					if (unlikely(udp_hdr->dst_port == rte_be_to_cpu_16(67))) {
 						rte_ring_enqueue_burst(gateway_q, (void **)&single_pkt, 1, NULL);
