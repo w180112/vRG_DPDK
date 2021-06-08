@@ -92,4 +92,3 @@ For hugepages, NIC binding and other system configuration, please refer to Intel
 ## TODO:
 
 1. Some LCP exception
-2. Support Intel 700 series NIC to make uplink checksum offload and support DPDK flow API

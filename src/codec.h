@@ -35,7 +35,7 @@ STATUS build_padi(__attribute__((unused)) struct rte_timer *tim, tPPP_PORT *port
 STATUS build_padr(__attribute__((unused)) struct rte_timer *tim, tPPP_PORT *port_ccb);
 STATUS build_padt(tPPP_PORT *port_ccb);
 
-extern 	tPPP_PORT	ppp_ports[MAX_USER];
+extern 	tPPP_PORT	*ppp_ports;
 extern  U8			ppp_802_1_oui[];
 extern  U8  		ppp_da_mac[];
 extern  char		cts_port_id[];

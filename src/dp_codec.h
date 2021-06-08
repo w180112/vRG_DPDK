@@ -21,7 +21,7 @@ enum {
 	ctrl_port_q,
 };
 
-extern tPPP_PORT				ppp_ports[MAX_USER];
+extern tPPP_PORT				*ppp_ports;
 
 static inline void build_icmp_unreach(struct rte_mbuf *pkt, U16 user_index, struct rte_ether_hdr *eth_hdr, vlan_header_t old_vlan_hdr, struct rte_ipv4_hdr *ip_hdr)
 {
@@ -40,8 +40,8 @@ static inline void build_icmp_unreach(struct rte_mbuf *pkt, U16 user_index, stru
 	new_ip_hdr->packet_id = 0;
 	new_ip_hdr->next_proto_id = IPPROTO_ICMP;
 	struct rte_icmp_hdr *icmp_hdr = (struct rte_icmp_hdr *)(new_ip_hdr + 1);
-	icmp_hdr->icmp_type	= 0x3;
-	icmp_hdr->icmp_code = 0x4;
+	icmp_hdr->icmp_type	= ICMP_UNREACHABLE;
+	icmp_hdr->icmp_code = ICMP_FRAG_NEED_DF_SET;
 	icmp_hdr->icmp_ident = 0; //unsed field
 	icmp_hdr->icmp_seq_nb = rte_cpu_to_be_16(ETH_MTU - sizeof(struct rte_ipv4_hdr) - sizeof(vlan_header_t) - sizeof(pppoe_header_t) - sizeof(ppp_payload_t)); // MTU size is mentioned here 
 	rte_memcpy((char *)(icmp_hdr + 1), (char *)ip_hdr, sizeof(struct rte_ipv4_hdr) + 8);

@@ -22,6 +22,7 @@ struct rte_ring    *rte_ring, *gateway_q, *uplink_q, *downlink_q;
 struct rte_mempool *direct_pool[PORT_AMOUNT];
 struct rte_mempool *indirect_pool[PORT_AMOUNT];
 U8					vendor_id = 0;
+extern U16 			user_count;
 
 extern int rte_ethtool_get_drvinfo(U16 port_id, struct ethtool_drvinfo *drv_info);
 
@@ -58,15 +59,15 @@ int sys_init(struct cmdline *cl)
 		return ret;
 
 	/* init structures */
-	for(int i=0; i<MAX_USER; i++) {
+	for(int i=0; i<user_count; i++) {
 		rte_timer_init(&(ppp_ports[i].pppoe));
 		rte_timer_init(&(ppp_ports[i].ppp));
 		rte_timer_init(&(ppp_ports[i].nat));
 		rte_timer_init(&(ppp_ports[i].link));
 		rte_timer_init(&(ppp_ports[i].ppp_alive));
-		ppp_ports[i].data_plane_start = FALSE;
 		rte_atomic16_init(&ppp_ports[i].dhcp_bool);
 		rte_atomic16_init(&ppp_ports[i].ppp_bool);
+		rte_atomic16_init(&ppp_ports[i].dp_start_bool);
 	}
 
     return 0;
@@ -131,7 +132,7 @@ int init_port(struct cmdline *cl)
 	U8 						portid;
 
 	/* Initialize all ports. */
-	RTE_ETH_FOREACH_DEV(portid) {
+	for(portid=0; portid<2; portid++) {
 		memset(&dev_info, 0, sizeof(dev_info));
 		if (rte_ethtool_get_drvinfo(portid, &dev_info)) {
 			RTE_LOG(ERR, EAL, "Error getting info for port %i\n", portid);
@@ -148,7 +149,7 @@ int init_port(struct cmdline *cl)
 		cmdline_printf(cl, "vRG> firmware-version: %s\n", dev_info.fw_version);
 		cmdline_printf(cl, "vRG> bus-info: %s\n", dev_info.bus_info);
 
-		if (PPP_PORT_INIT(portid) != 0) {
+		if (PORT_INIT(portid) != 0) {
 			RTE_LOG(ERR, EAL, "Cannot init port %"PRIu8 "\n", portid);
 			return -1;
 		}

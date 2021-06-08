@@ -32,10 +32,6 @@
 
 #define MULTICAST_TAG 			4001
 
-#define MAX_USER				20
-
-#define BASE_VLAN_ID			2
-
 #define MLX5					1
 #define IXGBE					2
 #define I40E					3
@@ -200,7 +196,7 @@ typedef struct {
 	unsigned char 			*passwd;
 	rte_atomic16_t 			dhcp_bool; //boolean value for accept dhcp packets at data plane
 	rte_atomic16_t 			ppp_bool; //boolean value for accept ppp packets at data plane
-	BOOL					data_plane_start;
+	rte_atomic16_t 			dp_start_bool;
 	BOOL					ppp_processing; //boolean value for checking ppp is disconnecting
 
 	addr_table_t 		addr_table[TOTAL_SOCK_PORT];
@@ -212,7 +208,7 @@ typedef struct {
 	struct rte_timer 	ppp_alive; //for checking PPP connection alive
 }__rte_cache_aligned tPPP_PORT;
 
-extern tPPP_PORT		ppp_ports[MAX_USER];
+extern tPPP_PORT		*ppp_ports;
 extern U32				ppp_interval;
 extern U8				ppp_max_msg_per_query;
 
@@ -232,7 +228,5 @@ typedef struct {
 	U8          	refp[ETH_MTU];
 	int	        	len;
 } tPPP_MBX;
-
-extern tPPP_PORT	ppp_ports[MAX_USER];
 
 #endif

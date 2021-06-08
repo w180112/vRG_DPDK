@@ -34,14 +34,15 @@
 #define	IPV4_MTU_DEFAULT	RTE_ETHER_MTU
 #define	IPV6_MTU_DEFAULT	RTE_ETHER_MTU
 
-extern tPPP_PORT				ppp_ports[MAX_USER];
+extern tPPP_PORT				*ppp_ports;
 extern struct rte_mempool 		*direct_pool[PORT_AMOUNT], *indirect_pool[PORT_AMOUNT];
 extern struct rte_ring 			*rte_ring;
 extern struct rte_ring 			*gateway_q, *uplink_q, *downlink_q;
 extern rte_atomic16_t			cp_recv_cums;
 U8 								cp_recv_prod;
 extern U8						vendor_id;
-
+extern U16 						user_count;
+extern U16 						base_vlan;
 static U16 						nb_rxd = RX_RING_SIZE;
 static U16 						nb_txd = TX_RING_SIZE;
 
@@ -54,16 +55,16 @@ static struct rte_eth_conf port_conf_default = {
 	.intr_conf = {
         .lsc = 1, /**< link status interrupt feature enabled */ },
 };
-extern U16 	get_checksum(const void *const addr, const size_t bytes);
+extern U16 			get_checksum(const void *const addr, const size_t bytes);
 extern STATUS 		PPP_FSM(struct rte_timer *ppp, tPPP_PORT *port_ccb, U16 event);
-int 				PPP_PORT_INIT(U16 port);
+int 				PORT_INIT(U16 port);
 int 				wan_recvd(void);
 int 				control_plane_dequeue(tPPP_MBX **mail);
 int 				lan_recvd(void);
 void 				drv_xmit(U8 *mu, U16 mulen);
 static int			lsi_event_callback(U16 port_id, enum rte_eth_event_type type, void *param);
 
-int PPP_PORT_INIT(U16 port)
+int PORT_INIT(U16 port)
 {
 	struct rte_eth_conf port_conf = port_conf_default;
 	struct rte_eth_dev_info dev_info;
@@ -92,10 +93,6 @@ int PPP_PORT_INIT(U16 port)
 
 	rte_eth_dev_callback_register(port, RTE_ETH_EVENT_INTR_LSC, (rte_eth_dev_cb_fn)lsi_event_callback, NULL);
 
-	/*socket = (int) rte_lcore_to_socket_id(lcore_id);
-	if (socket == SOCKET_ID_ANY)
-		socket = 0;*/
-
 	rxq_conf = dev_info.default_rxconf;
 	rxq_conf.offloads = port_conf.rxmode.offloads;
 	/* Allocate and set up 1 RX queue per Ethernet port. */
@@ -107,7 +104,7 @@ int PPP_PORT_INIT(U16 port)
 
 	txconf = &dev_info.default_txconf;
 	txconf->offloads = port_conf.txmode.offloads;
-	/* Allocate and set up 5 TX queue per Ethernet port. */
+	/* Allocate and set up 4 TX queue per Ethernet port. */
 	for(q=0; q<tx_rings; q++) {
 		retval = rte_eth_tx_queue_setup(port, q, nb_txd, rte_eth_dev_socket_id(port), txconf);
 		if (retval < 0)
@@ -146,7 +143,7 @@ int wan_recvd(void)
 			single_pkt = pkt[i];
 			rte_prefetch0(rte_pktmbuf_mtod(single_pkt, void *));
 			#ifdef _NON_VLAN
-			single_pkt->vlan_tci = BASE_VLAN_ID;
+			single_pkt->vlan_tci = base_vlan;
 			rte_vlan_insert(&single_pkt);
 			#endif
 			eth_hdr = rte_pktmbuf_mtod(single_pkt,struct rte_ether_hdr *);
@@ -155,7 +152,11 @@ int wan_recvd(void)
 				continue;
 			}
 			vlan_header = (vlan_header_t *)(rte_pktmbuf_mtod(single_pkt, unsigned char *) + sizeof(struct rte_ether_hdr));
-			user_index = (rte_be_to_cpu_16(vlan_header->tci_union.tci_value) & 0xFFF) - BASE_VLAN_ID;
+			user_index = (rte_be_to_cpu_16(vlan_header->tci_union.tci_value) & 0xFFF) - base_vlan;
+			if (unlikely(user_index > user_count - 1)) {
+				rte_pktmbuf_free(single_pkt);
+				continue;
+			}
 			/* We need to detect IGMP and multicast msg here */
 			if (unlikely(vlan_header->next_proto != rte_cpu_to_be_16(ETH_P_PPP_SES) && vlan_header->next_proto != rte_cpu_to_be_16(ETH_P_PPP_DIS))) {
 				if (vlan_header->next_proto == rte_cpu_to_be_16(FRAME_TYPE_IP)) {
@@ -225,7 +226,7 @@ int wan_recvd(void)
 			eth_hdr = (struct rte_ether_hdr *)((char *)eth_hdr + 8);
 			vlan_header = (vlan_header_t *)(eth_hdr + 1);
 			
-			if (unlikely(ppp_ports[user_index].data_plane_start == FALSE)) {
+			if (unlikely(rte_atomic16_read(&ppp_ports[user_index].dp_start_bool) == (BIT16)0)) {
 				rte_pktmbuf_free(single_pkt);
 				continue;
 			}
@@ -345,7 +346,7 @@ int downlink(void)
 			rte_prefetch0(rte_pktmbuf_mtod(single_pkt,void *));
 			eth_hdr = rte_pktmbuf_mtod(single_pkt,struct rte_ether_hdr*);
 			vlan_header = (vlan_header_t *)(eth_hdr + 1);
-			user_index = (rte_be_to_cpu_16(vlan_header->tci_union.tci_value) & 0xFFF) - BASE_VLAN_ID;
+			user_index = (rte_be_to_cpu_16(vlan_header->tci_union.tci_value) & 0xFFF) - base_vlan;
 			/* for NAT mapping */
 			ip_hdr = (struct rte_ipv4_hdr *)(rte_pktmbuf_mtod(single_pkt,unsigned char *) + sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t));
 			ip_hdr->hdr_checksum = 0;
@@ -406,7 +407,7 @@ int uplink(void)
 			rte_prefetch0(rte_pktmbuf_mtod(single_pkt,void *));
 			eth_hdr = rte_pktmbuf_mtod(single_pkt,struct rte_ether_hdr*);
 			vlan_header = (vlan_header_t *)(eth_hdr + 1);
-			user_index = (rte_be_to_cpu_16(vlan_header->tci_union.tci_value) & 0xFFF) - BASE_VLAN_ID;
+			user_index = (rte_be_to_cpu_16(vlan_header->tci_union.tci_value) & 0xFFF) - base_vlan;
 			ip_hdr = (struct rte_ipv4_hdr *)rte_pktmbuf_adj(single_pkt, (U16)(sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t)));
 			if (ip_hdr->next_proto_id == PROTO_TYPE_UDP)
 				pkt_num = encaps_udp(&single_pkt, eth_hdr, vlan_header, ip_hdr, user_index);
@@ -478,7 +479,7 @@ int lan_recvd(void)
 			single_pkt = pkt[i];
 			rte_prefetch0(rte_pktmbuf_mtod(single_pkt, void *));
 			#ifdef _NON_VLAN
-			single_pkt->vlan_tci = BASE_VLAN_ID;
+			single_pkt->vlan_tci = base_vlan;
 			rte_vlan_insert(&single_pkt);
 			#endif
 			eth_hdr = rte_pktmbuf_mtod(single_pkt, struct rte_ether_hdr*);
@@ -488,9 +489,9 @@ int lan_recvd(void)
 			}
 			rte_rmb();
 			vlan_header = (vlan_header_t *)(eth_hdr + 1);
-			/* translate from vlan id to user index, we mention vlan_id - BASE_VLAN_ID = user_id */
-			user_index = (rte_be_to_cpu_16(vlan_header->tci_union.tci_value) & 0xFFF) - BASE_VLAN_ID;
-			if (unlikely(user_index > MAX_USER)) {
+			/* translate from vlan id to user index, we mention vlan_id - base_vlan = user_id */
+			user_index = (rte_be_to_cpu_16(vlan_header->tci_union.tci_value) & 0xFFF) - base_vlan;
+			if (unlikely(user_index > user_count - 1)) {
 				rte_pktmbuf_free(single_pkt);
 				continue;
 			}
@@ -526,7 +527,7 @@ int lan_recvd(void)
 					}
 					//single_pkt->ol_flags |= PKT_TX_IPV4 | PKT_TX_IP_CKSUM;
 					icmphdr = (struct rte_icmp_hdr *)(rte_pktmbuf_mtod(single_pkt, unsigned char *) + sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t) + sizeof(struct rte_ipv4_hdr));
-					if (unlikely(ppp_ports[user_index].data_plane_start == FALSE)) {
+					if (unlikely(rte_atomic16_read(&ppp_ports[user_index].dp_start_bool) == (BIT16)0)) {
 						rte_pktmbuf_free(single_pkt);
 						continue;
 					}
@@ -587,7 +588,7 @@ int lan_recvd(void)
 						pkt[total_tx++] = single_pkt;
 						continue;
 					}
-					if (unlikely(ppp_ports[user_index].data_plane_start == FALSE)) {
+					if (unlikely(rte_atomic16_read(&ppp_ports[user_index].dp_start_bool) == (BIT16)0)) {
 						rte_pktmbuf_free(single_pkt);
 						continue;
 					}
@@ -610,7 +611,7 @@ int lan_recvd(void)
 						pkt[total_tx++] = single_pkt;
 						continue;
 					}
-					if (unlikely(ppp_ports[user_index].data_plane_start == FALSE)) {
+					if (unlikely(rte_atomic16_read(&ppp_ports[user_index].dp_start_bool) == (BIT16)0)) {
 						rte_pktmbuf_free(single_pkt);
 						continue;
 					}
@@ -669,7 +670,7 @@ int gateway(void)
 			rte_prefetch0(rte_pktmbuf_mtod(single_pkt, void *));
 			eth_hdr = rte_pktmbuf_mtod(single_pkt, struct rte_ether_hdr*);
 			vlan_header = (vlan_header_t *)(eth_hdr + 1);
-			user_index = (rte_be_to_cpu_16(vlan_header->tci_union.tci_value) & 0xFFF) - BASE_VLAN_ID;
+			user_index = (rte_be_to_cpu_16(vlan_header->tci_union.tci_value) & 0xFFF) - base_vlan;
 			if (unlikely(vlan_header->next_proto == rte_cpu_to_be_16(FRAME_TYPE_ARP))) {
 				arphdr = (struct rte_arp_hdr *)(rte_pktmbuf_mtod(single_pkt, unsigned char *) + sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t));
 				if (arphdr->arp_opcode == rte_cpu_to_be_16(RTE_ARP_OP_REQUEST) && arphdr->arp_data.arp_tip == ppp_ports[user_index].lan_ip) {
@@ -805,21 +806,16 @@ static int lsi_event_callback(U16 port_id, enum rte_eth_event_type type, void *p
 			(link.link_duplex == ETH_LINK_FULL_DUPLEX) ?
 				("full-duplex") : ("half-duplex"));
 		mail->refp[0] = LINK_UP;
-		*(U16 *)&(mail->refp[1]) = port_id;
-		mail->type = IPC_EV_TYPE_REG;
-		mail->len = 1;
-		//enqueue up event to main thread
-		rte_ring_enqueue_burst(rte_ring,(void **)&mail,1,NULL);
 	} 
 	else {
 		printf("Port %d Link Down\n\n", port_id);
 		mail->refp[0] = LINK_DOWN;
-		*(U16 *)&(mail->refp[1]) = port_id;
-		mail->type = IPC_EV_TYPE_REG;
-		mail->len = 1;
-		//enqueue down event to main thread
-		rte_ring_enqueue_burst(rte_ring,(void **)&mail,1,NULL);
 	}
+	*(U16 *)&(mail->refp[1]) = port_id;
+	mail->type = IPC_EV_TYPE_REG;
+	mail->len = 1;
+	//enqueue down event to main thread
+	rte_ring_enqueue_burst(rte_ring,(void **)&mail,1,NULL);
 
 	return 0;
 }

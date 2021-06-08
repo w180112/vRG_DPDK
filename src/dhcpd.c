@@ -3,10 +3,12 @@
 #include <rte_byteorder.h>
 #include <rte_ether.h>
 #include <rte_ip.h>
+#include <rte_malloc.h>
 #include "pppd.h"
 #include "dhcp_fsm.h"
 
-dhcp_ccb_t dhcp_ccb[MAX_USER];
+dhcp_ccb_t *dhcp_ccb;
+extern U16 user_count;
 extern STATUS dhcp_fsm(dhcp_ccb_t *dhcp_ccb, U16 event);
 void release_lan_user(lan_user_info_t *lan_user_info);
 
@@ -17,7 +19,10 @@ int dhcp_init(void)
     for(int i=0; i<RTE_ETHER_ADDR_LEN; i++)
         zero_mac.addr_bytes[i] = 0;
 
-    for(int i=0; i<MAX_USER; i++) {
+    dhcp_ccb = rte_malloc(NULL, user_count*sizeof(dhcp_ccb_t), 0);
+    if (!dhcp_ccb)
+		rte_exit(EXIT_FAILURE, "vRG system dhcp init malloc from hugepage failed.\n");
+    for(int i=0; i<user_count; i++) {
         for(int j=0; j<LAN_USER; j++) {
             rte_timer_init(&(dhcp_ccb[i].lan_user_info[j].timer));
             rte_timer_init(&(dhcp_ccb[i].lan_user_info[j].lan_user_timer));
@@ -39,7 +44,7 @@ int dhcpd(struct rte_mbuf *single_pkt, struct rte_ether_hdr *eth_hdr, vlan_heade
     BIT16 event;
     int lan_user_index = -1;
 
-    if (user_index >= MAX_USER) {
+    if (user_index >= user_count) {
         rte_pktmbuf_free(single_pkt);
         return -1;
     }

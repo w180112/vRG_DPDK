@@ -41,10 +41,10 @@
 
 extern struct rte_ring *rte_ring;
 extern nic_vendor_t 	vendor[];
-extern U8			vendor_id;
-extern dhcp_ccb_t 		dhcp_ccb[MAX_USER];
+extern U8				vendor_id;
+extern dhcp_ccb_t 		*dhcp_ccb;
 extern FILE 			*fp;
-
+extern U16 				user_count;
 typedef struct cli_to_main_msg {
 	U8 type;
 	U8 user_id;
@@ -83,7 +83,7 @@ static void cmd_info_parsed(__attribute__((unused)) void *parsed_result,
 	cmdline_printf(cl, "Rx %" PRIu64 " bytes, tx %" PRIu64 " bytes. ", ethdev_stat.ibytes, ethdev_stat.obytes);
 	cmdline_printf(cl, "Rx drops %" PRIu64 " pkts.\n", ethdev_stat.imissed);
 
-	for(int i=0; i<MAX_USER; i++) {
+	for(int i=0; i<user_count; i++) {
 		switch (ppp_ports[i].phase) {
 		case END_PHASE:
 			cmdline_printf(cl, "User %d is in init phase\n", i + 1);
@@ -271,7 +271,7 @@ static void cmd_connect_parsed( void *parsed_result,
 		}
 	}
 	
-	if (msg->user_id > MAX_USER) {
+	if (msg->user_id > user_count) {
 		printf("Too large user id\nvRG> ");
 		rte_free(mail);
 		return;
@@ -336,7 +336,7 @@ static void cmd_dhcp_parsed( void *parsed_result,
 		}
 	}
 	
-	if (msg->user_id > MAX_USER) {
+	if (msg->user_id > user_count) {
 		printf("Too large user id\nvRG> ");
 		rte_free(mail);
 		return;

@@ -25,7 +25,7 @@ static STATUS   A_zero_restart_count(__attribute__((unused)) struct rte_timer *t
 static STATUS 	A_send_padt(__attribute__((unused)) struct rte_timer *tim, __attribute__((unused)) tPPP_PORT *port_ccb);
 static STATUS 	A_create_close_to_lower_layer(__attribute__((unused)) struct rte_timer *tim, __attribute__((unused)) tPPP_PORT *port_ccb);
 
-extern tPPP_PORT				ppp_ports[MAX_USER];
+extern tPPP_PORT				*ppp_ports;
 //extern BOOL                     prompt;
 //extern struct rte_flow *generate_lan_flow(U16 port_id, U16 rx_q_udp, U16 rx_q_tcp, struct rte_flow_error *error);
 //extern struct rte_flow *generate_wan_flow(U16 port_id, U16 rx_q_udp, U16 rx_q_tcp, struct rte_flow_error *error);
@@ -696,8 +696,8 @@ STATUS A_this_layer_up(__attribute__((unused)) struct rte_timer *tim, __attribut
         #endif
     }
     else if (port_ccb->ppp_phase[port_ccb->cp].ppp_payload->ppp_protocol == rte_cpu_to_be_16(IPCP_PROTOCOL)) {
-    	port_ccb->data_plane_start = TRUE;
-    	port_ccb->phase = DATA_PHASE;
+    	rte_atomic16_set(&port_ccb->dp_start_bool, (BIT16)1);
+        port_ccb->phase = DATA_PHASE;
     	rte_timer_reset(&(port_ccb->nat),rte_get_timer_hz(),PERIODICAL,TIMER_LOOP_LCORE,(rte_timer_cb_t)nat_rule_timer,ppp_ports);
         RTE_LOG(INFO,EAL,"User %" PRIu16 " IPCP connection establish successfully.\n", port_ccb->user_num);
         RTE_LOG(INFO,EAL,"Now user %" PRIu16 " can start to send data via pppoe session id 0x%x and vlan is %" PRIu16 ".\n", port_ccb->user_num, rte_cpu_to_be_16(port_ccb->session_id), port_ccb->vlan);
@@ -727,7 +727,7 @@ STATUS A_this_layer_down(__attribute__((unused)) struct rte_timer *tim, __attrib
         printf("IPCP layer is down\n");
         #endif
         PPP_FSM(tim,port_ccb,E_CLOSE);
-        port_ccb->data_plane_start = FALSE;
+        rte_atomic16_set(&port_ccb->dp_start_bool, (BIT16)0);
     }
     else if (port_ccb->cp == 0) {
         PPP_FSM(tim,port_ccb,E_CLOSE);

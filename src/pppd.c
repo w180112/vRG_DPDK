@@ -43,8 +43,10 @@ U8						ppp_max_msg_per_query;
 
 rte_atomic16_t			cp_recv_cums;
 
-tPPP_PORT				ppp_ports[MAX_USER];
+tPPP_PORT				*ppp_ports;
 U8 						cur_user;
+U16 					user_count;
+U16 					base_vlan;
 
 extern int 				timer_loop(__attribute__((unused)) void *arg);
 extern STATUS			PPP_FSM(struct rte_timer *ppp, tPPP_PORT *port_ccb, U16 event);
@@ -99,12 +101,47 @@ int main(int argc, char **argv)
 	lcore.gateway_thread = rte_get_next_lcore(lcore.up_thread, 1, 0);
 	lcore.timer_thread = rte_get_next_lcore(lcore.gateway_thread, 1, 0);
 
-
 	if (rte_eth_dev_socket_id(0) > 0 && rte_eth_dev_socket_id(0) != (int)rte_lcore_to_socket_id(lcore.lan_thread))
 		printf("WARNING, LAN port is on remote NUMA node to polling thread.\n\tPerformance will not be optimal.\n");
 	if (rte_eth_dev_socket_id(1) > 0 && rte_eth_dev_socket_id(1) != (int)rte_lcore_to_socket_id(lcore.wan_thread))
 		printf("WARNING, WAN port is on remote NUMA node to polling thread.\n\tPerformance will not be optimal.\n");
 
+	user_count = 0, base_vlan = 0;
+	{
+		char config_list[2][256] = { "UserCount", "BaseVlan" };
+
+		FILE *config = fopen("vRG-setup","r");
+    	if (!config) {
+        	perror("file doesnt exist");
+        	rte_exit(EXIT_FAILURE, "vRG system config file not found.\n");
+    	}
+		char info[256], title[256], val[256], *strtoul_end_str;
+		for(int i=0; fgets(info, 256, config) != NULL; i++) {
+        	if (string_split(info, title, val, ' ') == FALSE)
+				continue;
+			if (strncmp(config_list[0], title, strlen(config_list[0])) == 0) {
+				user_count = (U16)strtoul(val, &strtoul_end_str, 10);
+				continue;
+			}
+			if (strncmp(config_list[1], title, strlen(config_list[0])) == 0) {
+				base_vlan = (U16)strtoul(val, &strtoul_end_str, 10);
+				continue;
+			}
+		}
+		fclose(config);
+	}
+	#ifdef _NON_VLAN
+	user_count = 1;
+	#endif
+
+	if (user_count < 1 || base_vlan < 2)
+		rte_exit(EXIT_FAILURE, "vRG system configuration failed.\n");
+	if (base_vlan + user_count > 4094)
+		rte_exit(EXIT_FAILURE, "vRG system configure too many users.\n");
+
+	ppp_ports = rte_malloc(NULL, user_count*sizeof(tPPP_PORT), 0);
+	if (!ppp_ports)
+		rte_exit(EXIT_FAILURE, "vRG system malloc from hugepage failed.\n");
 	rte_prefetch2(ppp_ports);
 	/* init users and ports info */
 	{
@@ -113,9 +150,11 @@ int main(int argc, char **argv)
         	perror("file doesnt exist");
         	rte_exit(EXIT_FAILURE, "PPPoE subscriptor account/password cannot be found\n");
     	}
-		char user_info[MAX_USER][256], user_name[256], passwd[256];
+		char user_info[user_count][256], user_name[256], passwd[256];
 		U16 user_id = 0;
 		for(int i=0; fgets(user_info[i],256,account) != NULL; i++) {
+			if (i >= user_count)
+				break;
         	if (string_split(user_info[i], user_name, passwd, ' ') == FALSE) {
 				i--;
 				continue;
@@ -137,7 +176,7 @@ int main(int argc, char **argv)
 			memset(user_name, 0, 256);
 			memset(passwd, 0, 256);
     	}
-		if (user_id < MAX_USER)
+		if (user_id < user_count)
 			rte_exit(EXIT_FAILURE, "User account and password not enough.\n");
     	fclose(account);
 	}
@@ -200,6 +239,7 @@ void PPP_bye(tPPP_PORT *port_ccb)
 	rte_timer_stop(&(port_ccb->ppp));
 	rte_timer_stop(&(port_ccb->pppoe));
 	rte_timer_stop(&(port_ccb->ppp_alive));
+	rte_atomic16_cmpset((volatile uint16_t *)&port_ccb->dp_start_bool.cnt, (BIT16)1, (BIT16)0);
    	switch(port_ccb->phase) {
 		case END_PHASE:
 			rte_atomic16_set(&port_ccb->ppp_bool, 0);
@@ -235,7 +275,6 @@ void PPP_bye(tPPP_PORT *port_ccb)
     		break;
     	case DATA_PHASE:
     		port_ccb->phase--;
-    		port_ccb->data_plane_start = FALSE;
     	case IPCP_PHASE:
 			port_ccb->ppp_processing = TRUE;
     		port_ccb->cp = 1;
@@ -272,12 +311,12 @@ int pppdInit(void)
 	ppp_interval = 120; 
     
     //--------- default of all ports ----------
-    for(int i=0; i<MAX_USER; i++) {
+    for(int i=0; i<user_count; i++) {
 		ppp_ports[i].ppp_phase[0].state = S_INIT;
 		ppp_ports[i].ppp_phase[1].state = S_INIT;
 		ppp_ports[i].pppoe_phase.active = FALSE;
 		ppp_ports[i].user_num = i + 1;
-		ppp_ports[i].vlan = i + BASE_VLAN_ID;
+		ppp_ports[i].vlan = i + base_vlan;
 		
 		ppp_ports[i].ipv4 = 0;
 		ppp_ports[i].ipv4_gw = 0;
@@ -332,8 +371,8 @@ int vrg_loop(void)
 #pragma GCC diagnostic ignored "-Wstrict-aliasing"
 				session_index = ((vlan_header_t *)(((struct rte_ether_hdr *)mail[i]->refp) + 1))->tci_union.tci_value;
 				session_index = rte_be_to_cpu_16(session_index);
-				session_index = (session_index & 0xFFF) - BASE_VLAN_ID;
-				if (session_index >= MAX_USER) {
+				session_index = (session_index & 0xFFF) - base_vlan;
+				if (session_index >= user_count) {
 					#ifdef _DP_DBG
 					puts("Recv not our PPPoE packet.\nDiscard.");
 					#endif
@@ -378,11 +417,11 @@ int vrg_loop(void)
     					PPP_FSM(&(ppp_ports[session_index].ppp),&ppp_ports[session_index],E_OPEN);
 						continue;
 					case PADT:
-						for(session_index=0; session_index<MAX_USER; session_index++) {
+						for(session_index=0; session_index<user_count; session_index++) {
 							if (ppp_ports[session_index].session_id == pppoe_header.session_id)
 								break;
     					}
-    					if (session_index == MAX_USER) {
+    					if (session_index == user_count) {
 							RTE_LOG(INFO,EAL,"Out of range session id in PADT.\n");
 							#ifdef _DP_DBG
     						puts("Out of range session id in PADT.");
@@ -436,7 +475,7 @@ int vrg_loop(void)
 				switch (mail[i]->refp[0]) {
 					case CLI_DISCONNECT:
 						if (mail[i]->refp[1] == 0) {
-							for(int j=0; j<MAX_USER; j++) {
+							for(int j=0; j<user_count; j++) {
 								if (ppp_ports[j].phase == END_PHASE) {
 									printf("Error! User %u is in init phase\nvRG> ", j + 1);
 									continue;
@@ -462,7 +501,7 @@ int vrg_loop(void)
 						break;
 					case CLI_CONNECT:
 						if (mail[i]->refp[1] == 0) {
-							for(int j=0; j<MAX_USER; j++) {
+							for(int j=0; j<user_count; j++) {
 								if (ppp_ports[j].phase > END_PHASE) {
 									printf("Error! User %u is in a pppoe connection\nvRG> ", j + 1);
 									continue;
@@ -496,7 +535,7 @@ int vrg_loop(void)
 						break;	
 					case CLI_DHCP_START:
 						if (mail[i]->refp[1] == 0) {
-							for(int j=0; j<MAX_USER; j++) {
+							for(int j=0; j<user_count; j++) {
 								if (rte_atomic16_read(&ppp_ports[j].dhcp_bool) == 1) {
 									printf("Error! User %u dhcp server is already on\nvRG> ", j);
 									continue;
@@ -514,7 +553,7 @@ int vrg_loop(void)
 						break;
 					case CLI_DHCP_STOP:
 						if (mail[i]->refp[1] == 0) {
-							for(int j=0; j<MAX_USER; j++) {
+							for(int j=0; j<user_count; j++) {
 								if (rte_atomic16_read(&ppp_ports[j].dhcp_bool) == 0) {
 									printf("Error! User %u dhcp server is already off\nvRG> ", j);
 									continue;
@@ -532,7 +571,7 @@ int vrg_loop(void)
 						break;				
 					case CLI_QUIT:
 						quit_flag = TRUE;
-						for(int j=0; j<MAX_USER; j++) {
+						for(int j=0; j<user_count; j++) {
 							if (ppp_ports[j].phase == END_PHASE)
 								cur_user++;
  							PPP_bye(&(ppp_ports[j]));
@@ -547,11 +586,11 @@ int vrg_loop(void)
 			case IPC_EV_TYPE_REG:
 				if ((U16)(mail[i]->refp[1]) == 1) {
 					if (mail[i]->refp[0] == LINK_DOWN) {
-						for(int j=0; j<MAX_USER; j++)
+						for(int j=0; j<user_count; j++)
 							rte_timer_reset(&(ppp_ports[j].link),10*rte_get_timer_hz(),SINGLE,TIMER_LOOP_LCORE,(rte_timer_cb_t)exit_ppp,&(ppp_ports[j]));
 					}
 					else if (mail[i]->refp[0] == LINK_UP) {
-						for(int j=0; j<MAX_USER; j++)
+						for(int j=0; j<user_count; j++)
 							rte_timer_stop(&(ppp_ports[j].link));
 					}
 				}
@@ -586,6 +625,9 @@ BOOL is_valid(char *token, char *next)
 BOOL string_split(char *ori_str, char *str1, char *str2, char split_tok)
 {
 	int i, j;
+
+	if (*ori_str == '\n')
+		return FALSE;
 
 	for(i=0; i<strlen(ori_str); i++) {
 		if (*(ori_str+i) == '#')

@@ -1,0 +1,7 @@
+# vRG system configuration
+
+# vRG user count 
+UserCount 20
+
+# vRG acceptable vlan id 
+BaseVlan 2

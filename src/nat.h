@@ -20,6 +20,9 @@
 #include <rte_memcpy.h>
 #include "pppd.h"
 
+#ifndef _NAT_H_
+#define _NAT_H_
+
 extern U16 get_checksum(const void *const addr, const size_t bytes);
 
 static inline void nat_icmp_learning(struct rte_ether_hdr *eth_hdr, struct rte_ipv4_hdr *ip_hdr, struct rte_icmp_hdr *icmphdr, U32 *new_port_id, addr_table_t addr_table[]);
@@ -112,3 +115,5 @@ static inline void nat_tcp_learning(struct rte_ether_hdr *eth_hdr, struct rte_ip
 	addr_table[*new_port_id].dst_ip = ip_hdr->dst_addr; 
 	addr_table[*new_port_id].port_id = tcphdr->src_port;
 }
+
+#endif
