@@ -41,14 +41,14 @@
 
 #define TOTAL_SOCK_PORT			65536
 
-enum {
-	CTRL_LCORE = 1,
-	WAN_LCORE,
-	DOWNLINK_LCORE,
-	LAN_LCORE,
-	UPLINK_LCORE,
-	GATEWAY_LCORE,
-	TIMER_LOOP_LCORE,
+struct lcore_map {
+	U8 ctrl_thread;
+	U8 wan_thread;
+	U8 down_thread;
+	U8 lan_thread;
+	U8 up_thread;
+	U8 gateway_thread;
+	U8 timer_thread;
 };
 
 typedef struct {

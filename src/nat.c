@@ -56,7 +56,7 @@ void nat_rule_timer(__attribute__((unused)) struct rte_timer *tim, tPPP_PORT ppp
 {
 	U16 user_id;
 	for(user_id=0; user_id<user_count; user_id++) {
-		for(int i=0; i<TOTAL_SOCK_PORT-1; i++) {
+		for(int i=0; i<TOTAL_SOCK_PORT; i++) {
 			if (rte_atomic16_read(&ppp_ports[user_id].addr_table[i].is_fill) == 1) {
 				if (rte_atomic16_read(&ppp_ports[user_id].addr_table[i].is_alive) > 0)
 					rte_atomic16_sub(&ppp_ports[user_id].addr_table[i].is_alive, 1);

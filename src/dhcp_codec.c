@@ -224,8 +224,9 @@ STATUS build_dhcp_offer(dhcp_ccb_t *dhcp_ccb)
     rte_memcpy(cur->val, &dns, cur->len);
     dhcp_ccb->udp_hdr->dgram_len += sizeof(dhcp_opt_t) + cur->len;
 
+    cur = (dhcp_opt_t *)(((char *)cur) + sizeof(dhcp_opt_t) + cur->len);
     memset(cur, 0, 23);
-    *((U8 *)cur + 1) = 0xff;
+    *(U8 *)cur = DHCP_END;
     dhcp_ccb->udp_hdr->dgram_len += 1 + 22;
 
     rte_memcpy((dhcp_ccb->dhcp_info + 1), buf, dhcp_ccb->udp_hdr->dgram_len);
@@ -305,8 +306,9 @@ STATUS build_dhcp_ack(dhcp_ccb_t *dhcp_ccb)
     rte_memcpy(cur->val, &dns, cur->len);
     dhcp_ccb->udp_hdr->dgram_len += sizeof(dhcp_opt_t) + cur->len;
 
+    cur = (dhcp_opt_t *)(((char *)cur) + sizeof(dhcp_opt_t) + cur->len);
     memset(cur, 0, 23);
-    *((U8 *)cur + 1) = 0xff;
+    *(U8 *)cur = DHCP_END;
     dhcp_ccb->udp_hdr->dgram_len += 1 + 22;
 
     rte_memcpy((dhcp_ccb->dhcp_info + 1), buf, dhcp_ccb->udp_hdr->dgram_len);
@@ -368,8 +370,9 @@ STATUS build_dhcp_nak(dhcp_ccb_t *dhcp_ccb)
     rte_ether_addr_copy(&dhcp_ccb->eth_hdr->d_addr, (struct rte_ether_addr *)(cur->val));
     dhcp_ccb->udp_hdr->dgram_len += sizeof(dhcp_opt_t) + cur->len;
 
+    cur = (dhcp_opt_t *)(((char *)cur) + sizeof(dhcp_opt_t) + cur->len);
     memset(cur, 0, 23);
-    *((U8 *)cur + 1) = 0xff;
+    *(U8 *)cur = DHCP_END;
     dhcp_ccb->udp_hdr->dgram_len += 1 + 22;
 
     rte_memcpy((dhcp_ccb->dhcp_info + 1), buf, dhcp_ccb->udp_hdr->dgram_len);

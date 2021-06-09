@@ -14,4 +14,5 @@ extern 	void 		DBG_vRG(U8 level, U8 *ptr, const char *fmt,...);
 extern  char 		*PPP_state2str(U16 state);
 extern  char 		*DHCP_state2str(U16 state);
 extern  U8      vRGDbgFlag;
+
 #endif

@@ -25,6 +25,7 @@
 #include 				<rte_flow.h>
 #include				<rte_atomic.h>
 #include				<rte_pdump.h>
+#include 				<rte_trace.h>
 #include 				"pppd.h"
 #include				"fsm.h"
 #include 				"dp.h"
@@ -60,21 +61,11 @@ int 					log_type;
 FILE 					*fp;
 volatile BOOL			/*prompt = FALSE, */quit_flag = FALSE;
 struct cmdline 			*cl;
-
-struct lcore_map {
-	U8 ctrl_thread;
-	U8 wan_thread;
-	U8 down_thread;
-	U8 lan_thread;
-	U8 up_thread;
-	U8 gateway_thread;
-	U8 timer_thread;
-};
+struct lcore_map 		lcore;
 
 int main(int argc, char **argv)
 {
 	U16 				user_id_length, passwd_length;
-	struct lcore_map 	lcore;
 	
 	if (argc < 5) {
 		puts("Too less parameter.");
@@ -93,7 +84,7 @@ int main(int argc, char **argv)
 	if (rte_eth_dev_count_avail() < 2)
 		rte_exit(EXIT_FAILURE, "We need at least 2 eth ports.\n");
 	
-	lcore.ctrl_thread = rte_get_next_lcore(-1, 1, 0);
+	lcore.ctrl_thread = rte_get_next_lcore(rte_lcore_id(), 1, 0);
 	lcore.wan_thread = rte_get_next_lcore(lcore.ctrl_thread, 1, 0);
 	lcore.down_thread = rte_get_next_lcore(lcore.wan_thread, 1, 0);
 	lcore.lan_thread = rte_get_next_lcore(lcore.down_thread, 1, 0);
@@ -209,7 +200,6 @@ int main(int argc, char **argv)
 		rte_exit(EXIT_FAILURE, "error in creating flow");
 	}
 	#endif
-	
 	rte_eal_remote_launch((lcore_function_t *)control_plane,NULL,lcore.ctrl_thread);
 	rte_eal_remote_launch((lcore_function_t *)wan_recvd,NULL,lcore.wan_thread);
 	rte_eal_remote_launch((lcore_function_t *)downlink,NULL,lcore.down_thread);
@@ -256,6 +246,7 @@ void PPP_bye(tPPP_PORT *port_ccb)
 					/*uninitialize packet capture framework */
 					rte_pdump_uninit();
 					#endif
+					rte_trace_save();
 					puts("Bye!");
 					exit(0);
 				}
@@ -290,8 +281,7 @@ void PPP_bye(tPPP_PORT *port_ccb)
  *--------------------------------------------------------*/
 void PPP_int(void)
 {
-    printf("pppoe client interupt!\n");
-	//rte_free(wan_mac);
+    printf("vRG system interupt!\n");
     rte_ring_free(rte_ring);
 	rte_ring_free(uplink_q);
 	rte_ring_free(downlink_q);
@@ -400,7 +390,7 @@ int vrg_loop(void)
 							exit_ppp(&(ppp_ports[session_index].pppoe), &(ppp_ports[session_index]));
 							continue;
 						}
-						rte_timer_reset(&(ppp_ports[session_index].pppoe),rte_get_timer_hz(),PERIODICAL,TIMER_LOOP_LCORE,(rte_timer_cb_t)build_padr,&(ppp_ports[session_index]));
+						rte_timer_reset(&(ppp_ports[session_index].pppoe),rte_get_timer_hz(),PERIODICAL,lcore.timer_thread,(rte_timer_cb_t)build_padr,&(ppp_ports[session_index]));
 						continue;
 					case PADS:
 						rte_timer_stop(&(ppp_ports[session_index].pppoe));
@@ -514,7 +504,7 @@ int vrg_loop(void)
 									PPP_bye(&(ppp_ports[j]));
 								
 								rte_atomic16_set(&ppp_ports[j].ppp_bool, 1);
-    							rte_timer_reset(&(ppp_ports[j].pppoe),rte_get_timer_hz(),PERIODICAL,TIMER_LOOP_LCORE,(rte_timer_cb_t)build_padi,&(ppp_ports[j]));
+    							rte_timer_reset(&(ppp_ports[j].pppoe),rte_get_timer_hz(),PERIODICAL,lcore.timer_thread,(rte_timer_cb_t)build_padi,&(ppp_ports[j]));
 							}
 						}
 						else {
@@ -530,7 +520,7 @@ int vrg_loop(void)
 								PPP_bye(&(ppp_ports[mail[i]->refp[1]-1]));
 							
 							rte_atomic16_set(&ppp_ports[mail[i]->refp[1]-1].ppp_bool, 1);
-    						rte_timer_reset(&(ppp_ports[mail[i]->refp[1]-1].pppoe),rte_get_timer_hz(),PERIODICAL,TIMER_LOOP_LCORE,(rte_timer_cb_t)build_padi,&(ppp_ports[mail[i]->refp[1]-1]));
+    						rte_timer_reset(&(ppp_ports[mail[i]->refp[1]-1].pppoe),rte_get_timer_hz(),PERIODICAL,lcore.timer_thread,(rte_timer_cb_t)build_padi,&(ppp_ports[mail[i]->refp[1]-1]));
 						}
 						break;	
 					case CLI_DHCP_START:
@@ -587,7 +577,7 @@ int vrg_loop(void)
 				if ((U16)(mail[i]->refp[1]) == 1) {
 					if (mail[i]->refp[0] == LINK_DOWN) {
 						for(int j=0; j<user_count; j++)
-							rte_timer_reset(&(ppp_ports[j].link),10*rte_get_timer_hz(),SINGLE,TIMER_LOOP_LCORE,(rte_timer_cb_t)exit_ppp,&(ppp_ports[j]));
+							rte_timer_reset(&(ppp_ports[j].link),10*rte_get_timer_hz(),SINGLE,lcore.timer_thread,(rte_timer_cb_t)exit_ppp,&(ppp_ports[j]));
 					}
 					else if (mail[i]->refp[0] == LINK_UP) {
 						for(int j=0; j<user_count; j++)

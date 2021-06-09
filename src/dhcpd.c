@@ -7,8 +7,9 @@
 #include "pppd.h"
 #include "dhcp_fsm.h"
 
-dhcp_ccb_t *dhcp_ccb;
-extern U16 user_count;
+dhcp_ccb_t                  *dhcp_ccb;
+extern U16                  user_count;
+extern struct lcore_map 	lcore;
 extern STATUS dhcp_fsm(dhcp_ccb_t *dhcp_ccb, U16 event);
 void release_lan_user(lan_user_info_t *lan_user_info);
 
@@ -69,7 +70,7 @@ int dhcpd(struct rte_mbuf *single_pkt, struct rte_ether_hdr *eth_hdr, vlan_heade
     }
     /* If no more packet from the host, clear all information in dhcp_ccb */
     rte_timer_stop(&dhcp_ccb[user_index].lan_user_info[lan_user_index].timer);
-	rte_timer_reset(&dhcp_ccb[user_index].lan_user_info[lan_user_index].timer, LEASE_TIMEOUT * 2 * rte_get_timer_hz(), SINGLE, TIMER_LOOP_LCORE, (rte_timer_cb_t)release_lan_user, &dhcp_ccb[user_index].lan_user_info[lan_user_index]);
+	rte_timer_reset(&dhcp_ccb[user_index].lan_user_info[lan_user_index].timer, LEASE_TIMEOUT * 2 * rte_get_timer_hz(), SINGLE, lcore.timer_thread, (rte_timer_cb_t)release_lan_user, &dhcp_ccb[user_index].lan_user_info[lan_user_index]);
 
     event = dhcp_decode(&dhcp_ccb[user_index], eth_hdr, vlan_header, ip_hdr, udp_hdr);
     if (event < 0) {

@@ -2,6 +2,8 @@
 #include "dhcp_fsm.h"
 #include "dbg.h"
 
+extern struct lcore_map 	lcore;
+
 extern STATUS build_dhcp_offer(dhcp_ccb_t *dhcp_ccb);
 extern STATUS build_dhcp_ack(dhcp_ccb_t *dhcp_ccb);
 extern STATUS build_dhcp_nak(dhcp_ccb_t *dhcp_ccb);
@@ -111,7 +113,7 @@ void request_timer(struct rte_timer *tim, dhcp_ccb_t *dhcp_ccb)
 STATUS A_wait_request_timer(struct rte_timer *tim, dhcp_ccb_t *dhcp_ccb)
 {
     rte_timer_stop(tim);
-    rte_timer_reset(tim, 5 * rte_get_timer_hz(), SINGLE, TIMER_LOOP_LCORE, (rte_timer_cb_t)request_timer, dhcp_ccb);
+    rte_timer_reset(tim, 5 * rte_get_timer_hz(), SINGLE, lcore.timer_thread, (rte_timer_cb_t)request_timer, dhcp_ccb);
     return TRUE;
 }
 
@@ -141,7 +143,7 @@ STATUS A_wait_lease_timer(struct rte_timer *tim, dhcp_ccb_t *dhcp_ccb)
     dhcp_ccb_t dhcp_ccb_for_timer = *dhcp_ccb;
 
     rte_timer_stop(tim);
-    rte_timer_reset(tim, LEASE_TIMEOUT * rte_get_timer_hz(), SINGLE, TIMER_LOOP_LCORE, (rte_timer_cb_t)lease_timer, &dhcp_ccb_for_timer);
+    rte_timer_reset(tim, LEASE_TIMEOUT * rte_get_timer_hz(), SINGLE, lcore.timer_thread, (rte_timer_cb_t)lease_timer, &dhcp_ccb_for_timer);
     
     return TRUE;
 }

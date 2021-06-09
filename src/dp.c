@@ -24,6 +24,8 @@
 #include "init.h"
 #include "dp_codec.h"
 #include "dhcpd.h"
+#include "dbg.h"
+#include "trace.h"
 
 #define RX_RING_SIZE 128
 
@@ -483,6 +485,7 @@ int lan_recvd(void)
 			rte_vlan_insert(&single_pkt);
 			#endif
 			eth_hdr = rte_pktmbuf_mtod(single_pkt, struct rte_ether_hdr*);
+			rte_ethdev_trace_rx_pkt((U8 *)eth_hdr);
 			if (unlikely(eth_hdr->ether_type != rte_cpu_to_be_16(VLAN))) {
 				rte_pktmbuf_free(single_pkt);
 				continue;

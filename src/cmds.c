@@ -84,30 +84,31 @@ static void cmd_info_parsed(__attribute__((unused)) void *parsed_result,
 	cmdline_printf(cl, "Rx drops %" PRIu64 " pkts.\n", ethdev_stat.imissed);
 
 	for(int i=0; i<user_count; i++) {
+		#ifdef _NON_VLAN
+		cmdline_printf(cl, "User %d is in ", i + 1);
+		#else
+		cmdline_printf(cl, "User %d VLAN ID is %" PRIu16 " and is in ", i + 1, ppp_ports[i].vlan);
+		#endif
 		switch (ppp_ports[i].phase) {
 		case END_PHASE:
-			cmdline_printf(cl, "User %d is in init phase\n", i + 1);
+			cmdline_printf(cl, "init phase\n");
 			break;
 		case PPPOE_PHASE:
-			cmdline_printf(cl, "User %d is in pppoe phase\n", i + 1);
+			cmdline_printf(cl, "pppoe phase\n");
 			break;
 		case LCP_PHASE:
-			cmdline_printf(cl, "User %d is in lcp phase\n", i + 1);
+			cmdline_printf(cl, "lcp phase\n");
 			break;
 		case AUTH_PHASE:
-			cmdline_printf(cl, "User %d is in auth phase\n", i + 1);
+			cmdline_printf(cl, "auth phase\n");
 			break;
 		case IPCP_PHASE:
-			cmdline_printf(cl, "User %d is in ipcp phase\n", i + 1);
+			cmdline_printf(cl, "ipcp phase\n");
 			break;
 		case DATA_PHASE:
-			cmdline_printf(cl, "User %d is in PPPoE connection\n", i + 1);
-			cmdline_printf(cl, "User %d account is %s, password is %s\n", i + 1, ppp_ports[i].user_id, ppp_ports[i].passwd);
-			#ifdef _NON_VLAN
+			cmdline_printf(cl, "PPPoE connection\n");
+			cmdline_printf(cl, "PPP account is %s, password is %s\n", ppp_ports[i].user_id, ppp_ports[i].passwd);
 			cmdline_printf(cl, "Session ID is 0x%x\n", rte_be_to_cpu_16(ppp_ports[i].session_id));
-			#else
-			cmdline_printf(cl, "Session ID is 0x%x, VLAN ID is %" PRIu16 "\n", rte_be_to_cpu_16(ppp_ports[i].session_id), ppp_ports[i].vlan);
-			#endif
 			cmdline_printf(cl, "WAN IP addr is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 "\n", *(((U8 *)&(ppp_ports[i].ipv4))), *(((U8 *)&(ppp_ports[i].ipv4))+1), *(((U8 *)&(ppp_ports[i].ipv4))+2), *(((U8 *)&(ppp_ports[i].ipv4))+3));
 			break;
 		default:

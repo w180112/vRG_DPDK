@@ -13,6 +13,7 @@ extern STATUS PPP_FSM(struct rte_timer *ppp, tPPP_PORT *port_ccb, U16 event);
 extern struct rte_ring 		*rte_ring, *gateway_q, *uplink_q, *downlink_q;
 extern struct rte_ether_addr wan_mac;
 extern struct cmdline 		*cl;
+extern struct lcore_map 	lcore;
 extern FILE					*fp;
 extern BOOL					quit_flag;
 
@@ -154,7 +155,7 @@ STATUS PPP_decode_frame(tPPP_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_head
 				if (port_ccb->phase < LCP_PHASE)
     				return FALSE;
 				rte_timer_stop(&(port_ccb->ppp_alive));
-				rte_timer_reset(&(port_ccb->ppp_alive), ppp_interval*rte_get_timer_hz(), SINGLE, TIMER_LOOP_LCORE, (rte_timer_cb_t)exit_ppp, port_ccb);
+				rte_timer_reset(&(port_ccb->ppp_alive), ppp_interval*rte_get_timer_hz(), SINGLE, lcore.timer_thread, (rte_timer_cb_t)exit_ppp, port_ccb);
 				*event = E_RECV_ECHO_REPLY_REQUEST_DISCARD_REQUEST;
 				return TRUE;
 			case ECHO_REPLY:
