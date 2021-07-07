@@ -26,6 +26,7 @@
 #include				<rte_atomic.h>
 #include				<rte_pdump.h>
 #include 				<rte_trace.h>
+#include 				<sys/mman.h>
 #include 				"pppd.h"
 #include				"fsm.h"
 #include 				"dp.h"
@@ -45,6 +46,7 @@ U8						ppp_max_msg_per_query;
 rte_atomic16_t			cp_recv_cums;
 
 tPPP_PORT				*ppp_ports;
+//struct rte_mempool		*ppp_ports_mp;
 U8 						cur_user;
 U16 					user_count;
 U16 					base_vlan;
@@ -130,9 +132,21 @@ int main(int argc, char **argv)
 	if (base_vlan + user_count > 4094)
 		rte_exit(EXIT_FAILURE, "vRG system configure too many users.\n");
 
-	ppp_ports = rte_malloc(NULL, user_count*sizeof(tPPP_PORT), 0);
-	if (!ppp_ports)
-		rte_exit(EXIT_FAILURE, "vRG system malloc from hugepage failed.\n");
+	ppp_ports = mmap(NULL, sizeof(tPPP_PORT)*user_count, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0);
+	if (ppp_ports == MAP_FAILED) { 
+		perror("map mem");
+		ppp_ports = NULL;
+		rte_exit(EXIT_FAILURE, "vRG system mempool init failed.\n");
+	}
+	/*ppp_ports_mp = rte_mempool_create("ppp_ports", 4095, sizeof(tPPP_PORT), RTE_MEMPOOL_CACHE_MAX_SIZE, 0, NULL, NULL, NULL, NULL, rte_socket_id(), 0);
+	if (ppp_ports_mp == NULL)
+		rte_exit(EXIT_FAILURE, "vRG system mempool init failed: %s\n", rte_strerror(errno));
+
+	if (rte_mempool_get_bulk(ppp_ports_mp, (void **)&ppp_ports, user_count) < 0)
+		rte_exit(EXIT_FAILURE, "vRG system memory allocate from mempool failed: %s\n", rte_strerror(errno));*/
+	//ppp_ports = te_malloc(NULL, user_count*sizeof(tPPP_PORT), 0);
+	//if (!ppp_ports)
+		//rte_exit(EXIT_FAILURE, "vRG system malloc from hugepage failed.\n");
 	rte_prefetch2(ppp_ports);
 	/* init users and ports info */
 	{
@@ -179,10 +193,8 @@ int main(int argc, char **argv)
 		rte_exit(EXIT_FAILURE, "Cannot create cmdline instance\n");
 
 	ret = sys_init(cl);
-	if (ret) {
-		rte_strerror(ret);
-		rte_exit(EXIT_FAILURE, "System initiation failed\n");
-	}
+	if (ret)
+		rte_exit(EXIT_FAILURE, "System initiation failed: %s\n", rte_strerror(ret));
 
 	rte_atomic16_init(&cp_recv_cums);
 
@@ -242,6 +254,9 @@ void PPP_bye(tPPP_PORT *port_ccb)
 					rte_ring_free(gateway_q);
             		fclose(fp);
 					cmdline_stdin_exit(cl);
+					munmap(ppp_ports, sizeof(tPPP_PORT)*user_count);
+					//rte_mempool_put_bulk(ppp_ports_mp, (void *const *)&ppp_ports, user_count);
+					//rte_mempool_free(ppp_ports_mp);
 					#ifdef RTE_LIBRTE_PDUMP
 					/*uninitialize packet capture framework */
 					rte_pdump_uninit();
@@ -369,7 +384,7 @@ int vrg_loop(void)
 					continue;
 				}
 #pragma GCC diagnostic pop   // require GCC 4.6
-				if (PPP_decode_frame(mail[i],&eth_hdr,&vlan_header,&pppoe_header,&ppp_payload,&ppp_hdr,ppp_options,&event,&(ppp_ports[session_index].ppp),&ppp_ports[session_index]) == FALSE)					
+				if (PPP_decode_frame(mail[i], &eth_hdr, &vlan_header, &pppoe_header, &ppp_payload, &ppp_hdr, ppp_options, &event, &ppp_ports[session_index]) == FALSE)					
 					continue;
 				if (vlan_header.next_proto == rte_cpu_to_be_16(ETH_P_PPP_DIS)) {
 					switch(pppoe_header.code) {
@@ -553,7 +568,7 @@ int vrg_loop(void)
 						}
 						else {
 							if (rte_atomic16_read(&ppp_ports[mail[i]->refp[1]-1].dhcp_bool) == 0) {
-								printf("Error! User %u dhcp server is already on\nvRG> ", mail[i]->refp[1]);
+								printf("Error! User %u dhcp server is already off\nvRG> ", mail[i]->refp[1]);
 								break;
 							}
 							rte_atomic16_set(&ppp_ports[mail[i]->refp[1]-1].dhcp_bool, 0);

@@ -74,4 +74,4 @@ extern	"C" {
 
 #endif /* header */
 
-extern void nat_rule_timer(__attribute__((unused)) struct rte_timer *tim, tPPP_PORT ppp_ports[]);
+extern void nat_rule_timer(__attribute__((unused)) struct rte_timer *tim, tPPP_PORT *port_ccb);

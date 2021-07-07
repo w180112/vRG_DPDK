@@ -26,9 +26,10 @@ extern BOOL					quit_flag;
  * output: imsg, event
  * return: session ccb
  *****************************************************/
-STATUS PPP_decode_frame(tPPP_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_header_t *vlan_header, pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp_header_t *ppp_hdr, ppp_options_t *ppp_options, U16 *event, struct rte_timer *tim, tPPP_PORT *port_ccb)
+STATUS PPP_decode_frame(tPPP_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_header_t *vlan_header, pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp_header_t *ppp_hdr, ppp_options_t *ppp_options, U16 *event, tPPP_PORT *port_ccb)
 {
     U16	mulen;
+	struct rte_timer *tim = &port_ccb->ppp;
 
 	if (mail->len > ETH_MTU){
 	    DBG_vRG(DBGPPP,0,"error! too large frame(%d)\n",mail->len);
@@ -105,7 +106,7 @@ STATUS PPP_decode_frame(tPPP_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_head
 			
 				/* only check magic number. Skip the bytes stored in ppp_options_t length to find magic num. */
 				U8 ppp_options_length = 0;
-				for(ppp_options_t *cur=ppp_options; ppp_options_length<=(rte_cpu_to_be_16(ppp_hdr->length)-4);) {
+				for(ppp_options_t *cur=ppp_options; ppp_options_length<(rte_cpu_to_be_16(ppp_hdr->length)-4);) {
 					if (cur->type == MAGIC_NUM) {
 						for(int i=cur->length-3; i>=0; i--) {
 							if (*(((U8 *)&(port_ccb->magic_num)) + i) != cur->val[i]) {

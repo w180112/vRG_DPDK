@@ -1,13 +1,13 @@
 # Virtualized residential gateway (vRG) implementation using DPDK
 
 [![BSD license](https://img.shields.io/badge/License-BSD-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
-[![Build Status](https://travis-ci.com/w180112/vRG.svg?branch=master)](https://travis-ci.com/w180112/vRG)
+[![Build Status](https://travis-ci.com/w180112/vRG_DPDK.svg?branch=master)](https://travis-ci.com/w180112/vRG_DPDK)
 
 In nowadays high speed virtualized nerwork, tranditional network mechanism has no longer satisfied our requirement. In home network virtualization many data plane features, e.g.: NAT and PPPoE client, will be de-coupled to cloud NFV infrastructure. However, the perfoemance of data plane is always the main point of our concern. Therefore, a vRG system that make PPPoE client and NAT can be used in virtualization is purposed. By the powerful DPDK, all packets can be forwarded in high speed network.
 
 ## System required:
 
-Intel DPDK 21.02, Linux kernel > 4.18, at least 4G ram, 8 cpu cores.
+Intel DPDK 21.02, Linux kernel > 4.18, at least 8G ram, 8 cpu cores.
 
 Package required: make gcc pip3 pyelftools pkg-config meson libnuma-dev autoconf
 
@@ -17,7 +17,7 @@ In this project 2 DPDK ethernet ports are needed, the first is used to receive p
 
 Git clone this repository
 
-	# git clone https://github.com/w180112/vRG.git
+	# git clone https://github.com/w180112/vRG_DPDK.git
 
 Type
 

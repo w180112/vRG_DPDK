@@ -219,7 +219,7 @@ int wan_recvd(void)
 
 			vlan_header->next_proto = rte_cpu_to_be_16(FRAME_TYPE_IP);
 			rte_memcpy(&tmp_eth_hdr,eth_hdr,sizeof(struct rte_ether_hdr));
-			rte_memcpy(&tmp_vlan_header,vlan_header,sizeof(struct rte_ether_hdr));
+			rte_memcpy(&tmp_vlan_header,vlan_header,sizeof(vlan_header_t));
 			rte_memcpy((char *)eth_hdr+8,&tmp_eth_hdr,sizeof(struct rte_ether_hdr));
 			rte_memcpy((char *)vlan_header+8,&tmp_vlan_header,sizeof(vlan_header_t));
 			single_pkt->data_off += 8;

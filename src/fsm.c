@@ -700,7 +700,7 @@ STATUS A_this_layer_up(__attribute__((unused)) struct rte_timer *tim, __attribut
     else if (port_ccb->ppp_phase[port_ccb->cp].ppp_payload->ppp_protocol == rte_cpu_to_be_16(IPCP_PROTOCOL)) {
     	rte_atomic16_set(&port_ccb->dp_start_bool, (BIT16)1);
         port_ccb->phase = DATA_PHASE;
-    	rte_timer_reset(&(port_ccb->nat),rte_get_timer_hz(),PERIODICAL,lcore.timer_thread,(rte_timer_cb_t)nat_rule_timer,ppp_ports);
+    	rte_timer_reset(&(port_ccb->nat),rte_get_timer_hz(),PERIODICAL,lcore.timer_thread,(rte_timer_cb_t)nat_rule_timer,port_ccb);
         RTE_LOG(INFO,EAL,"User %" PRIu16 " IPCP connection establish successfully.\n", port_ccb->user_num);
         #ifdef _NON_VLAN
         RTE_LOG(INFO,EAL,"Now user %" PRIu16 " can start to send data via pppoe session id 0x%x.\n", port_ccb->user_num, rte_cpu_to_be_16(port_ccb->session_id));
