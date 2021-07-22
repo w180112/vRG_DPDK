@@ -1,6 +1,7 @@
 #include <common.h>
 #include "dhcp_fsm.h"
 #include "dbg.h"
+#include "vrg.h"
 
 extern struct lcore_map 	lcore;
 

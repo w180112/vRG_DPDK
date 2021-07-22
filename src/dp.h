@@ -14,6 +14,6 @@ extern int downlink(void);
 extern int gateway(void);
 extern int lan_recvd(void);
 extern int PORT_INIT(U16 port);
-extern int control_plane_dequeue(tPPP_MBX **mail);
+extern int control_plane_dequeue(tVRG_MBX **mail);
 
 #endif

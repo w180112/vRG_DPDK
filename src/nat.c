@@ -23,7 +23,7 @@
 
 extern U16 user_count;
 
-void 	nat_rule_timer(__attribute__((unused)) struct rte_timer *tim, tPPP_PORT *port_ccb);
+void 	nat_rule_timer(__attribute__((unused)) struct rte_timer *tim, PPP_INFO_t *s_ppp_ccb);
 U16 	get_checksum(const void *const addr, const size_t bytes);
 
 #pragma GCC diagnostic push  // require GCC 4.6
@@ -52,16 +52,16 @@ U16 get_checksum(const void *const addr, const size_t bytes)
 }
 #pragma GCC diagnostic pop   // require GCC 4.6
 
-void nat_rule_timer(__attribute__((unused)) struct rte_timer *tim, tPPP_PORT *port_ccb)
+void nat_rule_timer(__attribute__((unused)) struct rte_timer *tim, PPP_INFO_t *s_ppp_ccb)
 {
 	//U16 user_id;
 	//for(user_id=0; user_id<user_count; user_id++) {
 		for(int i=0; i<TOTAL_SOCK_PORT; i++) {
-			if (rte_atomic16_read(&port_ccb->addr_table[i].is_fill) == 1) {
-				if (rte_atomic16_read(&port_ccb->addr_table[i].is_alive) > 0)
-					rte_atomic16_sub(&port_ccb->addr_table[i].is_alive, 1);
+			if (rte_atomic16_read(&s_ppp_ccb->addr_table[i].is_fill) == 1) {
+				if (rte_atomic16_read(&s_ppp_ccb->addr_table[i].is_alive) > 0)
+					rte_atomic16_sub(&s_ppp_ccb->addr_table[i].is_alive, 1);
 				else
-					rte_atomic16_set(&port_ccb->addr_table[i].is_fill, 0);
+					rte_atomic16_set(&s_ppp_ccb->addr_table[i].is_fill, 0);
 			}
 		}
 	//}

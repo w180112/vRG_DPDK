@@ -36,10 +36,10 @@ void DBG_vRG(U8 level, U8 *ptr, const char *fmt,...)
     vsnprintf(msg, DBG_VRG_MSG_LEN, fmt, ap);
 	printf("\n");
     if (level == DBGPPP) {
-		tPPP_PORT *port_ccb = (tPPP_PORT *)ptr;
-    	if (port_ccb) {
-    		strcpy(sstr,PPP_state2str(port_ccb->ppp_phase[port_ccb->cp].state));
-    		sprintf(buf,"pppd> Session id [%x.%s] ", rte_be_to_cpu_16(port_ccb->session_id), sstr);
+		PPP_INFO_t *s_ppp_ccb = (PPP_INFO_t *)ptr;
+    	if (s_ppp_ccb) {
+    		strcpy(sstr,PPP_state2str(s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].state));
+    		sprintf(buf,"pppd> Session id [%x.%s] ", rte_be_to_cpu_16(s_ppp_ccb->session_id), sstr);
     	}
 		else
 			sprintf(buf,"pppd> ");

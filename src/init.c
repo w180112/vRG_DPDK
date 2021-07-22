@@ -8,6 +8,7 @@
 #include "dhcp_codec.h"
 #include "dp.h"
 #include "init.h"
+#include "vrg.h"
 
 #define NUM_MBUFS 		8191
 #define MBUF_CACHE_SIZE 512
@@ -58,18 +59,7 @@ int sys_init(struct cmdline *cl)
 	if (ret != 0)
 		return ret;
 
-	/* init structures */
-	for(int i=0; i<user_count; i++) {
-		rte_timer_init(&(ppp_ports[i].pppoe));
-		rte_timer_init(&(ppp_ports[i].ppp));
-		rte_timer_init(&(ppp_ports[i].nat));
-		rte_timer_init(&(ppp_ports[i].link));
-		rte_timer_init(&(ppp_ports[i].ppp_alive));
-		rte_atomic16_init(&ppp_ports[i].dhcp_bool);
-		rte_atomic16_init(&ppp_ports[i].ppp_bool);
-		rte_atomic16_init(&ppp_ports[i].dp_start_bool);
-	}
-
+    rte_timer_init(&vrg_ccb.link);
     return 0;
 }
 

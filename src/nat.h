@@ -45,7 +45,7 @@ static inline void nat_icmp_learning(struct rte_ether_hdr *eth_hdr, struct rte_i
 			rte_wmb();
 			//addr_table[*new_port_id].is_fill = 1;
 			rte_atomic16_set(&addr_table[*new_port_id].is_fill, 1);
-			//port_ccb->addr_table[*new_port_id].shift = shift;
+			//s_ppp_ccb->addr_table[*new_port_id].shift = shift;
 			break;
 		}
 	}
@@ -74,7 +74,7 @@ static inline void nat_udp_learning(struct rte_ether_hdr *eth_hdr, struct rte_ip
 			rte_wmb();
 			//addr_table[*new_port_id].is_fill = 1;
 			rte_atomic16_set(&addr_table[*new_port_id].is_fill, 1);
-			//port_ccb->addr_table[*new_port_id].shift = shift;
+			//s_ppp_ccb->addr_table[*new_port_id].shift = shift;
 			break;
 		}
 	}
@@ -103,7 +103,7 @@ static inline void nat_tcp_learning(struct rte_ether_hdr *eth_hdr, struct rte_ip
 			rte_wmb();
 			//addr_table[*new_port_id].is_fill = 1;
 			rte_atomic16_set(&addr_table[*new_port_id].is_fill, 1);
-			//port_ccb->addr_table[*new_port_id].shift = shift;
+			//s_ppp_ccb->addr_table[*new_port_id].shift = shift;
 			break;
 		}
 	}

@@ -41,41 +41,6 @@
 
 #define TOTAL_SOCK_PORT			65536
 
-struct lcore_map {
-	U8 ctrl_thread;
-	U8 wan_thread;
-	U8 down_thread;
-	U8 lan_thread;
-	U8 up_thread;
-	U8 gateway_thread;
-	U8 timer_thread;
-};
-
-typedef struct {
-	U8		subt;
-	U16		len;
-	U8		value[255];
-} tSUB_VAL;
-
-//========= system capability ===========
-typedef struct {
-	U16		cap_map;
-	U16		en_map;
-} tSYS_CAP;
-
-//========= management address ===========
-typedef struct {
-	U8		addr_strlen; //addr_subt + addr[]
-	U8		addr_subt;
-	U8		addr[31];
-	
-	U8		if_subt;
-	U32		if_no;
-	
-	U8		oid_len;
-	U32		oids[128];
-} tMNG_ADDR;
-
 /* VLAN header structure definition.
  * We use bit feild here, but bit field order is uncertain.
  * It depends on compiler implementation.
@@ -159,6 +124,10 @@ typedef struct ppp_phase {
 	U8					timer_counter;
 }ppp_phase_t;
 
+/**
+ * @brief hsi nat table structure
+ * 
+ */
 typedef struct addr_table {
 	struct rte_ether_addr 	mac_addr;
 	U32						src_ip;
@@ -168,65 +137,55 @@ typedef struct addr_table {
 	rte_atomic16_t			is_alive;
 }__rte_cache_aligned addr_table_t;
 
-//========= The structure of port ===========
+/**
+ * @brief hsi control block structure
+ * 
+ */
 typedef struct {
-	ppp_phase_t 			ppp_phase[2];
-	pppoe_phase_t			pppoe_phase;
-	U8 						cp:1;	//cp is "control protocol", means we need to determine cp is LCP or NCP after parsing packet
-	U8						phase:7;
-	U16 					session_id;
-	U16						user_num;
-	U16 					vlan;
-	U32						lan_ip;
+	U16						user_num;		/* subscriptor id */
+	U16 					vlan;			/* subscriptor vlan */
+    ppp_phase_t 			ppp_phase[2];	/* store lcp and ipcp info, index 0 means lcp, index 1 means ipcp */
+	pppoe_phase_t			pppoe_phase;	/* store pppoe info */
+	U8 						cp:1;			/* cp is "control protocol", means we need to determine cp is LCP or NCP after parsing packet */
+	U8						phase:7;		/* pppoe connection phase */
+	U16 					session_id;		/* pppoe session id */
+    struct rte_ether_addr 	PPP_dst_mac;	/* pppoe server mac addr */
+    U32    					hsi_ipv4;		/* ip addr pppoe server assign to pppoe client */
+	U32						hsi_ipv4_gw;	/* ip addr gateway pppoe server assign to pppoe client */
+	U32						hsi_primary_dns;/* 1st dns addr pppoe server assign to pppoe client */
+	U32						hsi_second_dns;	/* 2nd dns addr pppoe server assign to pppoe client */
+    U8						identifier;		/* ppp pkt id */
+	U32						magic_num;		/* ppp pkt magic number */
+    BOOL					is_pap_auth;	/* pap auth boolean flag */
+    unsigned char 			*ppp_user_id;	/* pap account */
+	unsigned char 			*ppp_passwd;	/* pap password */
+    rte_atomic16_t 			ppp_bool; 		/* boolean flag for accept ppp packets at data plane */
+    rte_atomic16_t 			dp_start_bool;	/* hsi data plane starting boolean flag */
+    BOOL					ppp_processing; /* boolean flag for checking ppp is disconnecting */
+    addr_table_t 			addr_table[TOTAL_SOCK_PORT]; /* hsi nat addr table */
+    struct rte_timer 	    pppoe;			/* pppoe timer */
+	struct rte_timer 	    ppp;			/* ppp timer */
+	struct rte_timer 	    nat;			/* nat table timer */
+    struct rte_timer 	    ppp_alive; 		/* PPP connection checking timer */
+}__rte_cache_aligned PPP_INFO_t;
 
-	struct rte_ether_addr 	src_mac;
-	struct rte_ether_addr 	dst_mac;
-	struct rte_ether_addr 	lan_mac;
-
-	U32    					ipv4;
-	U32						ipv4_gw;
-	U32						primary_dns;
-	U32						second_dns;
-
-	U8						identifier;
-	U32						magic_num;
-
-	BOOL					is_pap_auth;
-	unsigned char 			*user_id;
-	unsigned char 			*passwd;
-	rte_atomic16_t 			dhcp_bool; //boolean value for accept dhcp packets at data plane
-	rte_atomic16_t 			ppp_bool; //boolean value for accept ppp packets at data plane
-	rte_atomic16_t 			dp_start_bool;
-	BOOL					ppp_processing; //boolean value for checking ppp is disconnecting
-
-	addr_table_t 		addr_table[TOTAL_SOCK_PORT];
-
-	struct rte_timer 	pppoe;
-	struct rte_timer 	ppp;
-	struct rte_timer 	nat;
-	struct rte_timer 	link; //for physical link checking timer
-	struct rte_timer 	ppp_alive; //for checking PPP connection alive
-}__rte_cache_aligned tPPP_PORT;
-
-extern tPPP_PORT		*ppp_ports;
-extern U32				ppp_interval;
-extern U8				ppp_max_msg_per_query;
-
-extern void 		PPP_int(void);
-extern void 		exit_ppp(__attribute__((unused)) struct rte_timer *tim, tPPP_PORT *port_ccb);
-
-int 				vrg_loop(void);
-int 				pppdInit(void);
-void 				PPP_bye(tPPP_PORT *port_ccb);
-int 				control_plane(void);
-
-/*-----------------------------------------
- * Queue between IF driver and daemon
- *----------------------------------------*/
+/**
+ * @brief msg between IF driver and daemon
+ * 
+ */
 typedef struct {
 	U16  			type;
 	U8          	refp[ETH_MTU];
 	int	        	len;
-} tPPP_MBX;
+} tVRG_MBX;
+
+
+extern U32			ppp_interval;
+
+extern void 		PPP_int(void);
+extern void 		exit_ppp(__attribute__((unused)) struct rte_timer *tim, PPP_INFO_t *ppp_ccb);
+extern STATUS 		ppp_process(tVRG_MBX *mail);
+int 				pppdInit(void);
+void 				PPP_bye(PPP_INFO_t *ppp_ccb);
 
 #endif

@@ -43,6 +43,7 @@ typedef struct dhcp_ccb {
     U8                      cur_ip_pool_index;
     ip_pool_t               ip_pool[MAX_IP_POOL];
     lan_user_info_t         lan_user_info[LAN_USER];
+    rte_atomic16_t 			dhcp_bool; //boolean value for accept dhcp packets at data plane
 }dhcp_ccb_t;
 
 BIT16 dhcp_decode(dhcp_ccb_t *dhcp_ccb, struct rte_ether_hdr *eth_hdr, vlan_header_t *vlan_header, struct rte_ipv4_hdr *ip_hdr, struct rte_udp_hdr *udp_hdr);

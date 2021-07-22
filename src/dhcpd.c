@@ -6,10 +6,10 @@
 #include <rte_malloc.h>
 #include "pppd.h"
 #include "dhcp_fsm.h"
+#include "vrg.h"
 
-dhcp_ccb_t                  *dhcp_ccb;
-extern U16                  user_count;
 extern struct lcore_map 	lcore;
+
 extern STATUS dhcp_fsm(dhcp_ccb_t *dhcp_ccb, U16 event);
 void release_lan_user(dhcp_ccb_t *dhcp_ccb);
 
@@ -17,13 +17,12 @@ struct rte_ether_addr zero_mac;
 
 int dhcp_init(void)
 {
+    dhcp_ccb_t *dhcp_ccb = vrg_ccb.dhcp_ccb;
+
     for(int i=0; i<RTE_ETHER_ADDR_LEN; i++)
         zero_mac.addr_bytes[i] = 0;
 
-    dhcp_ccb = rte_malloc(NULL, user_count*sizeof(dhcp_ccb_t), 0);
-    if (!dhcp_ccb)
-		rte_exit(EXIT_FAILURE, "vRG system dhcp init malloc from hugepage failed.\n");
-    for(int i=0; i<user_count; i++) {
+    for(int i=0; i<vrg_ccb.user_count; i++) {
         for(int j=0; j<LAN_USER; j++) {
             rte_timer_init(&(dhcp_ccb[i].lan_user_info[j].timer));
             rte_timer_init(&(dhcp_ccb[i].lan_user_info[j].lan_user_timer));
@@ -34,6 +33,7 @@ int dhcp_init(void)
 		    dhcp_ccb[i].ip_pool[j].ip_addr = rte_cpu_to_be_32(0xc0a80200 | (j + 101));
             rte_ether_addr_copy(&zero_mac, &dhcp_ccb[i].ip_pool[j].mac_addr);
             dhcp_ccb[i].lan_user_info[j].state = S_DHCP_INIT;
+            rte_atomic16_init(&dhcp_ccb[i].dhcp_bool);
         }
     }
 
@@ -43,9 +43,10 @@ int dhcp_init(void)
 int dhcpd(struct rte_mbuf *single_pkt, struct rte_ether_hdr *eth_hdr, vlan_header_t *vlan_header, struct rte_ipv4_hdr *ip_hdr, struct rte_udp_hdr *udp_hdr, U16 user_index)
 {
     BIT16 event;
+    dhcp_ccb_t *dhcp_ccb = vrg_ccb.dhcp_ccb;
     int lan_user_index = -1;
 
-    if (user_index >= user_count) {
+    if (user_index >= vrg_ccb.user_count) {
         rte_pktmbuf_free(single_pkt);
         return -1;
     }
