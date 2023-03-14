@@ -18,15 +18,25 @@ extern struct lcore_map 	lcore;
 extern FILE					*fp;
 extern BOOL					quit_flag;
 
+U16 auth_method;
+
 /*============================ DECODE ===============================*/
 
-/*****************************************************
- * ppp_decode_frame
+/**
+ * @brief ppp_decode_frame() is for decode pppoe and ppp pkts
  * 
- * input : pArg - mail.param
- * output: imsg, event
- * return: session ccb
- *****************************************************/
+ * @param mail 
+ * @param eth_hdr 
+ * @param vlan_header 
+ * @param pppoe_header 
+ * @param ppp_payload 
+ * @param ppp_hdr 
+ * @param ppp_options 
+ * @param event 
+ * @param s_ppp_ccb 
+ * @retval TRUE for decode successfully
+ * @retval FALSE for decode failed 
+ */
 STATUS PPP_decode_frame(tVRG_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_header_t *vlan_header, pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp_header_t *ppp_hdr, ppp_options_t *ppp_options, U16 *event, PPP_INFO_t *s_ppp_ccb)
 {
     U16	mulen;
@@ -49,7 +59,7 @@ STATUS PPP_decode_frame(tVRG_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_head
 	if (vlan_header->next_proto == rte_cpu_to_be_16(ETH_P_PPP_DIS)) {
 		if (pppoe_header->code == PADS)
 			s_ppp_ccb->phase = LCP_PHASE;
-		return TRUE;
+		return FALSE;
 	}
 	
 	ppp_payload_t *tmp_ppp_payload = (ppp_payload_t *)(tmp_pppoe_header + 1);
@@ -67,20 +77,21 @@ STATUS PPP_decode_frame(tVRG_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_head
     /* check the ppp is in LCP, AUTH or NCP phase */
     if (ppp_payload->ppp_protocol == rte_cpu_to_be_16(IPCP_PROTOCOL)) {
     	if (s_ppp_ccb->phase != IPCP_PHASE)
-    		return FALSE;
+    		return ERROR;
     	if (decode_ipcp(pppoe_header,ppp_payload,ppp_hdr,ppp_options,total_lcp_length,event,tim,s_ppp_ccb) == FALSE){
-    		return FALSE;
+    		return ERROR;
     	}
     }
     else if (ppp_payload->ppp_protocol == rte_cpu_to_be_16(LCP_PROTOCOL)) {
 		switch(ppp_hdr->code) {
 			case CONFIG_REQUEST : 
 				if (s_ppp_ccb->phase != LCP_PHASE)
-    				return FALSE;
+    				return ERROR;
+				auth_method = s_ppp_ccb->auth_method;
 				/* we check for if the request packet contains what we want */
 				switch (check_nak_reject(CONFIG_NAK,pppoe_header,ppp_payload,ppp_hdr,ppp_options,total_lcp_length)) {
 					case ERROR:
-						return FALSE;
+						return ERROR;
 					case 1:
 						*event = E_RECV_BAD_CONFIG_REQUEST;
 						return TRUE;
@@ -89,7 +100,7 @@ STATUS PPP_decode_frame(tVRG_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_head
 				}
 				switch (check_nak_reject(CONFIG_REJECT,pppoe_header,ppp_payload,ppp_hdr,ppp_options,total_lcp_length)) {
 					case ERROR:
-						return FALSE;
+						return ERROR;
 					case 1:
 						*event = E_RECV_BAD_CONFIG_REQUEST;
 						return TRUE;
@@ -101,9 +112,9 @@ STATUS PPP_decode_frame(tVRG_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_head
 				return TRUE;
 			case CONFIG_ACK :
 				if (s_ppp_ccb->phase != LCP_PHASE)
-    				return FALSE;
+    				return ERROR;
 				if (ppp_hdr->identifier != s_ppp_ccb->identifier)
-					return FALSE;
+					return ERROR;
 			
 				/* only check magic number. Skip the bytes stored in ppp_options_t length to find magic num. */
 				U8 ppp_options_length = 0;
@@ -115,7 +126,7 @@ STATUS PPP_decode_frame(tVRG_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_head
 								#ifdef _DP_DBG
 								puts("recv ppp LCP magic number error");
 								#endif
-								return FALSE;
+								return ERROR;
 							}
 						}
 					}
@@ -127,6 +138,8 @@ STATUS PPP_decode_frame(tVRG_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_head
 				return TRUE;
 			case CONFIG_NAK : 
 				*event = E_RECV_CONFIG_NAK_REJ;
+				if (ppp_options->type == AUTH)
+					s_ppp_ccb->auth_method = PAP_PROTOCOL;
 				return TRUE;
 			case CONFIG_REJECT :
 				*event = E_RECV_CONFIG_NAK_REJ;
@@ -136,7 +149,7 @@ STATUS PPP_decode_frame(tVRG_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_head
 				#endif
 				if (ppp_options->type == AUTH) {
 					if (s_ppp_ccb->is_pap_auth == FALSE)
-						return FALSE;
+						return ERROR;
 					s_ppp_ccb->is_pap_auth = FALSE;
 				}
 				return TRUE;
@@ -155,14 +168,14 @@ STATUS PPP_decode_frame(tVRG_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_head
 				return TRUE;
 			case ECHO_REQUEST:
 				if (s_ppp_ccb->phase < LCP_PHASE)
-    				return FALSE;
+    				return ERROR;
 				rte_timer_stop(&(s_ppp_ccb->ppp_alive));
 				rte_timer_reset(&(s_ppp_ccb->ppp_alive), ppp_interval*rte_get_timer_hz(), SINGLE, lcore.timer_thread, (rte_timer_cb_t)exit_ppp, s_ppp_ccb);
 				*event = E_RECV_ECHO_REPLY_REQUEST_DISCARD_REQUEST;
 				return TRUE;
 			case ECHO_REPLY:
 				if (s_ppp_ccb->phase < LCP_PHASE)
-    				return FALSE;
+    				return ERROR;
 				*event = E_RECV_ECHO_REPLY_REQUEST_DISCARD_REQUEST;
 				return TRUE;
 			default :
@@ -171,12 +184,12 @@ STATUS PPP_decode_frame(tVRG_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_head
 	}
 
 	/* in AUTH phase, if the packet is not what we want, then send nak packet and just close process */
-	else if (ppp_payload->ppp_protocol == rte_cpu_to_be_16(AUTH_PROTOCOL)) {
+	else if (ppp_payload->ppp_protocol == rte_cpu_to_be_16(PAP_PROTOCOL)) {
 		if (s_ppp_ccb->phase != AUTH_PHASE)
-			return FALSE;
+			return ERROR;
 		ppp_pap_ack_nak_t ppp_pap_ack_nak, *tmp_ppp_pap_ack_nak = (ppp_pap_ack_nak_t *)(tmp_ppp_hdr + 1);
 		rte_memcpy(&ppp_pap_ack_nak,tmp_ppp_pap_ack_nak,tmp_ppp_pap_ack_nak->msg_length + sizeof(U8));
-		if (ppp_hdr->code == AUTH_ACK) {
+		if (ppp_hdr->code == PAP_ACK) {
 			RTE_LOG(INFO, EAL, "User %" PRIu16 " auth success.\n", s_ppp_ccb->user_num);
 			#ifdef _DP_DBG
 			puts("auth success.");
@@ -184,17 +197,17 @@ STATUS PPP_decode_frame(tVRG_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_head
 			s_ppp_ccb->phase = IPCP_PHASE;
 			return TRUE;
 		}
-		else if (ppp_hdr->code == AUTH_NAK) {
+		else if (ppp_hdr->code == PAP_NAK) {
     		s_ppp_ccb->phase = LCP_PHASE;
     		PPP_FSM(&(s_ppp_ccb->ppp),s_ppp_ccb,E_CLOSE);
 			RTE_LOG(INFO, EAL, "User %" PRIu16 " auth fail.\n", s_ppp_ccb->user_num);
 			#ifdef _DP_DBG
 			puts("auth fail.");
 			#endif
-			return FALSE;
+			return TRUE;
 		}
-		else if (ppp_hdr->code == AUTH_REQUEST) {
-			unsigned char buffer[MSG_BUF];
+		else if (ppp_hdr->code == PAP_REQUEST) {
+			U8 buffer[MSG_BUF];
     		U16 mulen;
     		PPP_INFO_t tmp_s_ppp_ccb;
 
@@ -207,15 +220,60 @@ STATUS PPP_decode_frame(tVRG_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_head
     		tmp_s_ppp_ccb.ppp_phase[0].ppp_options = NULL;
     		tmp_s_ppp_ccb.cp = 0;
 			tmp_s_ppp_ccb.session_id = s_ppp_ccb->session_id;
-			if (build_auth_ack_pap(buffer,&tmp_s_ppp_ccb,&mulen) < 0)
-				return FALSE;
+			if (build_auth_ack_pap(buffer, &tmp_s_ppp_ccb, &mulen) < 0)
+				return ERROR;
 				
 			drv_xmit(buffer,mulen);
 			RTE_LOG(INFO, EAL, "User %" PRIu16 " recv pap request.\n", s_ppp_ccb->user_num);
 			#ifdef _DP_DBG
 			puts("recv pap request");
 			#endif
-			return FALSE;
+			return TRUE;
+		}
+	}
+	else if (ppp_payload->ppp_protocol == rte_cpu_to_be_16(CHAP_PROTOCOL)) {
+		if (s_ppp_ccb->phase != AUTH_PHASE)
+			return ERROR;
+		ppp_chap_data_t *ppp_chap_data = (ppp_chap_data_t *)(tmp_ppp_hdr + 1);
+		if (ppp_hdr->code == CHAP_CHALLANGE) {
+			U8 buffer[MSG_BUF];
+    		U16 mulen;
+    		PPP_INFO_t tmp_s_ppp_ccb;
+
+    		s_ppp_ccb->phase = AUTH_PHASE;
+    		tmp_s_ppp_ccb.ppp_phase[0].eth_hdr = eth_hdr;
+			tmp_s_ppp_ccb.ppp_phase[0].vlan_header = vlan_header;
+    		tmp_s_ppp_ccb.ppp_phase[0].pppoe_header = pppoe_header;
+    		tmp_s_ppp_ccb.ppp_phase[0].ppp_payload = ppp_payload;
+    		tmp_s_ppp_ccb.ppp_phase[0].ppp_hdr = ppp_hdr;
+    		tmp_s_ppp_ccb.ppp_phase[0].ppp_options = NULL;
+    		tmp_s_ppp_ccb.cp = 0;
+			tmp_s_ppp_ccb.session_id = s_ppp_ccb->session_id;
+			if (build_auth_response_chap(buffer, &tmp_s_ppp_ccb, &mulen, ppp_chap_data) < 0)
+				return ERROR;
+				
+			drv_xmit(buffer,mulen);
+			RTE_LOG(INFO, EAL, "User %" PRIu16 " recv chap challenge.\n", s_ppp_ccb->user_num);
+			#ifdef _DP_DBG
+			puts("recv chap chapllenge");
+			#endif
+			return TRUE;
+		}
+		else if (ppp_hdr->code == CHAP_SUCCESS) {
+			RTE_LOG(INFO, EAL, "User %" PRIu16 " auth success.\n", s_ppp_ccb->user_num);
+			#ifdef _DP_DBG
+			puts("auth success.");
+			#endif
+			s_ppp_ccb->phase = IPCP_PHASE;
+			return TRUE;
+		}
+		else if (ppp_hdr->code == CHAP_FAILURE) {
+    		s_ppp_ccb->phase = LCP_PHASE;
+			RTE_LOG(INFO, EAL, "User %" PRIu16 " auth fail.\n", s_ppp_ccb->user_num);
+			#ifdef _DP_DBG
+			puts("auth fail.");
+			#endif
+			return TRUE;
 		}
 	}
 	else {
@@ -223,7 +281,7 @@ STATUS PPP_decode_frame(tVRG_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_head
 		#ifdef _DP_DBG
 		puts("unknown PPP protocol");
 		#endif
-		return FALSE;
+		return ERROR;
 	}
 
 	return TRUE;
@@ -393,6 +451,15 @@ STATUS check_nak_reject(U8 flag, pppoe_header_t *pppoe_header, __attribute__((un
 				rte_memcpy(tmp_cur,cur,cur->length);
 				ppp_hdr->length += cur->length;
 				tmp_cur = (ppp_options_t *)((char *)tmp_cur + cur->length);
+			}
+			else if (cur->type == AUTH) {
+				if (((auth_method & 0xff) != cur->val[1]) || (((auth_method & 0xff00) >> 8) != cur->val[0])) {
+					cur->val[1] = auth_method & 0xff;
+					cur->val[0] = (auth_method & 0xff00) >> 8;
+					rte_memcpy(tmp_cur,cur,cur->length);
+					ppp_hdr->length += cur->length;
+					tmp_cur = (ppp_options_t *)((char *)tmp_cur + cur->length);
+				}
 			}
 		}
 		else {
@@ -672,16 +739,28 @@ STATUS build_config_request(unsigned char *buffer, PPP_INFO_t *s_ppp_ccb, U16 *m
 
  		cur = (ppp_options_t *)((char *)(cur + 1) + sizeof(max_recv_unit));
  		/* option, auth */
- 		if (s_ppp_ccb->is_pap_auth == TRUE) {
+ 		if (s_ppp_ccb->auth_method == PAP_PROTOCOL) {
  			cur->type = AUTH;
  			cur->length = 0x4;
- 			U16 auth_pro = rte_cpu_to_be_16(AUTH_PROTOCOL);
+ 			U16 auth_pro = rte_cpu_to_be_16(PAP_PROTOCOL);
  			rte_memcpy(cur->val,&auth_pro,sizeof(U16));
  			pppoe_header->length += 4;
  			ppp_hdr->length += 4;
 
  			cur = (ppp_options_t *)((char *)(cur + 1) + sizeof(auth_pro));
  		}
+		else if (s_ppp_ccb->auth_method == CHAP_PROTOCOL) {
+			cur->type = AUTH;
+ 			cur->length = 0x5;
+ 			U16 auth_pro = rte_cpu_to_be_16(CHAP_PROTOCOL);
+ 			rte_memcpy(cur->val,&auth_pro,sizeof(U16));
+			U8 auth_method = 0x5; // CHAP with MD5
+			rte_memcpy(cur->val,&auth_method,sizeof(U8));
+ 			pppoe_header->length += 5;
+ 			ppp_hdr->length += 5;
+
+ 			cur = (ppp_options_t *)((char *)(cur + 1) + sizeof(auth_pro) + sizeof(auth_method));
+		}
  		/* options, magic number */
  		cur->type = MAGIC_NUM;
  		cur->length = 0x6;
@@ -962,8 +1041,8 @@ STATUS build_auth_request_pap(unsigned char* buffer, PPP_INFO_t *s_ppp_ccb, U16 
 	rte_ether_addr_copy(&vrg_ccb.hsi_wan_src_mac, &eth_hdr->s_addr);
 	rte_ether_addr_copy(&s_ppp_ccb->PPP_dst_mac, &eth_hdr->d_addr);
 
-	ppp_payload->ppp_protocol = rte_cpu_to_be_16(AUTH_PROTOCOL);
-	ppp_pap_header.code = AUTH_REQUEST;
+	ppp_payload->ppp_protocol = rte_cpu_to_be_16(PAP_PROTOCOL);
+	ppp_pap_header.code = PAP_REQUEST;
 	ppp_pap_header.identifier = ppp_hdr->identifier;
 
 	ppp_pap_header.length = 2 * sizeof(U8) + peer_id_length + peer_passwd_length + sizeof(ppp_header_t);
@@ -1017,8 +1096,8 @@ STATUS build_auth_ack_pap(unsigned char *buffer, PPP_INFO_t *s_ppp_ccb, U16 *mul
 	rte_ether_addr_copy(&eth_hdr->d_addr, &eth_hdr->s_addr);
 	rte_ether_addr_copy(&tmp_mac, &eth_hdr->d_addr);
 
-	ppp_payload->ppp_protocol = rte_cpu_to_be_16(AUTH_PROTOCOL);
-	ppp_pap_header.code = AUTH_ACK;
+	ppp_payload->ppp_protocol = rte_cpu_to_be_16(PAP_PROTOCOL);
+	ppp_pap_header.code = PAP_ACK;
 	ppp_pap_header.identifier = ppp_hdr->identifier;
 
 	ppp_pap_ack_nak.msg_length = strlen(login_msg);
@@ -1043,5 +1122,63 @@ STATUS build_auth_ack_pap(unsigned char *buffer, PPP_INFO_t *s_ppp_ccb, U16 *mul
 	#ifdef _DP_DBG
  	puts("pap ack built.");
 	#endif
+ 	return TRUE;
+}
+
+/* TODO: not yet tested */
+/**
+ * @brief build_auth_request_chap
+ * For CHAP auth, starting after LCP nego complete.
+ * 
+ * @param buffer ppp pkt buffer
+ * @param s_ppp_ccb 
+ * @param mulen ppp pkt buffer length
+ * @retval TRUE if encode successfully
+ * @retval FALSE if encode failed 
+ */
+STATUS build_auth_response_chap(U8 *buffer, PPP_INFO_t *s_ppp_ccb, U16 *mulen, ppp_chap_data_t *ppp_chap_data)
+{
+	U8 chap_hash[16];
+	U8 *buf_ptr = buffer;
+	ppp_chap_data_t new_ppp_chap_data;
+	struct rte_ether_addr tmp_mac;
+	
+	MD5_CTX  context;
+    
+	MD5Init(&context);
+	MD5Update(&context, &s_ppp_ccb->ppp_phase[0].ppp_hdr->identifier, 1);
+	MD5Update(&context, s_ppp_ccb->ppp_passwd, strlen(s_ppp_ccb->ppp_passwd));
+	MD5Update(&context, ppp_chap_data->val, ppp_chap_data->val_size);
+	MD5Final(chap_hash, &context);
+	new_ppp_chap_data.val_size = 16;
+	new_ppp_chap_data.val = chap_hash;
+	new_ppp_chap_data.name = s_ppp_ccb->ppp_user_id;
+
+	rte_ether_addr_copy(&s_ppp_ccb->ppp_phase[0].eth_hdr->s_addr, &tmp_mac);
+	rte_ether_addr_copy(&s_ppp_ccb->ppp_phase[0].eth_hdr->d_addr, &s_ppp_ccb->ppp_phase[0].eth_hdr->s_addr);
+	rte_ether_addr_copy(&tmp_mac, &s_ppp_ccb->ppp_phase[0].eth_hdr->d_addr);
+
+	*(struct rte_ether_hdr *)buf_ptr = *s_ppp_ccb->ppp_phase[0].eth_hdr;
+	buf_ptr += sizeof(struct rte_ether_hdr);
+	*(vlan_header_t *)buf_ptr = *s_ppp_ccb->ppp_phase[0].vlan_header;
+	buf_ptr += sizeof(vlan_header_t);
+	*(pppoe_header_t *)buf_ptr = *s_ppp_ccb->ppp_phase[0].pppoe_header;
+	buf_ptr += sizeof(pppoe_header_t);
+	*(ppp_payload_t *)buf_ptr = *s_ppp_ccb->ppp_phase[0].ppp_payload;
+	buf_ptr += sizeof(ppp_payload_t);
+	s_ppp_ccb->ppp_phase[0].ppp_hdr->code = CHAP_RESPONSE;
+	s_ppp_ccb->ppp_phase[0].ppp_hdr->length = sizeof(ppp_header_t) + 1 + 16 + strlen(new_ppp_chap_data.name);
+	*(ppp_header_t *)buf_ptr = *s_ppp_ccb->ppp_phase[0].ppp_hdr;
+	buf_ptr += sizeof(ppp_header_t);
+	((ppp_chap_data_t *)buf_ptr)->val_size = new_ppp_chap_data.val_size;
+	memcpy(((ppp_chap_data_t *)buf_ptr)->val, new_ppp_chap_data.val, new_ppp_chap_data.val_size);
+ 	memcpy(((ppp_chap_data_t *)buf_ptr)->name, new_ppp_chap_data.name, strlen(new_ppp_chap_data.name));
+	buf_ptr += 1 + 16 + strlen(new_ppp_chap_data.name);
+	*mulen = buf_ptr - buffer;
+
+	RTE_LOG(INFO,EAL,"User %" PRIu16 " chap response built.\n", s_ppp_ccb->user_num);
+	#ifdef _DP_DBG
+ 	puts("chap response built.");
+	#endif 
  	return TRUE;
 }

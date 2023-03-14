@@ -44,6 +44,11 @@ extern STATUS			PPP_FSM(struct rte_timer *ppp, PPP_INFO_t *ppp_ccb, U16 event);
 void 					PPP_int(void);
 void 					exit_ppp(__attribute__((unused)) struct rte_timer *tim, PPP_INFO_t *ppp_ccb);
 
+/**
+ * @brief pppoe connection closing processing function
+ * 
+ * @param s_ppp_ccb 
+ */
 void PPP_bye(PPP_INFO_t *s_ppp_ccb)
 {
 	rte_timer_stop(&(s_ppp_ccb->ppp));
@@ -89,9 +94,11 @@ void PPP_bye(PPP_INFO_t *s_ppp_ccb)
     		PPP_FSM(&(s_ppp_ccb->ppp), s_ppp_ccb, E_CLOSE);
     		break;
     	case DATA_PHASE:
+			/* modify pppoe phase from DATA_PHASE to IPCP_PHASE */
     		s_ppp_ccb->phase--;
     	case IPCP_PHASE:
 			s_ppp_ccb->ppp_processing = TRUE;
+			/* set ppp control protocol to IPCP */
     		s_ppp_ccb->cp = 1;
     		PPP_FSM(&(s_ppp_ccb->ppp), s_ppp_ccb, E_CLOSE);
     		break;
@@ -116,21 +123,22 @@ void PPP_int(void)
 	exit(0);
 }
 
-/**************************************************************
- * pppdInit: 
- *
- **************************************************************/
+/**
+ * @brief pppd init function
+ * @return int 
+ */
 int pppdInit(void)
 {	
 	PPP_INFO_t *ppp_ccb = vrg_ccb.ppp_ccb;
 	ppp_interval = (uint32_t)(3*SECOND); 
-    
-    //--------- default of all ports ----------
+
     for(int i=0; i<vrg_ccb.user_count; i++) {
 		ppp_ccb[i].ppp_phase[0].state = S_INIT;
 		ppp_ccb[i].ppp_phase[1].state = S_INIT;
 		ppp_ccb[i].pppoe_phase.active = FALSE;
+		/* subscriptor id starts from 1 */
 		ppp_ccb[i].user_num = i + 1;
+		/* vlan of each subscriptor is adding the base_vlan value in vRG_setup file to i */
 		ppp_ccb[i].vlan = i + vrg_ccb.base_vlan;
 		
 		ppp_ccb[i].hsi_ipv4 = 0;
@@ -138,7 +146,8 @@ int pppdInit(void)
 		ppp_ccb[i].hsi_primary_dns = 0;
 		ppp_ccb[i].hsi_second_dns = 0;
 		ppp_ccb[i].phase = END_PHASE;
-		ppp_ccb[i].is_pap_auth = TRUE;
+		ppp_ccb[i].is_pap_auth = FALSE;
+		ppp_ccb[i].auth_method = CHAP_PROTOCOL;
 		for(int j=0; j<TOTAL_SOCK_PORT; j++) {
 			rte_atomic16_init(&ppp_ccb[i].addr_table[j].is_alive);
 			rte_atomic16_init(&ppp_ccb[i].addr_table[j].is_fill);
@@ -167,7 +176,7 @@ int pppdInit(void)
 STATUS ppp_process(tVRG_MBX	*mail)
 {
 	PPP_INFO_t			*ppp_ccb = vrg_ccb.ppp_ccb;
-	int 				cp;
+	int 				cp, ret;
 	uint16_t			event, session_index = 0;
 	struct rte_ether_hdr eth_hdr;
 	vlan_header_t		vlan_header;
@@ -188,9 +197,10 @@ STATUS ppp_process(tVRG_MBX	*mail)
 		return FALSE;
 	}
 	#pragma GCC diagnostic pop   // require GCC 4.6
-	if (PPP_decode_frame(mail, &eth_hdr, &vlan_header, &pppoe_header, &ppp_payload, &ppp_hdr, ppp_options, &event ,&ppp_ccb[session_index]) == FALSE)					
+	ret = PPP_decode_frame(mail, &eth_hdr, &vlan_header, &pppoe_header, &ppp_payload, &ppp_hdr, ppp_options, &event ,&ppp_ccb[session_index]);
+	if (ret == ERROR)					
 		return FALSE;
-	if (vlan_header.next_proto == rte_cpu_to_be_16(ETH_P_PPP_DIS)) {
+	if (ret == FALSE) {
 		switch(pppoe_header.code) {
 		case PADO:
 			if (ppp_ccb[session_index].pppoe_phase.active == TRUE)
@@ -262,14 +272,14 @@ STATUS ppp_process(tVRG_MBX	*mail)
 	}
 	ppp_ccb[session_index].ppp_phase[0].ppp_options = ppp_options;
 	ppp_ccb[session_index].ppp_phase[1].ppp_options = ppp_options;
-	if (ppp_payload.ppp_protocol == rte_cpu_to_be_16(AUTH_PROTOCOL)) {
-		if (ppp_hdr.code == AUTH_NAK) {
-			RTE_LOG(INFO,EAL,"User %" PRIu16 " received auth info error(AUTH NAK) and start closing connection.\n", ppp_ccb[session_index].user_num);
+	if (ppp_payload.ppp_protocol == rte_cpu_to_be_16(PAP_PROTOCOL) || ppp_payload.ppp_protocol == rte_cpu_to_be_16(CHAP_PROTOCOL)) {
+		if (ppp_hdr.code == PAP_NAK || ppp_hdr.code == CHAP_FAILURE) {
+			RTE_LOG(INFO,EAL,"User %" PRIu16 " received auth info error and start closing connection.\n", ppp_ccb[session_index].user_num);
     		ppp_ccb[session_index].cp = 0;
     		ppp_ccb[session_index].phase--;
     		PPP_FSM(&(ppp_ccb[session_index].ppp),&ppp_ccb[session_index],E_CLOSE);
 		}
-		else if (ppp_hdr.code == AUTH_ACK) {
+		else if (ppp_hdr.code == PAP_ACK || ppp_hdr.code == CHAP_SUCCESS) {
 			ppp_ccb[session_index].cp = 1;
 			PPP_FSM(&(ppp_ccb[session_index].ppp),&ppp_ccb[session_index],E_OPEN);
 			return FALSE;

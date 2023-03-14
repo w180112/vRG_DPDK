@@ -41,8 +41,8 @@
 
 #define TOTAL_SOCK_PORT			65536
 
-/* VLAN header structure definition.
- * We use bit feild here, but bit field order is uncertain.
+/**
+ * @brief We use bit feild here, but bit field order is uncertain.
  * It depends on compiler implementation.
  * In GCC, bit field is bind with endianess.
  * https://rednaxelafx.iteye.com/blog/257760
@@ -92,6 +92,12 @@ typedef struct ppp_pap_ack_nak {
 	U8 *msg;
 }ppp_pap_ack_nak_t;
 
+typedef struct ppp_chap_data {
+	U8 val_size;
+	U8 *val;
+	U8 *name;
+}ppp_chap_data_t;
+
 typedef struct ppp_payload {
 	U16 ppp_protocol;
 }ppp_payload_t;
@@ -126,7 +132,6 @@ typedef struct ppp_phase {
 
 /**
  * @brief hsi nat table structure
- * 
  */
 typedef struct addr_table {
 	struct rte_ether_addr 	mac_addr;
@@ -139,7 +144,6 @@ typedef struct addr_table {
 
 /**
  * @brief hsi control block structure
- * 
  */
 typedef struct {
 	U16						user_num;		/* subscriptor id */
@@ -157,8 +161,9 @@ typedef struct {
     U8						identifier;		/* ppp pkt id */
 	U32						magic_num;		/* ppp pkt magic number */
     BOOL					is_pap_auth;	/* pap auth boolean flag */
-    unsigned char 			*ppp_user_id;	/* pap account */
-	unsigned char 			*ppp_passwd;	/* pap password */
+    U16 					auth_method;	/* use chap or pap */
+	unsigned char 			*ppp_user_id;	/* pap/chap account */
+	unsigned char 			*ppp_passwd;	/* pap/chap password */
     rte_atomic16_t 			ppp_bool; 		/* boolean flag for accept ppp packets at data plane */
     rte_atomic16_t 			dp_start_bool;	/* hsi data plane starting boolean flag */
     BOOL					ppp_processing; /* boolean flag for checking ppp is disconnecting */
@@ -171,7 +176,6 @@ typedef struct {
 
 /**
  * @brief msg between IF driver and daemon
- * 
  */
 typedef struct {
 	U16  			type;

@@ -85,6 +85,7 @@ static void cmd_info_parsed(__attribute__((unused)) void *parsed_result,
 	cmdline_printf(cl, "LAN mac addr is %x:%x:%x:%x:%x:%x\n", vrg_ccb.hsi_lan_mac.addr_bytes[0], vrg_ccb.hsi_lan_mac.addr_bytes[1], vrg_ccb.hsi_lan_mac.addr_bytes[2], vrg_ccb.hsi_lan_mac.addr_bytes[3], vrg_ccb.hsi_lan_mac.addr_bytes[4], vrg_ccb.hsi_lan_mac.addr_bytes[5]);
 
 	for(int i=0; i<vrg_ccb.user_count; i++) {
+		cmdline_printf(cl, "================================================================================\n");
 		#ifdef _NON_VLAN
 		cmdline_printf(cl, "User %d is in ", i + 1);
 		#else
@@ -127,7 +128,6 @@ static void cmd_info_parsed(__attribute__((unused)) void *parsed_result,
 		}
 		else if (rte_atomic16_read(&vrg_ccb.dhcp_ccb[i].dhcp_bool) == 0)
 			cmdline_printf(cl, "DHCP server is off\n");
-		cmdline_printf(cl, "================================================================================\n");
 	}
 }
 
