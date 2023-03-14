@@ -195,7 +195,7 @@ int wan_recvd(void)
 			}
 			
 			ppp_payload = ((ppp_payload_t *)((char *)eth_hdr + sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t) + sizeof(pppoe_header_t)));
-			if (unlikely(vlan_header->next_proto == rte_cpu_to_be_16(ETH_P_PPP_DIS) || (ppp_payload->ppp_protocol == rte_cpu_to_be_16(LCP_PROTOCOL) || ppp_payload->ppp_protocol == rte_cpu_to_be_16(AUTH_PROTOCOL) || ppp_payload->ppp_protocol == rte_cpu_to_be_16(IPCP_PROTOCOL)))) {
+			if (unlikely(vlan_header->next_proto == rte_cpu_to_be_16(ETH_P_PPP_DIS) || (ppp_payload->ppp_protocol == rte_cpu_to_be_16(LCP_PROTOCOL) || ppp_payload->ppp_protocol == rte_cpu_to_be_16(PAP_PROTOCOL) || ppp_payload->ppp_protocol == rte_cpu_to_be_16(IPCP_PROTOCOL)))) {
 				if (unlikely(rte_atomic16_read(&vrg_ccb.ppp_ccb[user_index].ppp_bool) == 0)) {
 					rte_pktmbuf_free(single_pkt);
 					continue;

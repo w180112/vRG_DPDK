@@ -40,7 +40,8 @@
 #define LCP_PROTOCOL 		0xc021
 #define IP_PROTOCOL 		0x0021
 #define IPCP_PROTOCOL		0x8021
-#define AUTH_PROTOCOL		0xc023
+#define PAP_PROTOCOL		0xc023
+#define CHAP_PROTOCOL		0xc223
 
 /* define for LCP/IPCP code */
 #define CONFIG_REQUEST 		0x1
@@ -54,9 +55,14 @@
 #define ECHO_REQUEST 		0x9
 #define ECHO_REPLY			0xa
 
-#define AUTH_REQUEST		0x1
-#define AUTH_ACK			0x2
-#define AUTH_NAK			0x3
+#define PAP_REQUEST		    0x1
+#define PAP_ACK			    0x2
+#define PAP_NAK			    0x3
+
+#define CHAP_CHALLANGE      0x1
+#define CHAP_RESPONSE       0x2
+#define CHAP_SUCCESS        0x3
+#define CHAP_FAILURE        0x4
 
 /* define for LCP options */
 #define MAGIC_NUM			0x5

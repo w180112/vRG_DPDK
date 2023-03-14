@@ -687,8 +687,10 @@ STATUS A_this_layer_up(__attribute__((unused)) struct rte_timer *tim, __attribut
 	if (s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].ppp_payload->ppp_protocol == rte_cpu_to_be_16(LCP_PROTOCOL)) {
     	memset(buffer,0,MSG_BUF);
         rte_timer_reset(&(s_ppp_ccb->ppp_alive), ppp_interval*rte_get_timer_hz(), SINGLE, lcore.timer_thread, (rte_timer_cb_t)exit_ppp, s_ppp_ccb);
-    	if (build_auth_request_pap(buffer,s_ppp_ccb,&mulen) < 0)
-    		return FALSE;
+    	if (s_ppp_ccb->auth_method == PAP_PROTOCOL) {
+            if (build_auth_request_pap(buffer,s_ppp_ccb,&mulen) < 0)
+    		    return FALSE;
+        }
     	drv_xmit(buffer,mulen);
         RTE_LOG(INFO,EAL,"User %" PRIu16 " LCP connection establish successfully.\n", s_ppp_ccb->user_num);
         RTE_LOG(INFO,EAL,"User %" PRIu16 " starting Authentication.\n", s_ppp_ccb->user_num);
