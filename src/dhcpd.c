@@ -55,11 +55,11 @@ int dhcpd(struct rte_mbuf *single_pkt, struct rte_ether_hdr *eth_hdr, vlan_heade
     for(int i=0; i<LAN_USER; i++) {
         if (dhcp_ccb[user_index].lan_user_info[i].lan_user_used == FALSE) {
             lan_user_index = dhcp_ccb[user_index].cur_lan_user_index = i;
-            rte_ether_addr_copy(&eth_hdr->s_addr, &dhcp_ccb[user_index].lan_user_info[i].mac_addr);
+            rte_ether_addr_copy(&eth_hdr->src_addr, &dhcp_ccb[user_index].lan_user_info[i].mac_addr);
             dhcp_ccb[user_index].lan_user_info[i].lan_user_used = TRUE;
             break;
         }
-        else if (rte_is_same_ether_addr(&eth_hdr->s_addr, &dhcp_ccb[user_index].lan_user_info[i].mac_addr)) {
+        else if (rte_is_same_ether_addr(&eth_hdr->src_addr, &dhcp_ccb[user_index].lan_user_info[i].mac_addr)) {
             lan_user_index = dhcp_ccb[user_index].cur_lan_user_index = i;
             break;
         }

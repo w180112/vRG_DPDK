@@ -213,7 +213,7 @@ STATUS ppp_process(tVRG_MBX	*mail)
 			ppp_ccb[session_index].pppoe_phase.max_retransmit = MAX_RETRAN;
 			ppp_ccb[session_index].pppoe_phase.timer_counter = 0;
 			rte_timer_stop(&(ppp_ccb[session_index].pppoe));
-			rte_ether_addr_copy(&eth_hdr.s_addr, &ppp_ccb[session_index].PPP_dst_mac);
+			rte_ether_addr_copy(&eth_hdr.src_addr, &ppp_ccb[session_index].PPP_dst_mac);
 			if (build_padr(&(ppp_ccb[session_index].pppoe),&(ppp_ccb[session_index])) == FALSE) {
 				exit_ppp(&(ppp_ccb[session_index].pppoe), &(ppp_ccb[session_index]));
 				return FALSE;

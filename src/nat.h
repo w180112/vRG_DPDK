@@ -52,7 +52,7 @@ static inline void nat_icmp_learning(struct rte_ether_hdr *eth_hdr, struct rte_i
 	#ifdef _DP_DBG
 	puts("learning new icmp nat rule");
 	#endif
-	rte_ether_addr_copy(&eth_hdr->s_addr, &addr_table[*new_port_id].mac_addr);
+	rte_ether_addr_copy(&eth_hdr->src_addr, &addr_table[*new_port_id].mac_addr);
 	addr_table[*new_port_id].src_ip = ip_hdr->src_addr;
 	addr_table[*new_port_id].dst_ip = ip_hdr->dst_addr; 
 	addr_table[*new_port_id].port_id = icmphdr->icmp_ident;
@@ -81,7 +81,7 @@ static inline void nat_udp_learning(struct rte_ether_hdr *eth_hdr, struct rte_ip
 	#ifdef _DP_DBG
 	puts("learning new udp nat rule");
 	#endif
-	rte_ether_addr_copy(&eth_hdr->s_addr, &addr_table[*new_port_id].mac_addr);
+	rte_ether_addr_copy(&eth_hdr->src_addr, &addr_table[*new_port_id].mac_addr);
 	addr_table[*new_port_id].src_ip = ip_hdr->src_addr;
 	addr_table[*new_port_id].dst_ip = ip_hdr->dst_addr; 
 	addr_table[*new_port_id].port_id = udphdr->src_port;
@@ -110,7 +110,7 @@ static inline void nat_tcp_learning(struct rte_ether_hdr *eth_hdr, struct rte_ip
 	#ifdef _DP_DBG
 	puts("learning new tcp nat rule");
 	#endif
-	rte_ether_addr_copy(&eth_hdr->s_addr, &addr_table[*new_port_id].mac_addr);
+	rte_ether_addr_copy(&eth_hdr->src_addr, &addr_table[*new_port_id].mac_addr);
 	addr_table[*new_port_id].src_ip = ip_hdr->src_addr;
 	addr_table[*new_port_id].dst_ip = ip_hdr->dst_addr; 
 	addr_table[*new_port_id].port_id = tcphdr->src_port;
