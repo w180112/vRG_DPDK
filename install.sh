@@ -1,3 +1,5 @@
+set -ex
+
 get_script_dir () {
 	SOURCE="${BASH_SOURCE[0]}"
 	while [ -h "$SOURCE" ]; do
@@ -10,7 +12,9 @@ get_script_dir () {
 }
 
 path=$(get_script_dir)
-cd $path/src
+pushd $path/src
 make
-cd $path
-cp $path/build/vrg /usr/local/bin/ || exit 1
+popd
+pushd $path
+cp $path/build/vrg /usr/local/bin/
+popd
