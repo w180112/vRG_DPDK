@@ -20,4 +20,4 @@ before_install:
   - sudo pip3 install ninja
   - sudo pip3 install pyelftools
 
-script: ./boot.sh || travis_terminate 1;
+script: ./boot.sh;

@@ -1,3 +1,5 @@
+set -ex
+
 get_script_dir () {
      SOURCE="${BASH_SOURCE[0]}"
      while [ -h "$SOURCE" ]; do
@@ -9,17 +11,23 @@ get_script_dir () {
      echo "$DIR"
 }
 path=$(get_script_dir)
-cd $path/lib/dpdk && meson $path/lib/dpdk_build || exit 1
-cd $path/lib/dpdk_build
-sudo ninja && sudo ninja install || exit 1
-sudo ldconfig || exit 1
-cd $path/lib/dpdk-kmods/linux/igb_uio
-make || exit 1
-cd $path/lib/libutil
-autoreconf --install || exit 1
-./configure || exit 1
-make || exit 1
-cd $path/src
+pushd $path/lib/dpdk && meson $path/lib/dpdk_build
+popd
+pushd $path/lib/dpdk_build
+sudo ninja && sudo ninja install
+sudo ldconfig
+popd
+pushd $path/lib/dpdk-kmods/linux/igb_uio
 make
-cd $path
-sudo cp $path/build/vrg /usr/local/bin/ || exit 1
+popd
+pushd $path/lib/libutil
+autoreconf --install
+./configure
+make
+popd
+pushd $path/src
+make
+popd
+pushd $path
+sudo cp $path/build/vrg /usr/local/bin/
+popd
