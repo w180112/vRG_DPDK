@@ -511,8 +511,8 @@ STATUS build_padi(__attribute__((unused)) struct rte_timer *tim, PPP_INFO_t *s_p
 		PPP_bye(s_ppp_ccb);
 	}
 	for(int i=0; i<6; i++) {
- 		eth_hdr.s_addr.addr_bytes[i] = vrg_ccb.hsi_wan_src_mac.addr_bytes[i];
- 		eth_hdr.d_addr.addr_bytes[i] = 0xff;
+ 		eth_hdr.src_addr.addr_bytes[i] = vrg_ccb.hsi_wan_src_mac.addr_bytes[i];
+ 		eth_hdr.dst_addr.addr_bytes[i] = 0xff;
 	}
 	eth_hdr.ether_type = rte_cpu_to_be_16(VLAN);
 
@@ -566,8 +566,8 @@ STATUS build_padr(__attribute__((unused)) struct rte_timer *tim, PPP_INFO_t *s_p
 	}
 	if (s_ppp_ccb->pppoe_phase.timer_counter > 0)
 		goto send;
-	rte_ether_addr_copy(&vrg_ccb.hsi_wan_src_mac, &s_ppp_ccb->pppoe_phase.eth_hdr->s_addr);
-	rte_ether_addr_copy(&s_ppp_ccb->PPP_dst_mac, &s_ppp_ccb->pppoe_phase.eth_hdr->d_addr);
+	rte_ether_addr_copy(&vrg_ccb.hsi_wan_src_mac, &s_ppp_ccb->pppoe_phase.eth_hdr->src_addr);
+	rte_ether_addr_copy(&s_ppp_ccb->PPP_dst_mac, &s_ppp_ccb->pppoe_phase.eth_hdr->dst_addr);
 	s_ppp_ccb->pppoe_phase.pppoe_header->code = PADR;
 
  	U32 total_tag_length = 0;
@@ -640,8 +640,8 @@ STATUS build_padt(PPP_INFO_t *s_ppp_ccb)
 	vlan_header_t		vlan_header;
 	pppoe_header_t 		pppoe_header;
 
-	rte_ether_addr_copy(&vrg_ccb.hsi_wan_src_mac, &eth_hdr.s_addr);
-	rte_ether_addr_copy(&s_ppp_ccb->PPP_dst_mac, &eth_hdr.d_addr);
+	rte_ether_addr_copy(&vrg_ccb.hsi_wan_src_mac, &eth_hdr.src_addr);
+	rte_ether_addr_copy(&s_ppp_ccb->PPP_dst_mac, &eth_hdr.dst_addr);
 	eth_hdr.ether_type = rte_cpu_to_be_16(VLAN);
 
 	vlan_header.tci_union.tci_struct.priority = 0;
@@ -692,8 +692,8 @@ STATUS build_config_request(unsigned char *buffer, PPP_INFO_t *s_ppp_ccb, U16 *m
 
 	srand(time(NULL));
 
-	rte_ether_addr_copy(&vrg_ccb.hsi_wan_src_mac, &eth_hdr->s_addr);
-	rte_ether_addr_copy(&s_ppp_ccb->PPP_dst_mac, &eth_hdr->d_addr);
+	rte_ether_addr_copy(&vrg_ccb.hsi_wan_src_mac, &eth_hdr->src_addr);
+	rte_ether_addr_copy(&s_ppp_ccb->PPP_dst_mac, &eth_hdr->dst_addr);
 	
 	eth_hdr->ether_type = rte_cpu_to_be_16(VLAN);
 
@@ -810,8 +810,8 @@ STATUS build_config_ack(unsigned char* buffer, PPP_INFO_t *s_ppp_ccb, U16 *mulen
 
 	ppp_hdr->code = CONFIG_ACK;
 	
-	rte_ether_addr_copy(&vrg_ccb.hsi_wan_src_mac, &eth_hdr->s_addr);
-	rte_ether_addr_copy(&s_ppp_ccb->PPP_dst_mac, &eth_hdr->d_addr);
+	rte_ether_addr_copy(&vrg_ccb.hsi_wan_src_mac, &eth_hdr->src_addr);
+	rte_ether_addr_copy(&s_ppp_ccb->PPP_dst_mac, &eth_hdr->dst_addr);
 
 	*mulen = ntohs(pppoe_header->length) + sizeof(struct rte_ether_hdr) + sizeof(pppoe_header_t) + sizeof(vlan_header_t);
 
@@ -849,8 +849,8 @@ STATUS build_config_nak_rej(unsigned char* buffer, PPP_INFO_t *s_ppp_ccb, U16 *m
 	ppp_header_t 		*ppp_hdr = s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].ppp_hdr;
 	ppp_options_t 		*ppp_options = s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].ppp_options;
 
-	rte_ether_addr_copy(&vrg_ccb.hsi_wan_src_mac, &eth_hdr->s_addr);
-	rte_ether_addr_copy(&s_ppp_ccb->PPP_dst_mac, &eth_hdr->d_addr);
+	rte_ether_addr_copy(&vrg_ccb.hsi_wan_src_mac, &eth_hdr->src_addr);
+	rte_ether_addr_copy(&s_ppp_ccb->PPP_dst_mac, &eth_hdr->dst_addr);
 
 	*mulen = ntohs(pppoe_header->length) + sizeof(struct rte_ether_hdr) + sizeof(pppoe_header_t) + sizeof(vlan_header_t);
 
@@ -889,8 +889,8 @@ STATUS build_echo_reply(unsigned char* buffer, PPP_INFO_t *s_ppp_ccb, U16 *mulen
 
 	ppp_hdr->code = ECHO_REPLY;
 
-	rte_ether_addr_copy(&vrg_ccb.hsi_wan_src_mac, &eth_hdr->s_addr);
-	rte_ether_addr_copy(&s_ppp_ccb->PPP_dst_mac, &eth_hdr->d_addr);
+	rte_ether_addr_copy(&vrg_ccb.hsi_wan_src_mac, &eth_hdr->src_addr);
+	rte_ether_addr_copy(&s_ppp_ccb->PPP_dst_mac, &eth_hdr->dst_addr);
 
 	pppoe_header->length = rte_cpu_to_be_16(sizeof(ppp_payload_t) + sizeof(ppp_header_t) + 4);
 	*mulen = ntohs(pppoe_header->length) + sizeof(struct rte_ether_hdr) + sizeof(pppoe_header_t) + sizeof(vlan_header_t);
@@ -926,8 +926,8 @@ STATUS build_terminate_ack(unsigned char* buffer, PPP_INFO_t *s_ppp_ccb, U16 *mu
 
 	ppp_hdr->code = TERMIN_ACK;
 
-	rte_ether_addr_copy(&vrg_ccb.hsi_wan_src_mac, &eth_hdr->s_addr);
-	rte_ether_addr_copy(&s_ppp_ccb->PPP_dst_mac, &eth_hdr->d_addr);
+	rte_ether_addr_copy(&vrg_ccb.hsi_wan_src_mac, &eth_hdr->src_addr);
+	rte_ether_addr_copy(&s_ppp_ccb->PPP_dst_mac, &eth_hdr->dst_addr);
 
 	*mulen = ntohs(pppoe_header->length) + sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t) + sizeof(pppoe_header_t);
 
@@ -963,8 +963,8 @@ STATUS build_terminate_request(unsigned char* buffer, PPP_INFO_t *s_ppp_ccb, U16
 	ppp_payload_t 		*ppp_payload = s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].ppp_payload;
 	ppp_header_t 		*ppp_hdr = s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].ppp_hdr;
 
-	rte_ether_addr_copy(&vrg_ccb.hsi_wan_src_mac, &eth_hdr->s_addr);
-	rte_ether_addr_copy(&s_ppp_ccb->PPP_dst_mac, &eth_hdr->d_addr);
+	rte_ether_addr_copy(&vrg_ccb.hsi_wan_src_mac, &eth_hdr->src_addr);
+	rte_ether_addr_copy(&s_ppp_ccb->PPP_dst_mac, &eth_hdr->dst_addr);
 	eth_hdr->ether_type = rte_cpu_to_be_16(VLAN);
 
 	vlan_header->tci_union.tci_struct.priority = 0;
@@ -1038,8 +1038,8 @@ STATUS build_auth_request_pap(unsigned char* buffer, PPP_INFO_t *s_ppp_ccb, U16 
 
 	s_ppp_ccb->phase = AUTH_PHASE;
 
-	rte_ether_addr_copy(&vrg_ccb.hsi_wan_src_mac, &eth_hdr->s_addr);
-	rte_ether_addr_copy(&s_ppp_ccb->PPP_dst_mac, &eth_hdr->d_addr);
+	rte_ether_addr_copy(&vrg_ccb.hsi_wan_src_mac, &eth_hdr->src_addr);
+	rte_ether_addr_copy(&s_ppp_ccb->PPP_dst_mac, &eth_hdr->dst_addr);
 
 	ppp_payload->ppp_protocol = rte_cpu_to_be_16(PAP_PROTOCOL);
 	ppp_pap_header.code = PAP_REQUEST;
@@ -1092,9 +1092,9 @@ STATUS build_auth_ack_pap(unsigned char *buffer, PPP_INFO_t *s_ppp_ccb, U16 *mul
 	ppp_payload_t 		*ppp_payload = s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].ppp_payload;
 	ppp_header_t 		*ppp_hdr = s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].ppp_hdr;
 
-	rte_ether_addr_copy(&eth_hdr->s_addr, &tmp_mac);
-	rte_ether_addr_copy(&eth_hdr->d_addr, &eth_hdr->s_addr);
-	rte_ether_addr_copy(&tmp_mac, &eth_hdr->d_addr);
+	rte_ether_addr_copy(&eth_hdr->src_addr, &tmp_mac);
+	rte_ether_addr_copy(&eth_hdr->dst_addr, &eth_hdr->src_addr);
+	rte_ether_addr_copy(&tmp_mac, &eth_hdr->dst_addr);
 
 	ppp_payload->ppp_protocol = rte_cpu_to_be_16(PAP_PROTOCOL);
 	ppp_pap_header.code = PAP_ACK;
@@ -1154,9 +1154,9 @@ STATUS build_auth_response_chap(U8 *buffer, PPP_INFO_t *s_ppp_ccb, U16 *mulen, p
 	new_ppp_chap_data.val = chap_hash;
 	new_ppp_chap_data.name = s_ppp_ccb->ppp_user_id;
 
-	rte_ether_addr_copy(&s_ppp_ccb->ppp_phase[0].eth_hdr->s_addr, &tmp_mac);
-	rte_ether_addr_copy(&s_ppp_ccb->ppp_phase[0].eth_hdr->d_addr, &s_ppp_ccb->ppp_phase[0].eth_hdr->s_addr);
-	rte_ether_addr_copy(&tmp_mac, &s_ppp_ccb->ppp_phase[0].eth_hdr->d_addr);
+	rte_ether_addr_copy(&s_ppp_ccb->ppp_phase[0].eth_hdr->src_addr, &tmp_mac);
+	rte_ether_addr_copy(&s_ppp_ccb->ppp_phase[0].eth_hdr->dst_addr, &s_ppp_ccb->ppp_phase[0].eth_hdr->src_addr);
+	rte_ether_addr_copy(&tmp_mac, &s_ppp_ccb->ppp_phase[0].eth_hdr->dst_addr);
 
 	*(struct rte_ether_hdr *)buf_ptr = *s_ppp_ccb->ppp_phase[0].eth_hdr;
 	buf_ptr += sizeof(struct rte_ether_hdr);

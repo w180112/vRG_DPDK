@@ -65,7 +65,7 @@ BIT16 dhcp_decode(dhcp_ccb_t *dhcp_ccb, struct rte_ether_hdr *eth_hdr, vlan_head
                 rte_timer_stop(&dhcp_ccb->lan_user_info[dhcp_ccb->cur_lan_user_index].timer);
                 break;
             case DHCP_RELEASE:
-                if (check_pool(dhcp_ccb, eth_hdr->s_addr))
+                if (check_pool(dhcp_ccb, eth_hdr->src_addr))
                     event = E_RELEASE;
                 break;
             default:
@@ -115,7 +115,7 @@ STATUS decode_request(dhcp_ccb_t *dhcp_ccb)
     dhcp_opt_t *cur = opt_ptr;
     struct rte_ether_addr mac_addr;
     
-    rte_ether_addr_copy(&dhcp_ccb->eth_hdr->s_addr, &mac_addr);
+    rte_ether_addr_copy(&dhcp_ccb->eth_hdr->src_addr, &mac_addr);
     if (dhcp_ccb->dhcp_info->client_ip | RTE_IPV4_ANY) {
         dhcp_ccb->dhcp_info->ur_client_ip = dhcp_ccb->dhcp_info->client_ip;
         dhcp_ccb->dhcp_info->client_ip = 0;
@@ -162,9 +162,9 @@ STATUS build_dhcp_offer(dhcp_ccb_t *dhcp_ccb)
     U32 ip_addr;
 
     rte_eth_macaddr_get(0, &macaddr);
-    rte_ether_addr_copy(&dhcp_ccb->eth_hdr->s_addr, &dhcp_ccb->eth_hdr->d_addr);
-    rte_ether_addr_copy(&macaddr, &dhcp_ccb->eth_hdr->s_addr);
-    if (pick_ip_from_pool(dhcp_ccb, &ip_addr, dhcp_ccb->eth_hdr->d_addr) < 0)
+    rte_ether_addr_copy(&dhcp_ccb->eth_hdr->src_addr, &dhcp_ccb->eth_hdr->dst_addr);
+    rte_ether_addr_copy(&macaddr, &dhcp_ccb->eth_hdr->src_addr);
+    if (pick_ip_from_pool(dhcp_ccb, &ip_addr, dhcp_ccb->eth_hdr->dst_addr) < 0)
         return FALSE;
     dhcp_ccb->ip_hdr->packet_id = ip_hdr_id++;
     dhcp_ccb->ip_hdr->packet_id = rte_cpu_to_be_16(dhcp_ccb->ip_hdr->packet_id);
@@ -246,8 +246,8 @@ STATUS build_dhcp_ack(dhcp_ccb_t *dhcp_ccb)
     struct rte_ether_addr macaddr;
 
     rte_eth_macaddr_get(0, &macaddr);
-    rte_ether_addr_copy(&dhcp_ccb->eth_hdr->s_addr, &dhcp_ccb->eth_hdr->d_addr);
-    rte_ether_addr_copy(&macaddr, &dhcp_ccb->eth_hdr->s_addr);
+    rte_ether_addr_copy(&dhcp_ccb->eth_hdr->src_addr, &dhcp_ccb->eth_hdr->dst_addr);
+    rte_ether_addr_copy(&macaddr, &dhcp_ccb->eth_hdr->src_addr);
 
     dhcp_ccb->ip_hdr->packet_id = ip_hdr_id++;
     dhcp_ccb->ip_hdr->packet_id = rte_cpu_to_be_16(dhcp_ccb->ip_hdr->packet_id);
@@ -328,8 +328,8 @@ STATUS build_dhcp_nak(dhcp_ccb_t *dhcp_ccb)
     struct rte_ether_addr macaddr;
 
     rte_eth_macaddr_get(0, &macaddr);
-    rte_ether_addr_copy(&dhcp_ccb->eth_hdr->s_addr, &dhcp_ccb->eth_hdr->d_addr);
-    rte_ether_addr_copy(&macaddr, &dhcp_ccb->eth_hdr->s_addr);
+    rte_ether_addr_copy(&dhcp_ccb->eth_hdr->src_addr, &dhcp_ccb->eth_hdr->dst_addr);
+    rte_ether_addr_copy(&macaddr, &dhcp_ccb->eth_hdr->src_addr);
 
     dhcp_ccb->ip_hdr->packet_id = ip_hdr_id++;
     dhcp_ccb->ip_hdr->packet_id = rte_cpu_to_be_16(dhcp_ccb->ip_hdr->packet_id);
@@ -367,7 +367,7 @@ STATUS build_dhcp_nak(dhcp_ccb_t *dhcp_ccb)
     cur = (dhcp_opt_t *)(((char *)cur) + sizeof(dhcp_opt_t) + cur->len);
     cur->opt_type = DHCP_CLIENT_ID;
     cur->len = RTE_ETHER_ADDR_LEN;
-    rte_ether_addr_copy(&dhcp_ccb->eth_hdr->d_addr, (struct rte_ether_addr *)(cur->val));
+    rte_ether_addr_copy(&dhcp_ccb->eth_hdr->dst_addr, (struct rte_ether_addr *)(cur->val));
     dhcp_ccb->udp_hdr->dgram_len += sizeof(dhcp_opt_t) + cur->len;
 
     cur = (dhcp_opt_t *)(((char *)cur) + sizeof(dhcp_opt_t) + cur->len);

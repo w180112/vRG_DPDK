@@ -1,9 +1,11 @@
 [submodule "lib/libutil"]
 	path = lib/libutil
 	url = https://github.com/w180112/libutil.git
-[submodule "lib/dpdk"]
-	path = lib/dpdk
-	url = https://github.com/DPDK/dpdk
 [submodule "lib/dpdk-kmods"]
 	path = lib/dpdk-kmods
 	url = https://dpdk.org/git/dpdk-kmods
+	branch = main
+[submodule "lib/dpdk"]
+	path = lib/dpdk
+	url = https://dpdk.org/git/dpdk-stable
+	branch = 22.11

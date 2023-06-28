@@ -1,18 +1,15 @@
 #include <rte_version.h>
 #include <rte_ethdev.h>
 #include <rte_ether.h>
+#include <rte_bus.h>
 #include <rte_bus_pci.h>
 #include <linux/ethtool.h>
 #include <common.h>
-
-int rte_ethtool_get_drvinfo(U16 port_id, struct ethtool_drvinfo *drvinfo);
 
 int rte_ethtool_get_drvinfo(U16 port_id, struct ethtool_drvinfo *drvinfo)
 {
 	struct rte_eth_dev_info dev_info;
 	struct rte_dev_reg_info reg_info;
-	const struct rte_pci_device *pci_dev;
-	const struct rte_bus *bus = NULL;
 	int n;
 
 	if (drvinfo == NULL)
@@ -33,21 +30,9 @@ int rte_ethtool_get_drvinfo(U16 port_id, struct ethtool_drvinfo *drvinfo)
 	memset(&dev_info, 0, sizeof(dev_info));
 	rte_eth_dev_info_get(port_id, &dev_info);
 
-	snprintf(drvinfo->driver, sizeof(drvinfo->driver), "%s",
-		dev_info.driver_name);
-	snprintf(drvinfo->version, sizeof(drvinfo->version), "%s",
-		rte_version());
-	if (dev_info.device)
-		bus = rte_bus_find_by_device(dev_info.device);
-	if (bus && !strcmp(bus->name, "pci")) {
-		pci_dev = RTE_DEV_TO_PCI(dev_info.device);
-		snprintf(drvinfo->bus_info, sizeof(drvinfo->bus_info),
-			"%04x:%02x:%02x.%x",
-			pci_dev->addr.domain, pci_dev->addr.bus,
-			pci_dev->addr.devid, pci_dev->addr.function);
-	} 
-	else
-		snprintf(drvinfo->bus_info, sizeof(drvinfo->bus_info), "N/A");
+	strlcpy(drvinfo->driver, dev_info.driver_name, sizeof(drvinfo->driver));
+	strlcpy(drvinfo->version, rte_version(), sizeof(drvinfo->version));
+	strlcpy(drvinfo->bus_info, rte_dev_name(dev_info.device), sizeof(drvinfo->bus_info));
 
 	memset(&reg_info, 0, sizeof(reg_info));
 	rte_eth_dev_get_reg_info(port_id, &reg_info);

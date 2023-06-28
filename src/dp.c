@@ -48,11 +48,14 @@ static U16 						nb_rxd = RX_RING_SIZE;
 static U16 						nb_txd = TX_RING_SIZE;
 
 static struct rte_eth_conf port_conf_default = {
-	.rxmode = { .max_rx_pkt_len = RTE_ETHER_MAX_LEN, }, 
-	.txmode = { .offloads = DEV_TX_OFFLOAD_IPV4_CKSUM | 
-							DEV_TX_OFFLOAD_UDP_CKSUM | 
-							/*DEV_TX_OFFLOAD_MT_LOCKFREE |*/
-							DEV_TX_OFFLOAD_TCP_CKSUM, },
+	/* https://github.com/DPDK/dpdk/commit/1bb4a528c41f4af4847bd3d58cc2b2b9f1ec9a27#diff-71b61db11e3ee1ca6bb272a90e3c1aa0e8c90071b1a38387fd541687314b1843
+	 * From this commit, mtu field is only for jumbo frame
+	 **/
+	//.rxmode = { .mtu = RTE_ETHER_MAX_JUMBO_FRAME_LEN - RTE_ETHER_HDR_LEN - RTE_ETHER_CRC_LEN, }, 
+	.txmode = { .offloads = RTE_ETH_TX_OFFLOAD_IPV4_CKSUM | 
+							RTE_ETH_TX_OFFLOAD_UDP_CKSUM | 
+							/*RTE_ETH_TX_OFFLOAD_MT_LOCKFREE |*/
+							RTE_ETH_TX_OFFLOAD_TCP_CKSUM, },
 	.intr_conf = {
         .lsc = 1, /**< link status interrupt feature enabled */ },
 };
@@ -82,8 +85,8 @@ int PORT_INIT(U16 port)
 	int ret = rte_eth_dev_info_get(port, &dev_info);
 	if (ret != 0)
 		rte_exit(EXIT_FAILURE, "Error during getting device (port %u) info: %s\n", port, strerror(-ret));
-	if (dev_info.tx_offload_capa & DEV_TX_OFFLOAD_MBUF_FAST_FREE)
-		port_conf.txmode.offloads |= DEV_TX_OFFLOAD_MBUF_FAST_FREE;
+	if (dev_info.tx_offload_capa & RTE_ETH_TX_OFFLOAD_MBUF_FAST_FREE)
+		port_conf.txmode.offloads |= RTE_ETH_TX_OFFLOAD_MBUF_FAST_FREE;
 
 	retval = rte_eth_dev_configure(port, rx_rings, tx_rings, &port_conf);
 	if (retval != 0)
@@ -245,8 +248,8 @@ int wan_recvd(void)
 					ori_port_id = rte_cpu_to_be_16(icmphdr->icmp_ident);
 					int16_t icmp_cksum_diff = icmphdr->icmp_ident - vrg_ccb.ppp_ccb[user_index].addr_table[ori_port_id].port_id;
 
-					rte_ether_addr_copy(&vrg_ccb.hsi_lan_mac, &eth_hdr->s_addr);
-					rte_ether_addr_copy(&vrg_ccb.ppp_ccb[user_index].addr_table[ori_port_id].mac_addr, &eth_hdr->d_addr);
+					rte_ether_addr_copy(&vrg_ccb.hsi_lan_mac, &eth_hdr->src_addr);
+					rte_ether_addr_copy(&vrg_ccb.ppp_ccb[user_index].addr_table[ori_port_id].mac_addr, &eth_hdr->dst_addr);
 					ip_hdr->dst_addr = vrg_ccb.ppp_ccb[user_index].addr_table[ori_port_id].src_ip;
 					icmphdr->icmp_ident = vrg_ccb.ppp_ccb[user_index].addr_table[ori_port_id].port_id;
 					rte_atomic16_set(&vrg_ccb.ppp_ccb[user_index].addr_table[ori_port_id].is_alive, 10);
@@ -520,7 +523,7 @@ int lan_recvd(void)
 				single_pkt->l3_len = sizeof(struct rte_ipv4_hdr);
 				
 				if (ip_hdr->next_proto_id == PROTO_TYPE_ICMP) {
-					if (unlikely(!rte_is_same_ether_addr(&eth_hdr->d_addr, &vrg_ccb.hsi_lan_mac))) {
+					if (unlikely(!rte_is_same_ether_addr(&eth_hdr->dst_addr, &vrg_ccb.hsi_lan_mac))) {
 						pkt[total_tx++] = single_pkt;
 						#ifdef _NON_VLAN
 						rte_vlan_strip(single_pkt);
@@ -547,8 +550,8 @@ int lan_recvd(void)
 						icmp_new_cksum = (icmp_new_cksum & 0xFFFF) + (icmp_new_cksum >> 16);
 					icmphdr->icmp_cksum = (U16)icmp_new_cksum;
 						
-					rte_ether_addr_copy(&vrg_ccb.hsi_wan_src_mac, &eth_hdr->s_addr);
-					rte_ether_addr_copy(&vrg_ccb.ppp_ccb[user_index].PPP_dst_mac, &eth_hdr->d_addr);
+					rte_ether_addr_copy(&vrg_ccb.hsi_wan_src_mac, &eth_hdr->src_addr);
+					rte_ether_addr_copy(&vrg_ccb.ppp_ccb[user_index].PPP_dst_mac, &eth_hdr->dst_addr);
 
 					vlan_header->next_proto = rte_cpu_to_be_16(ETH_P_PPP_SES);
 					cur = (char *)eth_hdr - 8;
@@ -583,7 +586,7 @@ int lan_recvd(void)
 					#endif
 				}
 				else if (ip_hdr->next_proto_id == PROTO_TYPE_TCP) {
-					if (unlikely(!rte_is_same_ether_addr(&eth_hdr->d_addr, &vrg_ccb.hsi_lan_mac))) {
+					if (unlikely(!rte_is_same_ether_addr(&eth_hdr->dst_addr, &vrg_ccb.hsi_lan_mac))) {
 						#ifdef _NON_VLAN
 						rte_vlan_strip(single_pkt);
 						#endif
@@ -606,7 +609,7 @@ int lan_recvd(void)
 						rte_ring_enqueue_burst(gateway_q, (void **)&single_pkt, 1, NULL);
 						continue;
 					}
-					if (unlikely(!rte_is_same_ether_addr(&eth_hdr->d_addr, &vrg_ccb.hsi_lan_mac))) {
+					if (unlikely(!rte_is_same_ether_addr(&eth_hdr->dst_addr, &vrg_ccb.hsi_lan_mac))) {
 						#ifdef _NON_VLAN
 						rte_vlan_strip(single_pkt);
 						#endif
@@ -676,8 +679,8 @@ int gateway(void)
 			if (unlikely(vlan_header->next_proto == rte_cpu_to_be_16(FRAME_TYPE_ARP))) {
 				arphdr = (struct rte_arp_hdr *)(rte_pktmbuf_mtod(single_pkt, unsigned char *) + sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t));
 				if (arphdr->arp_opcode == rte_cpu_to_be_16(RTE_ARP_OP_REQUEST) && arphdr->arp_data.arp_tip == vrg_ccb.lan_ip) {
-					rte_ether_addr_copy(&eth_hdr->s_addr, &eth_hdr->d_addr);
-					rte_ether_addr_copy(&vrg_ccb.hsi_lan_mac, &eth_hdr->s_addr);
+					rte_ether_addr_copy(&eth_hdr->src_addr, &eth_hdr->dst_addr);
+					rte_ether_addr_copy(&vrg_ccb.hsi_lan_mac, &eth_hdr->src_addr);
 					rte_ether_addr_copy(&arphdr->arp_data.arp_sha, &arphdr->arp_data.arp_tha);
 					rte_ether_addr_copy(&vrg_ccb.hsi_lan_mac, &arphdr->arp_data.arp_sha);
 					arphdr->arp_data.arp_tip = arphdr->arp_data.arp_sip;
@@ -710,8 +713,8 @@ int gateway(void)
 				case PROTO_TYPE_ICMP:
 					icmphdr = (struct rte_icmp_hdr *)(rte_pktmbuf_mtod(single_pkt, unsigned char *) + sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t) + sizeof(struct rte_ipv4_hdr));
 					if (ip_hdr->dst_addr == vrg_ccb.lan_ip) {
-						rte_ether_addr_copy(&eth_hdr->s_addr, &eth_hdr->d_addr);
-						rte_ether_addr_copy(&vrg_ccb.hsi_lan_mac, &eth_hdr->s_addr);
+						rte_ether_addr_copy(&eth_hdr->src_addr, &eth_hdr->dst_addr);
+						rte_ether_addr_copy(&vrg_ccb.hsi_lan_mac, &eth_hdr->src_addr);
 						ip_hdr->dst_addr = ip_hdr->src_addr;
 						ip_hdr->src_addr = vrg_ccb.lan_ip;
 						icmphdr->icmp_type = 0;
@@ -805,7 +808,7 @@ static int lsi_event_callback(U16 port_id, enum rte_eth_event_type type, void *p
 	if (link.link_status) {
 		printf("Port %d Link Up - speed %u Mbps - %s\n\n",
 				port_id, (unsigned)link.link_speed,
-			(link.link_duplex == ETH_LINK_FULL_DUPLEX) ?
+			(link.link_duplex == RTE_ETH_LINK_FULL_DUPLEX) ?
 				("full-duplex") : ("half-duplex"));
 		mail->refp[0] = LINK_UP;
 	} 

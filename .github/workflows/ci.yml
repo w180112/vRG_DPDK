@@ -9,13 +9,13 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    - run: sudo apt-get update && apt-get install -y libnuma-dev linux-headers-$(uname -r) python3-pip
+    - uses: actions/checkout@v2
+    - run: sudo apt-get update && sudo apt-get install -y libnuma-dev linux-headers-$(uname -r) python3-pip git gcc make libtool-bin
     - run: sudo pip3 install setuptools meson ninja pyelftools
-    - run: ./boot.sh
+    - run: ${{ github.workspace }}/boot.sh
   test:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    - run: sudo apt-get update && apt-get install -y libnuma-dev linux-headers-$(uname -r) python3-pip
+    - uses: actions/checkout@v2
+    - run: sudo apt-get update && sudo apt-get install -y libnuma-dev linux-headers-$(uname -r) python3-pip git gcc make libtool-bin
     - run: sudo pip3 install setuptools meson ninja pyelftools

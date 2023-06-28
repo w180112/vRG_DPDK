@@ -11,6 +11,9 @@ get_script_dir () {
      echo "$DIR"
 }
 path=$(get_script_dir)
+pushd $path
+git submodule update --init --recursive
+popd
 pushd $path/lib/dpdk && meson $path/lib/dpdk_build
 popd
 pushd $path/lib/dpdk_build
@@ -24,6 +27,8 @@ pushd $path/lib/libutil
 autoreconf --install
 ./configure
 make
+sudo make install
+sudo ldconfig
 popd
 pushd $path/src
 make
