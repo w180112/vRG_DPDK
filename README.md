@@ -1,7 +1,7 @@
 # Virtualized residential gateway (vRG) implementation using DPDK
 
 [![BSD license](https://img.shields.io/badge/License-BSD-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
-[![Build Status](https://travis-ci.com/w180112/vRG_DPDK.svg?branch=master)](https://travis-ci.com/w180112/vRG_DPDK)
+[![vRG ci](https://github.com/w180112/vRG_DPDK/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/w180112/vRG_DPDK/actions/workflows/ci.yml)
 
 In nowadays high speed virtualized nerwork, tranditional network mechanism has no longer satisfied our requirement. In home network virtualization many data plane features, e.g.: NAT and PPPoE client, will be de-coupled to cloud NFV infrastructure. However, the perfoemance of data plane is always the main point of our concern. Therefore, a vRG system that make PPPoE client and NAT can be used in virtualization is purposed. By the powerful DPDK, all packets can be forwarded in high speed network.
 
