@@ -12,7 +12,8 @@ jobs:
     - uses: actions/checkout@v2
     - run: sudo apt-get update && sudo apt-get install -y libnuma-dev linux-headers-$(uname -r) python3-pip git gcc make libtool-bin
     - run: sudo pip3 install setuptools meson ninja pyelftools
-    - run: ${{ github.workspace }}/boot.sh
+    - run: sudo ${{ github.workspace }}/boot.sh
+    - run: sudo docker build --no-cache -t vrg:latest
   test:
     runs-on: ubuntu-latest
     steps:

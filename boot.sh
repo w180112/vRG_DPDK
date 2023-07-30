@@ -1,3 +1,5 @@
+#!/bin/bash
+
 set -ex
 
 get_script_dir () {
@@ -17,8 +19,8 @@ popd
 pushd $path/lib/dpdk && meson $path/lib/dpdk_build
 popd
 pushd $path/lib/dpdk_build
-sudo ninja && sudo ninja install
-sudo ldconfig
+ninja && ninja install
+ldconfig
 popd
 pushd $path/lib/dpdk-kmods/linux/igb_uio
 make
@@ -27,12 +29,12 @@ pushd $path/lib/libutil
 autoreconf --install
 ./configure
 make
-sudo make install
-sudo ldconfig
+make install
+ldconfig
 popd
 pushd $path/src
 make
 popd
 pushd $path
-sudo cp $path/build/vrg /usr/local/bin/
+cp $path/build/vrg /usr/local/bin/
 popd
