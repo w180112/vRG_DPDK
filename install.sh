@@ -1,3 +1,4 @@
+#!/bin/bash
 set -ex
 
 get_script_dir () {
