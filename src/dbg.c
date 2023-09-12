@@ -14,49 +14,73 @@
 #include    "dbg.h"
 
 #define 	DBG_VRG_MSG_LEN     		256
+#define 	LOGGER_BUF_LEN 1024
 
 char 		*PPP_state2str(U16 state);
 char 		*DHCP_state2str(U16 state);
 	
-U8       	vRGDbgFlag=1;
+U8       	vRG_dbg_flag=1;
 
 /***************************************************
- * DBG_vRG:
+ * LOGGER:
  ***************************************************/	
-void DBG_vRG(U8 level, U8 *ptr, const char *fmt,...)
+void LOGGER(U8 level, char *filename, int line_num, FILE *log_fp, void *ccb, void (*ccb2str)(void *, char *), const char *fmt,...)
 {
 	va_list ap; /* points to each unnamed arg in turn */
-	char    buf[256], msg[DBG_VRG_MSG_LEN], sstr[20];
+	char    buf[LOGGER_BUF_LEN], protocol_buf[LOGGER_BUF_LEN-20], msg[DBG_VRG_MSG_LEN];
 	
 	//user offer level must > system requirement
-    if (vRGDbgFlag > level)
-    	return;
-
+    if (vRG_dbg_flag > level)
+		return;
+	
 	va_start(ap, fmt); /* set ap pointer to 1st unnamed arg */
     vsnprintf(msg, DBG_VRG_MSG_LEN, fmt, ap);
-	printf("\n");
-    if (level == DBGPPP) {
-		PPP_INFO_t *s_ppp_ccb = (PPP_INFO_t *)ptr;
-    	if (s_ppp_ccb) {
-    		strcpy(sstr,PPP_state2str(s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].state));
-    		sprintf(buf,"pppd> Session id [%x.%s] ", rte_be_to_cpu_16(s_ppp_ccb->session_id), sstr);
-    	}
-		else
-			sprintf(buf,"pppd> ");
-	}
-	else if (level == DBGDHCP) {
-		dhcp_ccb_t *dhcp_ccb = (dhcp_ccb_t *)ptr;
-		if (dhcp_ccb) {
-    		strcpy(sstr,DHCP_state2str(dhcp_ccb->lan_user_info[dhcp_ccb->cur_lan_user_index].state));
-    		sprintf(buf,"dhcpd> ip pool index, user index[%u, %u, %s] ", dhcp_ccb->cur_ip_pool_index, dhcp_ccb->cur_lan_user_index, sstr);
-    	}
-		else
-			sprintf(buf,"dhcpd> ");
-	}
 
-	strcat(buf,msg);
-   	printf("%s",buf);
+	ccb2str(ccb, protocol_buf);
+	sprintf(buf, "vRG[%s]: %s:%d> %s", loglvl2str(level), filename, line_num, protocol_buf);
+	strncat(buf, msg, sizeof(buf));
     va_end(ap);
+	
+	buf[sizeof(buf)-1] = '\0';
+    fprintf(stdout, "%s\n", buf);
+	if (log_fp != NULL) {
+        fwrite(buf, sizeof(char), strlen(buf), log_fp);
+        char *newline = "\n";
+        fwrite(newline, sizeof(char), strlen(newline), log_fp);
+        fflush(log_fp);
+    }
+}
+
+char *loglvl2str(U8 level)
+{
+    switch (level) {
+    case LOGDBG:
+        return "DBG";
+    case LOGINFO:
+        return "INFO";
+    default:
+        return "UNKNOWN";
+    }
+}
+
+void PPPLOGMSG(void *ccb, char *buf)
+{
+	PPP_INFO_t *s_ppp_ccb = (PPP_INFO_t *)ccb;
+    if (s_ppp_ccb) {
+    	sprintf(buf,"pppd> Session id [%x.%s] ", rte_be_to_cpu_16(s_ppp_ccb->session_id), PPP_state2str(s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].state));
+	}
+	else
+		sprintf(buf,"pppd> ");
+}
+
+void DHCPLOGMSG(void *ccb, char *buf)
+{
+	dhcp_ccb_t *dhcp_ccb = (dhcp_ccb_t *)ccb;
+	if (dhcp_ccb) {
+    	sprintf(buf,"dhcpd> ip pool index, user index[%u, %u, %s] ", dhcp_ccb->cur_ip_pool_index, dhcp_ccb->cur_lan_user_index, DHCP_state2str(dhcp_ccb->lan_user_info[dhcp_ccb->cur_lan_user_index].state));
+    }
+	else
+		sprintf(buf,"dhcpd> ");
 }
 
 /*-------------------------------------------------------------------

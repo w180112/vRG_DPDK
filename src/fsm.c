@@ -611,7 +611,7 @@ STATUS PPP_FSM(struct rte_timer *ppp, PPP_INFO_t *s_ppp_ccb, U16 event)
     char 			str1[30],str2[30];
 
     if (!s_ppp_ccb) {
-        DBG_vRG(DBGPPP,(U8 *)s_ppp_ccb,"Error! No port found for the event(%d)\n",event);
+        VRG_LOG(INFO, NULL, (U8 *)s_ppp_ccb, PPPLOGMSG, "Error! No port found for the event(%d)\n",event);
         return FALSE;
     }
     
@@ -619,13 +619,12 @@ STATUS PPP_FSM(struct rte_timer *ppp, PPP_INFO_t *s_ppp_ccb, U16 event)
     for(i=0; ppp_fsm_tbl[s_ppp_ccb->cp][i].state!=S_INVLD; i++)
         if (ppp_fsm_tbl[s_ppp_ccb->cp][i].state == s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].state)
             break;
-    #ifdef _DP_DBG
-    DBG_vRG(DBGPPP,(U8 *)s_ppp_ccb,"Current state is %s\n",PPP_state2str(ppp_fsm_tbl[s_ppp_ccb->cp][i].state));
+
+    VRG_LOG(DBG, NULL, (U8 *)s_ppp_ccb, PPPLOGMSG, "Current state is %s\n", PPP_state2str(ppp_fsm_tbl[s_ppp_ccb->cp][i].state));
     printf("control protocol = %d\n", s_ppp_ccb->cp);
-    #endif
 
     if (ppp_fsm_tbl[s_ppp_ccb->cp][i].state == S_INVLD) {
-        DBG_vRG(DBGPPP,(U8 *)s_ppp_ccb,"Error! user %" PRIu16 " unknown state(%d) specified for the event(%d)\n",
+        VRG_LOG(INFO, NULL, (U8 *)s_ppp_ccb, PPPLOGMSG, "Error! user %" PRIu16 " unknown state(%d) specified for the event(%d)\n",
         	s_ppp_ccb->user_num, s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].state,event);
         return FALSE;
     }
@@ -639,7 +638,7 @@ STATUS PPP_FSM(struct rte_timer *ppp, PPP_INFO_t *s_ppp_ccb, U16 event)
             break;
     
     if (ppp_fsm_tbl[s_ppp_ccb->cp][i].state != s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].state) { /* search until meet the next state */
-        DBG_vRG(DBGPPP,(U8 *)s_ppp_ccb,"Error! user %" PRIu16 " invalid event(%d) in state(%s)\n",
+        VRG_LOG(INFO, NULL, (U8 *)s_ppp_ccb, PPPLOGMSG, "Error! user %" PRIu16 " invalid event(%d) in state(%s)\n",
             s_ppp_ccb->user_num, event, PPP_state2str(s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].state));
   		return TRUE; /* still pass to endpoint */
     }
@@ -648,9 +647,7 @@ STATUS PPP_FSM(struct rte_timer *ppp, PPP_INFO_t *s_ppp_ccb, U16 event)
     if (s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].state != ppp_fsm_tbl[s_ppp_ccb->cp][i].next_state) {
         strcpy(str1,PPP_state2str(s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].state));
         strcpy(str2,PPP_state2str(ppp_fsm_tbl[s_ppp_ccb->cp][i].next_state));
-        #ifdef _DP_DBG
-        DBG_vRG(DBGPPP,(U8 *)s_ppp_ccb,"state changed from %s to %s\n",str1,str2);
-        #endif
+        VRG_LOG(DBG, NULL, (U8 *)s_ppp_ccb, PPPLOGMSG, "state changed from %s to %s\n", str1, str2);
         RTE_LOG(INFO,EAL,"User %" PRIu16 " %s state changed from %s to %s.\n", s_ppp_ccb->user_num, (s_ppp_ccb->cp == 1 ? "IPCP" : "LCP"), str1, str2);
         s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].state = ppp_fsm_tbl[s_ppp_ccb->cp][i].next_state;
     }

@@ -162,7 +162,7 @@ int pppdInit(void)
 	}
     
 	sleep(1);
-	DBG_vRG(DBGPPP,NULL,"============ pppoe init successfully ==============\n");
+	VRG_LOG(INFO, NULL, NULL, PPPLOGMSG, "============ pppoe init successfully ==============\n");
 	return 0;
 }
 

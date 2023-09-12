@@ -43,7 +43,7 @@ STATUS PPP_decode_frame(tVRG_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_head
 	struct rte_timer *tim = &s_ppp_ccb->ppp;
 
 	if (mail->len > ETH_MTU){
-	    DBG_vRG(DBGPPP,0,"error! too large frame(%d)\n",mail->len);
+	    VRG_LOG(INFO, NULL, s_ppp_ccb, PPPLOGMSG, "error! too large frame(%d)\n", mail->len);
 		PRINT_MESSAGE(mail->refp, mail->len);
 	    return ERROR;
 	}
@@ -1147,7 +1147,7 @@ STATUS build_auth_response_chap(U8 *buffer, PPP_INFO_t *s_ppp_ccb, U16 *mulen, p
     
 	MD5Init(&context);
 	MD5Update(&context, &s_ppp_ccb->ppp_phase[0].ppp_hdr->identifier, 1);
-	MD5Update(&context, s_ppp_ccb->ppp_passwd, strlen(s_ppp_ccb->ppp_passwd));
+	MD5Update(&context, s_ppp_ccb->ppp_passwd, strlen((const char *)s_ppp_ccb->ppp_passwd));
 	MD5Update(&context, ppp_chap_data->val, ppp_chap_data->val_size);
 	MD5Final(chap_hash, &context);
 	new_ppp_chap_data.val_size = 16;
@@ -1167,13 +1167,13 @@ STATUS build_auth_response_chap(U8 *buffer, PPP_INFO_t *s_ppp_ccb, U16 *mulen, p
 	*(ppp_payload_t *)buf_ptr = *s_ppp_ccb->ppp_phase[0].ppp_payload;
 	buf_ptr += sizeof(ppp_payload_t);
 	s_ppp_ccb->ppp_phase[0].ppp_hdr->code = CHAP_RESPONSE;
-	s_ppp_ccb->ppp_phase[0].ppp_hdr->length = sizeof(ppp_header_t) + 1 + 16 + strlen(new_ppp_chap_data.name);
+	s_ppp_ccb->ppp_phase[0].ppp_hdr->length = sizeof(ppp_header_t) + 1 + 16 + strlen((const char *)new_ppp_chap_data.name);
 	*(ppp_header_t *)buf_ptr = *s_ppp_ccb->ppp_phase[0].ppp_hdr;
 	buf_ptr += sizeof(ppp_header_t);
 	((ppp_chap_data_t *)buf_ptr)->val_size = new_ppp_chap_data.val_size;
 	memcpy(((ppp_chap_data_t *)buf_ptr)->val, new_ppp_chap_data.val, new_ppp_chap_data.val_size);
- 	memcpy(((ppp_chap_data_t *)buf_ptr)->name, new_ppp_chap_data.name, strlen(new_ppp_chap_data.name));
-	buf_ptr += 1 + 16 + strlen(new_ppp_chap_data.name);
+ 	memcpy(((ppp_chap_data_t *)buf_ptr)->name, new_ppp_chap_data.name, strlen((const char *)new_ppp_chap_data.name));
+	buf_ptr += 1 + 16 + strlen((const char *)new_ppp_chap_data.name);
 	*mulen = buf_ptr - buffer;
 
 	RTE_LOG(INFO,EAL,"User %" PRIu16 " chap response built.\n", s_ppp_ccb->user_num);

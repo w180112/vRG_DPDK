@@ -60,9 +60,9 @@ STATUS dhcp_fsm(dhcp_ccb_t *dhcp_ccb, U16 event)
     for(i=0; dhcp_fsm_tbl[i].state!=S_DHCP_INVLD; i++)
         if (dhcp_fsm_tbl[i].state == dhcp_ccb->lan_user_info[dhcp_ccb->cur_lan_user_index].state)
             break;
-    DBG_vRG(DBGDHCP,(U8 *)dhcp_ccb,"Current state is %s\n",DHCP_state2str(dhcp_fsm_tbl[i].state));
+    VRG_LOG(INFO, NULL, (U8 *)dhcp_ccb, DHCPLOGMSG, "Current state is %s\n", DHCP_state2str(dhcp_fsm_tbl[i].state));
     if (dhcp_fsm_tbl[i].state == S_DHCP_INVLD) {
-        DBG_vRG(DBGDHCP,(U8 *)dhcp_ccb,"Error! unknown state(%d) specified for the event(%d)\n",
+        VRG_LOG(INFO, NULL, (U8 *)dhcp_ccb, DHCPLOGMSG, "Error! unknown state(%d) specified for the event(%d)\n",
         	dhcp_ccb->lan_user_info[dhcp_ccb->cur_lan_user_index].state, event);
         return FALSE;
     }
@@ -76,7 +76,7 @@ STATUS dhcp_fsm(dhcp_ccb_t *dhcp_ccb, U16 event)
             break;
     
     if (dhcp_fsm_tbl[i].state != dhcp_ccb->lan_user_info[dhcp_ccb->cur_lan_user_index].state) { /* search until meet the next state */
-        DBG_vRG(DBGDHCP,(U8 *)dhcp_ccb,"error! invalid event(%d) in state(%s)\n",
+        VRG_LOG(INFO, NULL, (U8 *)dhcp_ccb, DHCPLOGMSG, "error! invalid event(%d) in state(%s)\n",
             event, DHCP_state2str(dhcp_ccb->lan_user_info[dhcp_ccb->cur_lan_user_index].state));
         return FALSE;
     }
@@ -85,7 +85,7 @@ STATUS dhcp_fsm(dhcp_ccb_t *dhcp_ccb, U16 event)
     if (dhcp_ccb->lan_user_info[dhcp_ccb->cur_lan_user_index].state != dhcp_fsm_tbl[i].next_state) {
         strcpy(str1,DHCP_state2str(dhcp_ccb->lan_user_info[dhcp_ccb->cur_lan_user_index].state));
         strcpy(str2,DHCP_state2str(dhcp_fsm_tbl[i].next_state));
-        DBG_vRG(DBGDHCP,(U8 *)dhcp_ccb,"dhcp state changed from %s to %s\n",str1,str2);
+        VRG_LOG(INFO, NULL, (U8 *)dhcp_ccb, DHCPLOGMSG, "dhcp state changed from %s to %s\n",str1,str2);
         dhcp_ccb->lan_user_info[dhcp_ccb->cur_lan_user_index].state = dhcp_fsm_tbl[i].next_state;
     }
     
