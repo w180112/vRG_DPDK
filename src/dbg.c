@@ -36,9 +36,10 @@ void LOGGER(U8 level, char *filename, int line_num, FILE *log_fp, void *ccb, voi
 	va_start(ap, fmt); /* set ap pointer to 1st unnamed arg */
     vsnprintf(msg, DBG_VRG_MSG_LEN, fmt, ap);
 
-	ccb2str(ccb, protocol_buf);
+	if (ccb2str)
+		ccb2str(ccb, protocol_buf);
 	sprintf(buf, "vRG[%s]: %s:%d> %s", loglvl2str(level), filename, line_num, protocol_buf);
-	strncat(buf, msg, sizeof(buf));
+	strncat(buf, msg, sizeof(buf)-1);
     va_end(ap);
 	
 	buf[sizeof(buf)-1] = '\0';

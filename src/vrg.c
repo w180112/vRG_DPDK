@@ -28,6 +28,7 @@
 #include				"dp_flow.h"
 #include 				"dhcpd.h"
 #include                "pppd.h"
+#include				"config.h"
 
 #define 				BURST_SIZE 		32
 
@@ -77,7 +78,7 @@ int main(int argc, char **argv)
 		printf("WARNING, WAN port is on remote NUMA node to polling thread.\n\tPerformance will not be optimal.\n");
 
 	/* Read network config */
-	vrg_ccb.user_count = 0, vrg_ccb.base_vlan = 0;
+	/*vrg_ccb.user_count = 0, vrg_ccb.base_vlan = 0;
 	{
 		char config_list[2][256] = { "UserCount", "BaseVlan" };
 
@@ -100,6 +101,10 @@ int main(int argc, char **argv)
 			}
 		}
 		fclose(config);
+	}*/
+	if (parse_config("./config.cfg", &vrg_ccb) != SUCCESS) {
+		printf("parse config file error\n");
+		return -1;
 	}
 	#ifdef _NON_VLAN
 	vrg_ccb.user_count = 1;
