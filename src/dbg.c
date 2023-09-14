@@ -19,7 +19,7 @@
 char 		*PPP_state2str(U16 state);
 char 		*DHCP_state2str(U16 state);
 	
-U8       	vRG_dbg_flag=1;
+U8       	vRG_dbg_flag=LOGDBG;
 
 /***************************************************
  * LOGGER:

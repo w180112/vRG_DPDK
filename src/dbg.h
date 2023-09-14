@@ -9,6 +9,8 @@
 
 #define	LOGDBG		1U
 #define LOGINFO		2U
+#define	LOGWARN		3U
+#define LOGERR		4U
 
 extern  char 		*PPP_state2str(U16 state);
 extern  char 		*DHCP_state2str(U16 state);
