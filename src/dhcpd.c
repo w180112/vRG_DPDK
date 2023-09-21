@@ -4,9 +4,11 @@
 #include <rte_ether.h>
 #include <rte_ip.h>
 #include <rte_malloc.h>
+#include <sys/mman.h>
 #include "pppd.h"
 #include "dhcp_fsm.h"
 #include "vrg.h"
+#include "protocol.h"
 
 extern struct lcore_map 	lcore;
 
@@ -14,15 +16,23 @@ extern STATUS dhcp_fsm(dhcp_ccb_t *dhcp_ccb, U16 event);
 void release_lan_user(dhcp_ccb_t *dhcp_ccb);
 
 struct rte_ether_addr zero_mac;
+static VRG_t *vrg_ccb;
 
-int dhcp_init(void)
+STATUS dhcp_init(VRG_t *ccb)
 {
-    dhcp_ccb_t *dhcp_ccb = vrg_ccb.dhcp_ccb;
+    vrg_ccb = ccb;
+    vrg_ccb->dhcp_ccb = mmap(NULL, sizeof(dhcp_ccb_t)*vrg_ccb->user_count, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0);
+	if (vrg_ccb->dhcp_ccb == MAP_FAILED) { 
+		perror("map mem");
+		vrg_ccb->dhcp_ccb = NULL;
+		return ERROR;
+	}
+    dhcp_ccb_t *dhcp_ccb = vrg_ccb->dhcp_ccb;
 
     for(int i=0; i<RTE_ETHER_ADDR_LEN; i++)
         zero_mac.addr_bytes[i] = 0;
 
-    for(int i=0; i<vrg_ccb.user_count; i++) {
+    for(int i=0; i<vrg_ccb->user_count; i++) {
         for(int j=0; j<LAN_USER; j++) {
             rte_timer_init(&(dhcp_ccb[i].lan_user_info[j].timer));
             rte_timer_init(&(dhcp_ccb[i].lan_user_info[j].lan_user_timer));
@@ -37,16 +47,16 @@ int dhcp_init(void)
         }
     }
 
-    return 0;
+    return SUCCESS;
 }
 
 int dhcpd(struct rte_mbuf *single_pkt, struct rte_ether_hdr *eth_hdr, vlan_header_t *vlan_header, struct rte_ipv4_hdr *ip_hdr, struct rte_udp_hdr *udp_hdr, U16 user_index)
 {
     BIT16 event;
-    dhcp_ccb_t *dhcp_ccb = vrg_ccb.dhcp_ccb;
+    dhcp_ccb_t *dhcp_ccb = vrg_ccb->dhcp_ccb;
     int lan_user_index = -1;
 
-    if (user_index >= vrg_ccb.user_count) {
+    if (user_index >= vrg_ccb->user_count) {
         rte_pktmbuf_free(single_pkt);
         return -1;
     }

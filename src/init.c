@@ -13,33 +13,29 @@
 #define NUM_MBUFS 		8191
 #define MBUF_CACHE_SIZE 512
 #define RING_SIZE 		16384
-#define PORT_AMOUNT       2
 
 static int init_mem(void);
 static int init_ring(void);
-int init_port(struct cmdline *cl);
+int init_port(VRG_t *vrg_ccb);
 
 struct rte_ring    *rte_ring, *gateway_q, *uplink_q, *downlink_q;
 struct rte_mempool *direct_pool[PORT_AMOUNT];
 struct rte_mempool *indirect_pool[PORT_AMOUNT];
-U8					vendor_id = 0;
 extern U16 			user_count;
 
 extern int rte_ethtool_get_drvinfo(U16 port_id, struct ethtool_drvinfo *drv_info);
 
-typedef struct nic_vendor nic_vendor_t;
-
-nic_vendor_t vendor[] = {
+struct nic_info vendor[] = {
 	{ "mlx5_pci", MLX5 },
 	{ "net_ixgbe", IXGBE },
 	{ "net_vmxnet3", VMXNET3 },
 	{ "net_ixgbe_vf", IXGBEVF },
 	{ "net_i40e", I40E },
 	{ "net_i40e_vf", I40EVF },
-	{ NULL, 0 }
+	{ "", 0 }
 };
 
-int sys_init(struct cmdline *cl)
+int sys_init(VRG_t *vrg_ccb)
 {
     int ret;
 
@@ -55,11 +51,11 @@ int sys_init(struct cmdline *cl)
 	/* init RTE timer library */
 	rte_timer_subsystem_init();
 
-	ret = init_port(cl);
+	ret = init_port(vrg_ccb);
 	if (ret != 0)
 		return ret;
 
-    rte_timer_init(&vrg_ccb.link);
+    rte_timer_init(&vrg_ccb->link);
     return 0;
 }
 
@@ -116,10 +112,14 @@ static int init_ring(void)
     return 0;
 }
 
-int init_port(struct cmdline *cl)
+int init_port(VRG_t *vrg_ccb)
 {
 	struct ethtool_drvinfo 	dev_info;
 	U8 						portid;
+	struct cmdline 			*cl = vrg_ccb->cl;
+
+	rte_eth_macaddr_get(0, &vrg_ccb->nic_info.hsi_lan_mac);
+	rte_eth_macaddr_get(1, &vrg_ccb->nic_info.hsi_wan_src_mac);
 
 	/* Initialize all ports. */
 	for(portid=0; portid<2; portid++) {
@@ -128,9 +128,10 @@ int init_port(struct cmdline *cl)
 			RTE_LOG(ERR, EAL, "Error getting info for port %i\n", portid);
 			return rte_errno;
 		}
-		for(int i=0; vendor[i].vendor; i++) {
-			if (strcmp((const char *)dev_info.driver, vendor[i].vendor) == 0) {
-				vendor_id = vendor[i].vendor_id;
+		for(int i=0; vendor[i].vendor_id; i++) {
+			if (strcmp((const char *)dev_info.driver, vendor[i].vendor_name) == 0) {
+				vrg_ccb->nic_info.vendor_id = vendor[i].vendor_id;
+				strcpy(vrg_ccb->nic_info.vendor_name, vendor[i].vendor_name);
 				break;
 			}
 		}
@@ -139,7 +140,7 @@ int init_port(struct cmdline *cl)
 		cmdline_printf(cl, "vRG> firmware-version: %s\n", dev_info.fw_version);
 		cmdline_printf(cl, "vRG> bus-info: %s\n", dev_info.bus_info);
 
-		if (PORT_INIT(portid) != 0) {
+		if (PORT_INIT(vrg_ccb, portid) != 0) {
 			RTE_LOG(ERR, EAL, "Cannot init port %"PRIu8 "\n", portid);
 			return -1;
 		}

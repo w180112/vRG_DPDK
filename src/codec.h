@@ -7,11 +7,13 @@
 #ifndef _CODEC_H_
 #define _CODEC_H_
 
-#include "pppoeclient.h"
+#include "protocol.h"
 #include "pppd.h"
 #include <ip_codec.h>
 #include "fsm.h"
 #include <rte_timer.h>
+
+void codec_init(VRG_t *ccb);
 
 extern STATUS PPP_decode_frame(tVRG_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_header_t *vlan_header, pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp_header_t *ppp_hdr, ppp_options_t *ppp_options, U16 *event, PPP_INFO_t *s_ppp_ccb);
 extern STATUS decode_ipcp(pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp_header_t *ppp_hdr, ppp_options_t *ppp_options, U16 total_lcp_length, U16 *event, struct rte_timer *tim, PPP_INFO_t *s_ppp_ccb);

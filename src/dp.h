@@ -7,13 +7,15 @@
 #ifndef _DP_H_
 #define _DP_H_
 
+#include "vrg.h"
+
 extern void drv_xmit(U8 *mu, U16 mulen);
-extern int wan_recvd(void);
-extern int uplink(void);
-extern int downlink(void);
-extern int gateway(void);
-extern int lan_recvd(void);
-extern int PORT_INIT(U16 port);
+int wan_recvd(void *arg);
+int uplink(void *arg);
+int downlink(void *arg);
+int gateway(void *arg);
+int lan_recvd(void *arg);
+int PORT_INIT(VRG_t *vrg_ccb, U16 port);
 extern int control_plane_dequeue(tVRG_MBX **mail);
 
 #endif

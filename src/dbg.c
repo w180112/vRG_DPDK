@@ -21,37 +21,6 @@ char 		*DHCP_state2str(U16 state);
 	
 U8       	vRG_dbg_flag=LOGDBG;
 
-/***************************************************
- * LOGGER:
- ***************************************************/	
-void LOGGER(U8 level, char *filename, int line_num, FILE *log_fp, void *ccb, void (*ccb2str)(void *, char *), const char *fmt,...)
-{
-	va_list ap; /* points to each unnamed arg in turn */
-	char    buf[LOGGER_BUF_LEN], protocol_buf[LOGGER_BUF_LEN-20], msg[DBG_VRG_MSG_LEN];
-	
-	//user offer level must > system requirement
-    if (vRG_dbg_flag > level)
-		return;
-	
-	va_start(ap, fmt); /* set ap pointer to 1st unnamed arg */
-    vsnprintf(msg, DBG_VRG_MSG_LEN, fmt, ap);
-
-	if (ccb2str)
-		ccb2str(ccb, protocol_buf);
-	sprintf(buf, "vRG[%s]: %s:%d> %s", loglvl2str(level), filename, line_num, protocol_buf);
-	strncat(buf, msg, sizeof(buf)-1);
-    va_end(ap);
-	
-	buf[sizeof(buf)-1] = '\0';
-    fprintf(stdout, "%s\n", buf);
-	if (log_fp != NULL) {
-        fwrite(buf, sizeof(char), strlen(buf), log_fp);
-        char *newline = "\n";
-        fwrite(newline, sizeof(char), strlen(newline), log_fp);
-        fflush(log_fp);
-    }
-}
-
 char *loglvl2str(U8 level)
 {
     switch (level) {
@@ -59,9 +28,31 @@ char *loglvl2str(U8 level)
         return "DBG";
     case LOGINFO:
         return "INFO";
+	case LOGWARN:
+        return "WARN";
+    case LOGERR:
+        return "ERR";
     default:
         return "UNKNOWN";
     }
+}
+
+U8 logstr2lvl(const char *log_str)
+{
+	if (strcmp(log_str, "DBG") == 0) {
+		return LOGDBG;
+	}
+	if (strcmp(log_str, "INFO") == 0) {
+		return LOGINFO;
+	}
+	if (strcmp(log_str, "WARN") == 0) {
+		return LOGWARN;
+	}
+	if (strcmp(log_str, "ERR") == 0) {
+		return LOGERR;
+	}
+
+	return LOGUNKNOWN;
 }
 
 void PPPLOGMSG(void *ccb, char *buf)
@@ -70,8 +61,6 @@ void PPPLOGMSG(void *ccb, char *buf)
     if (s_ppp_ccb) {
     	sprintf(buf,"pppd> Session id [%x.%s] ", rte_be_to_cpu_16(s_ppp_ccb->session_id), PPP_state2str(s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].state));
 	}
-	else
-		sprintf(buf,"pppd> ");
 }
 
 void DHCPLOGMSG(void *ccb, char *buf)
@@ -80,8 +69,6 @@ void DHCPLOGMSG(void *ccb, char *buf)
 	if (dhcp_ccb) {
     	sprintf(buf,"dhcpd> ip pool index, user index[%u, %u, %s] ", dhcp_ccb->cur_ip_pool_index, dhcp_ccb->cur_lan_user_index, DHCP_state2str(dhcp_ccb->lan_user_info[dhcp_ccb->cur_lan_user_index].state));
     }
-	else
-		sprintf(buf,"dhcpd> ");
 }
 
 /*-------------------------------------------------------------------
@@ -120,7 +107,6 @@ char *PPP_state2str(U16 state)
 	return ppp_state_desc_tbl[i].str;
 }
 
-
 /*-------------------------------------------------------------------
  * DHCP_state2str
  *
@@ -151,4 +137,35 @@ char *DHCP_state2str(U16 state)
 		return NULL;
 
 	return dhcp_state_desc_tbl[i].str;
+}
+
+/***************************************************
+ * LOGGER:
+ ***************************************************/	
+void LOGGER(U8 level, char *filename, int line_num, FILE *log_fp, void *ccb, void (*ccb2str)(void *, char *), const char *fmt,...)
+{
+	va_list ap; /* points to each unnamed arg in turn */
+	char    buf[LOGGER_BUF_LEN], protocol_buf[LOGGER_BUF_LEN-20] = {'\0'}, msg[DBG_VRG_MSG_LEN];
+	
+	//user offer level must > system requirement
+    if (vRG_dbg_flag > level)
+		return;
+	
+	va_start(ap, fmt); /* set ap pointer to 1st unnamed arg */
+    vsnprintf(msg, DBG_VRG_MSG_LEN, fmt, ap);
+
+	if (ccb2str)
+		ccb2str(ccb, protocol_buf);
+	sprintf(buf, "vRG[%s]: %s:%d> %s", loglvl2str(level), filename, line_num, protocol_buf);
+	strncat(buf, msg, sizeof(buf)-1);
+    va_end(ap);
+	
+	buf[sizeof(buf)-1] = '\0';
+    fprintf(stdout, "%s\n", buf);
+	if (log_fp != NULL) {
+        fwrite(buf, sizeof(char), strlen(buf), log_fp);
+        char *newline = "\n";
+        fwrite(newline, sizeof(char), strlen(newline), log_fp);
+        fflush(log_fp);
+    }
 }

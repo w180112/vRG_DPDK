@@ -44,7 +44,7 @@ struct rte_flow *generate_flow(U16 port_id, U16 rx_q, struct rte_flow_error *err
 	 */
 	memset(&eth_spec, 0, sizeof(struct rte_flow_item_eth));
 	memset(&eth_mask, 0, sizeof(struct rte_flow_item_eth));
-	rte_ether_addr_copy(&(vrg_ccb.hsi_lan_mac), &eth_spec.dst);
+	//rte_ether_addr_copy(&(vrg_ccb.hsi_lan_mac), &eth_spec.dst);
 	for(int i=0; i<ETH_ALEN; i++) {
 		eth_mask.dst.addr_bytes[i] = 0xff;
 	}

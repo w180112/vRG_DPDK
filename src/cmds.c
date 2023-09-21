@@ -35,18 +35,17 @@
 #include <cmdline.h>
 #include "cmds.h"
 #include "pppd.h"
-#include "pppoeclient.h"
+#include "protocol.h"
 #include "dhcp_codec.h"
 #include "init.h"
 #include "vrg.h"
 
 extern struct rte_ring *rte_ring;
-extern nic_vendor_t 	vendor[];
-extern U8				vendor_id;
 typedef struct cli_to_main_msg {
 	U8 type;
 	U8 user_id;
 }cli_to_main_msg_t;
+static VRG_t *vrg_ccb;
 
 /**********************************************************/
 
@@ -60,17 +59,12 @@ static void cmd_info_parsed(__attribute__((unused)) void *parsed_result,
 {
 	char buf[64];
 	struct rte_eth_stats ethdev_stat;
-	dhcp_ccb_t *dhcp_ccb = vrg_ccb.dhcp_ccb;
+	dhcp_ccb_t *dhcp_ccb = vrg_ccb->dhcp_ccb;
 
-	if (vendor_id == 0)
+	if (vrg_ccb->nic_info.vendor_id == 0)
 		cmdline_printf(cl,"We are using unexcepted driver\n");
 	else {
-		for(int i=0; vendor[i].vendor!=NULL; i++) {
-			if (vendor_id == vendor[i].vendor_id) {
-				cmdline_printf(cl,"We are using %s driver\n", vendor[i].vendor);
-				break;
-			}
-		}
+		cmdline_printf(cl,"We are using %s driver\n", vrg_ccb->nic_info.vendor_name);
 	}
 	
 	rte_eth_stats_get(0, &ethdev_stat);
@@ -81,17 +75,17 @@ static void cmd_info_parsed(__attribute__((unused)) void *parsed_result,
 	cmdline_printf(cl, "WAN port total rx %" PRIu64 " pkts, tx %" PRIu64 " pkts. ", ethdev_stat.ipackets, ethdev_stat.opackets);
 	cmdline_printf(cl, "Rx %" PRIu64 " bytes, tx %" PRIu64 " bytes. ", ethdev_stat.ibytes, ethdev_stat.obytes);
 	cmdline_printf(cl, "Rx drops %" PRIu64 " pkts.\n", ethdev_stat.imissed);
-	cmdline_printf(cl, "WAN mac addr is %x:%x:%x:%x:%x:%x\n", vrg_ccb.hsi_wan_src_mac.addr_bytes[0], vrg_ccb.hsi_wan_src_mac.addr_bytes[1], vrg_ccb.hsi_wan_src_mac.addr_bytes[2], vrg_ccb.hsi_wan_src_mac.addr_bytes[3], vrg_ccb.hsi_wan_src_mac.addr_bytes[4], vrg_ccb.hsi_wan_src_mac.addr_bytes[5]);
-	cmdline_printf(cl, "LAN mac addr is %x:%x:%x:%x:%x:%x\n", vrg_ccb.hsi_lan_mac.addr_bytes[0], vrg_ccb.hsi_lan_mac.addr_bytes[1], vrg_ccb.hsi_lan_mac.addr_bytes[2], vrg_ccb.hsi_lan_mac.addr_bytes[3], vrg_ccb.hsi_lan_mac.addr_bytes[4], vrg_ccb.hsi_lan_mac.addr_bytes[5]);
+	cmdline_printf(cl, "WAN mac addr is %x:%x:%x:%x:%x:%x\n", vrg_ccb->nic_info.hsi_wan_src_mac.addr_bytes[0], vrg_ccb->nic_info.hsi_wan_src_mac.addr_bytes[1], vrg_ccb->nic_info.hsi_wan_src_mac.addr_bytes[2], vrg_ccb->nic_info.hsi_wan_src_mac.addr_bytes[3], vrg_ccb->nic_info.hsi_wan_src_mac.addr_bytes[4], vrg_ccb->nic_info.hsi_wan_src_mac.addr_bytes[5]);
+	cmdline_printf(cl, "LAN mac addr is %x:%x:%x:%x:%x:%x\n", vrg_ccb->nic_info.hsi_lan_mac.addr_bytes[0], vrg_ccb->nic_info.hsi_lan_mac.addr_bytes[1], vrg_ccb->nic_info.hsi_lan_mac.addr_bytes[2], vrg_ccb->nic_info.hsi_lan_mac.addr_bytes[3], vrg_ccb->nic_info.hsi_lan_mac.addr_bytes[4], vrg_ccb->nic_info.hsi_lan_mac.addr_bytes[5]);
 
-	for(int i=0; i<vrg_ccb.user_count; i++) {
+	for(int i=0; i<vrg_ccb->user_count; i++) {
 		cmdline_printf(cl, "================================================================================\n");
 		#ifdef _NON_VLAN
 		cmdline_printf(cl, "User %d is in ", i + 1);
 		#else
-		cmdline_printf(cl, "User %d VLAN ID is %" PRIu16 " and is in ", i + 1, vrg_ccb.ppp_ccb[i].vlan);
+		cmdline_printf(cl, "User %d VLAN ID is %" PRIu16 " and is in ", i + 1, vrg_ccb->ppp_ccb[i].vlan);
 		#endif
-		switch (vrg_ccb.ppp_ccb[i].phase) {
+		switch (vrg_ccb->ppp_ccb[i].phase) {
 		case END_PHASE:
 			cmdline_printf(cl, "init phase\n");
 			break;
@@ -109,15 +103,15 @@ static void cmd_info_parsed(__attribute__((unused)) void *parsed_result,
 			break;
 		case DATA_PHASE:
 			cmdline_printf(cl, "PPPoE connection\n");
-			cmdline_printf(cl, "PPP account is %s, password is %s\n", vrg_ccb.ppp_ccb[i].ppp_user_id, vrg_ccb.ppp_ccb[i].ppp_passwd);
-			cmdline_printf(cl, "Session ID is 0x%x\n", rte_be_to_cpu_16(vrg_ccb.ppp_ccb[i].session_id));
-			cmdline_printf(cl, "WAN IP addr is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 "\n", *(((U8 *)&(vrg_ccb.ppp_ccb[i].hsi_ipv4))), *(((U8 *)&(vrg_ccb.ppp_ccb[i].hsi_ipv4))+1), *(((U8 *)&(vrg_ccb.ppp_ccb[i].hsi_ipv4))+2), *(((U8 *)&(vrg_ccb.ppp_ccb[i].hsi_ipv4))+3));
+			cmdline_printf(cl, "PPP account is %s, password is %s\n", vrg_ccb->ppp_ccb[i].ppp_user_id, vrg_ccb->ppp_ccb[i].ppp_passwd);
+			cmdline_printf(cl, "Session ID is 0x%x\n", rte_be_to_cpu_16(vrg_ccb->ppp_ccb[i].session_id));
+			cmdline_printf(cl, "WAN IP addr is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 "\n", *(((U8 *)&(vrg_ccb->ppp_ccb[i].hsi_ipv4))), *(((U8 *)&(vrg_ccb->ppp_ccb[i].hsi_ipv4))+1), *(((U8 *)&(vrg_ccb->ppp_ccb[i].hsi_ipv4))+2), *(((U8 *)&(vrg_ccb->ppp_ccb[i].hsi_ipv4))+3));
 			break;
 		default:
 			break;
 		}
 
-		if (rte_atomic16_read(&vrg_ccb.dhcp_ccb[i].dhcp_bool) == 1) {
+		if (rte_atomic16_read(&vrg_ccb->dhcp_ccb[i].dhcp_bool) == 1) {
 			cmdline_printf(cl, "DHCP server is on and IP addr is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 "\n", (rte_be_to_cpu_32(dhcp_ccb[i].dhcp_server_ip) & 0xff000000) >> 24, (rte_be_to_cpu_32(dhcp_ccb[i].dhcp_server_ip) & 0x00ff0000) >> 16, (rte_be_to_cpu_32(dhcp_ccb[i].dhcp_server_ip) & 0x0000ff00) >> 8, rte_be_to_cpu_32(dhcp_ccb[i].dhcp_server_ip) & 0x000000ff);
 			for(U8 j=0; j<MAX_IP_POOL; j++) {
 				if (dhcp_ccb[i].ip_pool[j].used) {
@@ -126,7 +120,7 @@ static void cmd_info_parsed(__attribute__((unused)) void *parsed_result,
 				}
 			}
 		}
-		else if (rte_atomic16_read(&vrg_ccb.dhcp_ccb[i].dhcp_bool) == 0)
+		else if (rte_atomic16_read(&vrg_ccb->dhcp_ccb[i].dhcp_bool) == 0)
 			cmdline_printf(cl, "DHCP server is off\n");
 	}
 }
@@ -156,7 +150,7 @@ static void cmd_log_parsed(__attribute__((unused)) void *parsed_result,
 {
 	char log_buf[256];
 
-	while (fgets(log_buf, 256, vrg_ccb.fp) != NULL)
+	while (fgets(log_buf, 256, vrg_ccb->fp) != NULL)
         cmdline_printf(cl, "%s", log_buf);
     cmdline_printf(cl, "\n");
 }
@@ -223,7 +217,7 @@ static void cmd_help_parsed(__attribute__((unused)) void *parsed_result,
 					  "help to show usage commands\n"
 					  "disconnect <user id | all> to disconnect session(s)\n"
 					  "connect <user id | all> to connect session(s)\n"
-					  "dhcp <start | stop> <user id | all> to start/stop dhcp server function\n"
+					  "dhcp-server <start | stop> <user id | all> to start/stop dhcp server function\n"
 					  "quit/exit to quit vRG system\n");
 }
 
@@ -271,7 +265,7 @@ static void cmd_connect_parsed( void *parsed_result,
 		}
 	}
 	
-	if (msg->user_id > vrg_ccb.user_count) {
+	if (msg->user_id > vrg_ccb->user_count) {
 		printf("Too large user id\nvRG> ");
 		rte_free(mail);
 		return;
@@ -336,7 +330,7 @@ static void cmd_dhcp_parsed( void *parsed_result,
 		}
 	}
 	
-	if (msg->user_id > vrg_ccb.user_count) {
+	if (msg->user_id > vrg_ccb->user_count) {
 		printf("Too large user id\nvRG> ");
 		rte_free(mail);
 		return;
@@ -377,3 +371,13 @@ cmdline_parse_ctx_t ctx[] = {
 		(cmdline_parse_inst_t *)&cmd_log,
 	NULL,
 };
+
+STATUS init_cli(VRG_t *ccb)
+{
+	vrg_ccb = ccb;
+	vrg_ccb->cl = cmdline_stdin_new(ctx, "vRG> ");
+	if (vrg_ccb->cl == NULL)
+		return ERROR;
+
+	return SUCCESS;
+}

@@ -3,8 +3,10 @@
 
 #include <rte_common.h>
 #include <rte_atomic.h>
+#include <rte_ether.h>
 #include <common.h>
 #include "dhcp_codec.h"
+#include "protocol.h"
 #include "pppd.h"
 
 #define LINK_DOWN           0x0
@@ -18,17 +20,25 @@ enum {
     CLI_DHCP_STOP,
 };
 
+struct nic_info {
+    char vendor_name[16];
+    U16 vendor_id;
+    struct rte_ether_addr 	hsi_wan_src_mac;/* vRG WAN side mac addr */
+    struct rte_ether_addr 	hsi_lan_mac;    /* vRG LAN side mac addr */
+};
+
 /* vRG system data structure */
 typedef struct {
     U8 				        cur_user;       /* pppoe alive user count */
+    U8 				        loglvl;         /* vRG loglvl */
+    BOOL 			        non_vlan_mode;  /* non vlan or vlan mode */
     U16 				    user_count;     /* total vRG subscriptor */
     U16                     base_vlan;      /* started vlan id */
     volatile BOOL	        quit_flag;      /* vRG quit flag */
 	U32						lan_ip;         /* vRG LAN side ip */
     FILE 					*fp;
     struct cmdline 			*cl;
-    struct rte_ether_addr 	hsi_wan_src_mac;/* vRG WAN side mac addr */
-    struct rte_ether_addr 	hsi_lan_mac;    /* vRG LAN side mac addr */
+    struct nic_info         nic_info;
     PPP_INFO_t              *ppp_ccb;       /* pppoe control block */
     dhcp_ccb_t              *dhcp_ccb;      /* dhcp control block */
     struct rte_timer 	    link;           /* for physical link checking timer */
@@ -44,6 +54,13 @@ struct lcore_map {
 	U8 timer_thread;
 };
 
-extern VRG_t vrg_ccb;
+/**
+ * @brief msg between IF driver and daemon
+ */
+typedef struct {
+	U16  			type;
+	U8          	refp[ETH_MTU];
+	int	        	len;
+} tVRG_MBX;
 
 #endif
