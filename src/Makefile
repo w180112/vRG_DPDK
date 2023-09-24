@@ -25,7 +25,7 @@ static: build/$(APP)
 PKGCONF ?= pkg-config
 
 INCLUDE += -I. -I../lib/libutil
-CFLAGS += $(INCLUDE) -Wall -fPIC -g -std=c99 -D_XOPEN_SOURCE=700 -D_DEFAULT_SOURCE -D_TEST_MODE #-D_DP_DBG
+CFLAGS += $(INCLUDE) -Wall -fPIC -g -std=c99 -D_XOPEN_SOURCE=700 -D_DEFAULT_SOURCE -D_TEST_MODE
 LDFLAGS += -lutils -lconfig
 
 PC_FILE := $(shell $(PKGCONF) --path libdpdk 2>/dev/null)

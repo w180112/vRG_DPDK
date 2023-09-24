@@ -216,9 +216,7 @@ STATUS ppp_process(void	*mail)
 	session_index = rte_be_to_cpu_16(session_index);
 	session_index = (session_index & 0xFFF) - vrg_ccb->base_vlan;
 	if (session_index >= vrg_ccb->user_count) {
-		#ifdef _DP_DBG
-		puts("Recv not our PPPoE packet.\nDiscard.");
-		#endif
+		VRG_LOG(DBG, NULL, NULL, PPPLOGMSG, "recv not our PPPoE packet.\nDiscard.");
 		return FALSE;
 	}
 	#pragma GCC diagnostic pop   // require GCC 4.6
@@ -265,33 +263,24 @@ STATUS ppp_process(void	*mail)
 					break;
     		}
     		if (session_index == vrg_ccb->user_count) {
-				RTE_LOG(INFO,EAL,"Out of range session id in PADT.\n");
-				#ifdef _DP_DBG
-    			puts("Out of range session id in PADT.");
-				#endif
+				VRG_LOG(WARN, NULL, NULL, PPPLOGMSG, "Out of range session id in PADT");
     			return FALSE;
     		}
     		ppp_ccb[session_index].pppoe_phase.eth_hdr = &eth_hdr;
 			ppp_ccb[session_index].pppoe_phase.pppoe_header = &pppoe_header;
 			ppp_ccb[session_index].pppoe_phase.pppoe_header_tag = (pppoe_header_tag_t *)((pppoe_header_t *)((struct rte_ether_hdr *)vrg_mail->refp + 1) + 1);
 			ppp_ccb[session_index].pppoe_phase.max_retransmit = MAX_RETRAN;
-						
-			#ifdef _DP_DBG
-			printf("Session 0x%x connection disconnected.\n", rte_be_to_cpu_16(ppp_ccb[session_index].session_id));
-			#endif
-			RTE_LOG(INFO,EAL,"Session 0x%x connection disconnected.\n",rte_be_to_cpu_16(ppp_ccb[session_index].session_id));
+
+			VRG_LOG(INFO, NULL, NULL, PPPLOGMSG, "Session 0x%x connection disconnected.\n", rte_be_to_cpu_16(ppp_ccb[session_index].session_id));
 			ppp_ccb[session_index].phase = END_PHASE;
 			ppp_ccb[session_index].pppoe_phase.active = FALSE;
 			PPP_bye(&ppp_ccb[session_index]);
 			return FALSE;		
 		case PADM:
-			RTE_LOG(INFO,EAL,"recv active discovery message\n");
+			VRG_LOG(INFO, NULL, NULL, PPPLOGMSG, "recv active discovery message");
 			return FALSE;
 		default:
-			RTE_LOG(INFO,EAL,"Unknown PPPoE discovery type %x.\n", pppoe_header.code);
-			#ifdef _DP_DBG
-			puts("Unknown PPPoE discovery type.");
-			#endif
+			VRG_LOG(WARN, NULL, NULL, PPPLOGMSG, "Unknown PPPoE discovery type %x", pppoe_header.code);
 			return FALSE;
 		}
 	}
@@ -299,7 +288,7 @@ STATUS ppp_process(void	*mail)
 	ppp_ccb[session_index].ppp_phase[1].ppp_options = ppp_options;
 	if (ppp_payload.ppp_protocol == rte_cpu_to_be_16(PAP_PROTOCOL) || ppp_payload.ppp_protocol == rte_cpu_to_be_16(CHAP_PROTOCOL)) {
 		if (ppp_hdr.code == PAP_NAK || ppp_hdr.code == CHAP_FAILURE) {
-			RTE_LOG(INFO,EAL,"User %" PRIu16 " received auth info error and start closing connection.\n", ppp_ccb[session_index].user_num);
+			VRG_LOG(ERR, NULL, NULL, PPPLOGMSG, "User %" PRIu16 " received auth info error and start closing connection.\n", ppp_ccb[session_index].user_num);
     		ppp_ccb[session_index].cp = 0;
     		ppp_ccb[session_index].phase--;
     		PPP_FSM(&(ppp_ccb[session_index].ppp),&ppp_ccb[session_index],E_CLOSE);

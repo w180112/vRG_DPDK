@@ -254,9 +254,6 @@ int wan_recvd(void *arg)
 					if (unlikely(vrg_ccb->non_vlan_mode == TRUE))
 						rte_vlan_strip(single_pkt);
 					pkt[total_tx++] = single_pkt;
-					#ifdef _DP_DBG
-					puts("nat mapping at port 1");
-					#endif
 					break;
 				case PROTO_TYPE_UDP:
 				case PROTO_TYPE_TCP:
@@ -560,9 +557,6 @@ int lan_recvd(void *arg)
 					if (unlikely(vrg_ccb->non_vlan_mode == TRUE))
 						rte_vlan_strip(single_pkt);					
 					pkt[total_tx++] = single_pkt;
-					#ifdef _DP_DBG
-					puts("nat icmp at port 0");
-					#endif
 				}
 				else if (ip_hdr->next_proto_id == IPPROTO_IGMP) {
 					#ifdef _TEST_MODE
@@ -610,18 +604,12 @@ int lan_recvd(void *arg)
 					rte_ring_enqueue_burst(uplink_q, (void **)&single_pkt, 1, NULL);
 				}
 				else {
-					#ifdef _DP_DBG
-					puts("unknown L4 packet recv on gateway LAN port queue");
-					printf("protocol = %x\n", ip_hdr->next_proto_id);
-					#endif
+					VRG_LOG(DBG, NULL, NULL, NULL, "unknown L4 packet with protocol id %x recv on LAN port queue", ip_hdr->next_proto_id);
 					rte_pktmbuf_free(single_pkt);
 				}
 			}
 			else {
-				#ifdef _DP_DBG
-				puts("unknown ether type recv on gateway LAN port queue");
-				printf("ether type = %x\n", rte_be_to_cpu_16(eth_hdr->ether_type));
-				#endif
+				VRG_LOG(DBG, NULL, NULL, NULL, "unknown ether type %x recv on gateway LAN port queue", rte_be_to_cpu_16(eth_hdr->ether_type));
 				rte_pktmbuf_free(single_pkt);
 				continue;
 			}

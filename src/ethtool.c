@@ -17,15 +17,14 @@ int rte_ethtool_get_drvinfo(U16 port_id, struct ethtool_drvinfo *drvinfo)
 
 	RTE_ETH_VALID_PORTID_OR_ERR_RET(port_id, -ENODEV);
 				  
-	#ifdef _DP_DBG
-	int ret = rte_eth_dev_fw_version_get(port_id, drvinfo->fw_version,
+	/*int ret = rte_eth_dev_fw_version_get(port_id, drvinfo->fw_version,
 			      sizeof(drvinfo->fw_version));
 	if (ret < 0)
 		printf("firmware version get error: (%s)\n", strerror(-ret));
 	else if (ret > 0)
 		printf("Insufficient fw version buffer size, "
 		       "the minimum size should be %d\n", ret);
-	#endif
+	*/
 
 	memset(&dev_info, 0, sizeof(dev_info));
 	rte_eth_dev_info_get(port_id, &dev_info);

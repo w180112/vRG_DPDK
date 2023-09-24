@@ -125,9 +125,6 @@ STATUS PPP_decode_frame(tVRG_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_head
 						for(int i=cur->length-3; i>=0; i--) {
 							if (*(((U8 *)&(s_ppp_ccb->magic_num)) + i) != cur->val[i]) {
 								RTE_LOG(INFO,EAL,"Session 0x%x recv ppp LCP magic number error.\n", rte_cpu_to_be_16(s_ppp_ccb->session_id));
-								#ifdef _DP_DBG
-								puts("recv ppp LCP magic number error");
-								#endif
 								return ERROR;
 							}
 						}
@@ -146,9 +143,6 @@ STATUS PPP_decode_frame(tVRG_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_head
 			case CONFIG_REJECT :
 				*event = E_RECV_CONFIG_NAK_REJ;
 				RTE_LOG(INFO, EAL, "User %" PRIu16 " recv LCP reject message with option %x.\n", s_ppp_ccb->user_num, ppp_options->type);
-				#ifdef _DP_DBG
-				printf("recv LCP reject message with option %x\n", ppp_options->type);
-				#endif
 				if (ppp_options->type == AUTH) {
 					if (s_ppp_ccb->is_pap_auth == FALSE)
 						return ERROR;
@@ -193,9 +187,6 @@ STATUS PPP_decode_frame(tVRG_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_head
 		rte_memcpy(&ppp_pap_ack_nak,tmp_ppp_pap_ack_nak,tmp_ppp_pap_ack_nak->msg_length + sizeof(U8));
 		if (ppp_hdr->code == PAP_ACK) {
 			RTE_LOG(INFO, EAL, "User %" PRIu16 " auth success.\n", s_ppp_ccb->user_num);
-			#ifdef _DP_DBG
-			puts("auth success.");
-			#endif
 			s_ppp_ccb->phase = IPCP_PHASE;
 			return TRUE;
 		}
@@ -203,9 +194,6 @@ STATUS PPP_decode_frame(tVRG_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_head
     		s_ppp_ccb->phase = LCP_PHASE;
     		PPP_FSM(&(s_ppp_ccb->ppp),s_ppp_ccb,E_CLOSE);
 			RTE_LOG(INFO, EAL, "User %" PRIu16 " auth fail.\n", s_ppp_ccb->user_num);
-			#ifdef _DP_DBG
-			puts("auth fail.");
-			#endif
 			return TRUE;
 		}
 		else if (ppp_hdr->code == PAP_REQUEST) {
@@ -227,9 +215,6 @@ STATUS PPP_decode_frame(tVRG_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_head
 				
 			drv_xmit(vrg_ccb, buffer, mulen);
 			RTE_LOG(INFO, EAL, "User %" PRIu16 " recv pap request.\n", s_ppp_ccb->user_num);
-			#ifdef _DP_DBG
-			puts("recv pap request");
-			#endif
 			return TRUE;
 		}
 	}
@@ -256,33 +241,21 @@ STATUS PPP_decode_frame(tVRG_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_head
 				
 			drv_xmit(vrg_ccb, buffer, mulen);
 			RTE_LOG(INFO, EAL, "User %" PRIu16 " recv chap challenge.\n", s_ppp_ccb->user_num);
-			#ifdef _DP_DBG
-			puts("recv chap chapllenge");
-			#endif
 			return TRUE;
 		}
 		else if (ppp_hdr->code == CHAP_SUCCESS) {
 			RTE_LOG(INFO, EAL, "User %" PRIu16 " auth success.\n", s_ppp_ccb->user_num);
-			#ifdef _DP_DBG
-			puts("auth success.");
-			#endif
 			s_ppp_ccb->phase = IPCP_PHASE;
 			return TRUE;
 		}
 		else if (ppp_hdr->code == CHAP_FAILURE) {
     		s_ppp_ccb->phase = LCP_PHASE;
 			RTE_LOG(INFO, EAL, "User %" PRIu16 " auth fail.\n", s_ppp_ccb->user_num);
-			#ifdef _DP_DBG
-			puts("auth fail.");
-			#endif
 			return TRUE;
 		}
 	}
 	else {
 		RTE_LOG(INFO, EAL, "User %" PRIu16 " recv unknown PPP protocol.\n", s_ppp_ccb->user_num);
-		#ifdef _DP_DBG
-		puts("unknown PPP protocol");
-		#endif
 		return ERROR;
 	}
 
@@ -500,9 +473,6 @@ STATUS build_padi(__attribute__((unused)) struct rte_timer *tim, PPP_INFO_t *s_p
 
 	if (s_ppp_ccb->pppoe_phase.timer_counter >= s_ppp_ccb->pppoe_phase.max_retransmit) {
 		RTE_LOG(INFO,EAL,"User %" PRIu16 " timeout when sending PADI\n", s_ppp_ccb->user_num);
-		#ifdef _DP_DBG
-		puts("timeout when sending PADI");
-		#endif
 		PPP_bye(s_ppp_ccb);
 	}
 	for(int i=0; i<6; i++) {
@@ -554,9 +524,6 @@ STATUS build_padr(__attribute__((unused)) struct rte_timer *tim, PPP_INFO_t *s_p
 
 	if (s_ppp_ccb->pppoe_phase.timer_counter >= s_ppp_ccb->pppoe_phase.max_retransmit) {
 		RTE_LOG(INFO,EAL,"User %" PRIu16 "timeout when sending PADR\n", s_ppp_ccb->user_num);
-		#ifdef _DP_DBG
-		puts("timeout when sending PADR");
-		#endif
 		PPP_bye(s_ppp_ccb);
 	}
 	if (s_ppp_ccb->pppoe_phase.timer_counter > 0)
@@ -586,15 +553,9 @@ STATUS build_padr(__attribute__((unused)) struct rte_timer *tim, PPP_INFO_t *s_p
 				break;
 			case GENERIC_ERROR:
 				RTE_LOG(INFO,EAL,"PPPoE discover generic error.\n");
-				#ifdef _DP_DBG
-				puts("PPPoE discover generic error");
-				#endif
 				return FALSE;
 			default:
 				RTE_LOG(INFO,EAL,"Unknown PPPOE tag value\n");
-				#ifdef _DP_DBG
-				puts("Unknown PPPOE tag value"); 
-				#endif
 		}
 		if (ntohs(s_ppp_ccb->pppoe_phase.pppoe_header_tag->type) == END_OF_LIST)
 			break;
@@ -778,9 +739,6 @@ STATUS build_config_request(unsigned char *buffer, PPP_INFO_t *s_ppp_ccb, U16 *m
  	rte_memcpy(buffer+14+sizeof(vlan_header_t)+sizeof(pppoe_header_t)+sizeof(ppp_payload_t)+sizeof(ppp_header_t),ppp_options,rte_cpu_to_be_16(ppp_hdr->length) - sizeof(ppp_header_t));
 
 	RTE_LOG(INFO,EAL,"User %" PRIu16 " config request built.\n", s_ppp_ccb->user_num);
-	#ifdef _DP_DBG
- 	puts("config request built.");
-	#endif
  	return TRUE;
 }
 
@@ -819,9 +777,6 @@ STATUS build_config_ack(unsigned char* buffer, PPP_INFO_t *s_ppp_ccb, U16 *mulen
  	rte_memcpy(buffer+14+sizeof(vlan_header_t)+sizeof(pppoe_header_t)+sizeof(ppp_payload_t)+sizeof(ppp_header_t),ppp_options,rte_cpu_to_be_16(ppp_hdr->length) - sizeof(ppp_header_t));
 
 	RTE_LOG(INFO,EAL,"User %" PRIu16 " config ack built.\n", s_ppp_ccb->user_num);
-	#ifdef _DP_DBG
- 	puts("config ack built.");
-	#endif
  	return TRUE;
 }
 
@@ -858,9 +813,6 @@ STATUS build_config_nak_rej(unsigned char* buffer, PPP_INFO_t *s_ppp_ccb, U16 *m
  	rte_memcpy(buffer+14+sizeof(vlan_header_t)+sizeof(pppoe_header_t)+sizeof(ppp_payload_t)+sizeof(ppp_header_t),ppp_options,ntohs(ppp_hdr->length) - sizeof(ppp_header_t));
 
 	RTE_LOG(INFO,EAL,"User %" PRIu16 " config nak/rej built.\n", s_ppp_ccb->user_num);
-	#ifdef _DP_DBG
- 	puts("config nak/rej built.");
-	#endif 
  	return TRUE;
 }
 
@@ -934,9 +886,6 @@ STATUS build_terminate_ack(unsigned char* buffer, PPP_INFO_t *s_ppp_ccb, U16 *mu
  	rte_memcpy(buffer+14+sizeof(vlan_header_t)+sizeof(pppoe_header_t)+sizeof(ppp_payload_t),ppp_hdr,sizeof(ppp_header_t));
  	
 	RTE_LOG(INFO,EAL,"User %" PRIu16 " terminate ack built.\n", s_ppp_ccb->user_num);
-	#ifdef _DP_DBG
- 	puts("terminate ack built.");
-	#endif
  	return TRUE;
 }
 
@@ -997,9 +946,6 @@ STATUS build_terminate_request(unsigned char* buffer, PPP_INFO_t *s_ppp_ccb, U16
  	rte_memcpy(buffer+sizeof(struct rte_ether_hdr)+sizeof(vlan_header_t)+sizeof(pppoe_header_t)+sizeof(ppp_payload_t),ppp_hdr,sizeof(ppp_header_t));
  	
 	RTE_LOG(INFO,EAL,"User %" PRIu16 " terminate request built.\n", s_ppp_ccb->user_num);
-	#ifdef _DP_DBG
-	puts("build terminate request.");
-	#endif
  	return TRUE;
 }
 
@@ -1059,9 +1005,6 @@ STATUS build_auth_request_pap(unsigned char* buffer, PPP_INFO_t *s_ppp_ccb, U16 
  	rte_memcpy(buffer+sizeof(struct rte_ether_hdr)+sizeof(vlan_header_t)+sizeof(pppoe_header_t)+sizeof(ppp_payload_t)+sizeof(ppp_header_t)+sizeof(U8)+peer_id_length+sizeof(U8),s_ppp_ccb->ppp_passwd,peer_passwd_length);
  	
 	RTE_LOG(INFO,EAL,"User %" PRIu16 " pap request built.\n", s_ppp_ccb->user_num);
-	#ifdef _DP_DBG
- 	puts("pap request built.");
-	#endif 
  	return TRUE;
 }
 
@@ -1114,9 +1057,6 @@ STATUS build_auth_ack_pap(unsigned char *buffer, PPP_INFO_t *s_ppp_ccb, U16 *mul
  	rte_memcpy(buffer+14+sizeof(vlan_header_t)+sizeof(pppoe_header_t)+sizeof(ppp_payload_t)+sizeof(ppp_header_t),&ppp_pap_ack_nak,sizeof(ppp_pap_ack_nak.msg_length)+ppp_pap_ack_nak.msg_length);
  	
 	RTE_LOG(INFO,EAL,"User %" PRIu16 " pap ack built.\n", s_ppp_ccb->user_num);
-	#ifdef _DP_DBG
- 	puts("pap ack built.");
-	#endif
  	return TRUE;
 }
 
@@ -1172,9 +1112,6 @@ STATUS build_auth_response_chap(U8 *buffer, PPP_INFO_t *s_ppp_ccb, U16 *mulen, p
 	*mulen = buf_ptr - buffer;
 
 	RTE_LOG(INFO,EAL,"User %" PRIu16 " chap response built.\n", s_ppp_ccb->user_num);
-	#ifdef _DP_DBG
- 	puts("chap response built.");
-	#endif 
  	return TRUE;
 }
 
