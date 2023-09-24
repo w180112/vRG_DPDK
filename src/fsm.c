@@ -5,6 +5,7 @@
 #include 	<inttypes.h>
 
 extern struct lcore_map 	lcore;
+static VRG_t *vrg_ccb;
 
 STATUS 			PPP_FSM(struct rte_timer *ppp, PPP_INFO_t *s_ppp_ccb, U16 event);
 
@@ -688,7 +689,7 @@ STATUS A_this_layer_up(__attribute__((unused)) struct rte_timer *tim, __attribut
             if (build_auth_request_pap(buffer,s_ppp_ccb,&mulen) < 0)
     		    return FALSE;
         }
-    	drv_xmit(buffer,mulen);
+    	drv_xmit(vrg_ccb, buffer, mulen);
         RTE_LOG(INFO,EAL,"User %" PRIu16 " LCP connection establish successfully.\n", s_ppp_ccb->user_num);
         RTE_LOG(INFO,EAL,"User %" PRIu16 " starting Authentication.\n", s_ppp_ccb->user_num);
         #ifdef _DP_DBG
@@ -701,18 +702,16 @@ STATUS A_this_layer_up(__attribute__((unused)) struct rte_timer *tim, __attribut
         s_ppp_ccb->phase = DATA_PHASE;
     	rte_timer_reset(&(s_ppp_ccb->nat),rte_get_timer_hz(),PERIODICAL,lcore.timer_thread,(rte_timer_cb_t)nat_rule_timer,s_ppp_ccb);
         RTE_LOG(INFO,EAL,"User %" PRIu16 " IPCP connection establish successfully.\n", s_ppp_ccb->user_num);
-        #ifdef _NON_VLAN
-        RTE_LOG(INFO,EAL,"Now user %" PRIu16 " can start to send data via pppoe session id 0x%x.\n", s_ppp_ccb->user_num, rte_cpu_to_be_16(s_ppp_ccb->session_id));
-        #else
-        RTE_LOG(INFO,EAL,"Now user %" PRIu16 " can start to send data via pppoe session id 0x%x and vlan is %" PRIu16 ".\n", s_ppp_ccb->user_num, rte_cpu_to_be_16(s_ppp_ccb->session_id), s_ppp_ccb->vlan);
-        #endif
+        if (unlikely(vrg_ccb->non_vlan_mode == TRUE))
+            RTE_LOG(INFO,EAL,"Now user %" PRIu16 " can start to send data via pppoe session id 0x%x.\n", s_ppp_ccb->user_num, rte_cpu_to_be_16(s_ppp_ccb->session_id));
+        else
+            RTE_LOG(INFO,EAL,"Now user %" PRIu16 " can start to send data via pppoe session id 0x%x and vlan is %" PRIu16 ".\n", s_ppp_ccb->user_num, rte_cpu_to_be_16(s_ppp_ccb->session_id), s_ppp_ccb->vlan);
         RTE_LOG(INFO,EAL,"User %" PRIu16 " PPPoE client IP address is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 ", PPPoE server IP address is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 "\n", s_ppp_ccb->user_num, *(((U8 *)&(s_ppp_ccb->hsi_ipv4))), *(((U8 *)&(s_ppp_ccb->hsi_ipv4))+1), *(((U8 *)&(s_ppp_ccb->hsi_ipv4))+2), *(((U8 *)&(s_ppp_ccb->hsi_ipv4))+3), *(((U8 *)&(s_ppp_ccb->hsi_ipv4_gw))), *(((U8 *)&(s_ppp_ccb->hsi_ipv4_gw))+1), *(((U8 *)&(s_ppp_ccb->hsi_ipv4_gw))+2), *(((U8 *)&(s_ppp_ccb->hsi_ipv4_gw))+3));
     	printf("\n");
-        #ifdef _NON_VLAN
-        printf("Now user %" PRIu16 " can start to send data via pppoe session id 0x%x.\n", s_ppp_ccb->user_num, rte_cpu_to_be_16(s_ppp_ccb->session_id));
-    	#else
-        printf("Now user %" PRIu16 " can start to send data via pppoe session id 0x%x and vlan is %" PRIu16 ".\n", s_ppp_ccb->user_num, rte_cpu_to_be_16(s_ppp_ccb->session_id), s_ppp_ccb->vlan);
-    	#endif
+        if (unlikely(vrg_ccb->non_vlan_mode == TRUE))
+            printf("Now user %" PRIu16 " can start to send data via pppoe session id 0x%x.\n", s_ppp_ccb->user_num, rte_cpu_to_be_16(s_ppp_ccb->session_id));
+    	else
+            printf("Now user %" PRIu16 " can start to send data via pppoe session id 0x%x and vlan is %" PRIu16 ".\n", s_ppp_ccb->user_num, rte_cpu_to_be_16(s_ppp_ccb->session_id), s_ppp_ccb->vlan);
         printf("User %" PRIu16 " PPPoE client IP address is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 ", PPPoE server IP address is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 "\n", s_ppp_ccb->user_num, *(((U8 *)&(s_ppp_ccb->hsi_ipv4))), *(((U8 *)&(s_ppp_ccb->hsi_ipv4))+1), *(((U8 *)&(s_ppp_ccb->hsi_ipv4))+2), *(((U8 *)&(s_ppp_ccb->hsi_ipv4))+3), *(((U8 *)&(s_ppp_ccb->hsi_ipv4_gw))), *(((U8 *)&(s_ppp_ccb->hsi_ipv4_gw))+1), *(((U8 *)&(s_ppp_ccb->hsi_ipv4_gw))+2), *(((U8 *)&(s_ppp_ccb->hsi_ipv4_gw))+3));
         printf("vRG> ");
     }
@@ -798,7 +797,7 @@ STATUS A_send_config_request(__attribute__((unused)) struct rte_timer *tim, __at
     }
     if (build_config_request(buffer,s_ppp_ccb,&mulen) < 0)
         return FALSE;
-    drv_xmit(buffer,mulen);
+    drv_xmit(vrg_ccb, buffer, mulen);
     s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].timer_counter--;
     
     return TRUE;
@@ -811,7 +810,7 @@ STATUS A_send_config_nak_rej(__attribute__((unused)) struct rte_timer *tim, __at
 
     if (build_config_nak_rej(buffer,s_ppp_ccb,&mulen) < 0)
         return FALSE;
-    drv_xmit(buffer,mulen);
+    drv_xmit(vrg_ccb, buffer, mulen);
 
     return TRUE;
 }
@@ -823,7 +822,7 @@ STATUS A_send_config_ack(__attribute__((unused)) struct rte_timer *tim, __attrib
 
     if (build_config_ack(buffer,s_ppp_ccb,&mulen) < 0)
         return FALSE;
-    drv_xmit(buffer,mulen);
+    drv_xmit(vrg_ccb, buffer, mulen);
 
     return TRUE;
 }
@@ -843,7 +842,7 @@ STATUS A_send_terminate_request(__attribute__((unused)) struct rte_timer *tim, _
     }
     if (build_terminate_request(buffer,s_ppp_ccb,&mulen) < 0)
         return FALSE;
-    drv_xmit(buffer,mulen);
+    drv_xmit(vrg_ccb, buffer, mulen);
     s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].timer_counter--;
     
     return TRUE;
@@ -856,7 +855,7 @@ STATUS A_send_terminate_ack(__attribute__((unused)) struct rte_timer *tim, __att
 
     if (build_terminate_ack(buffer,s_ppp_ccb,&mulen) < 0)
         return FALSE;
-    drv_xmit(buffer,mulen);
+    drv_xmit(vrg_ccb, buffer, mulen);
 
     return TRUE;
 }
@@ -868,7 +867,7 @@ STATUS A_send_code_reject(__attribute__((unused)) struct rte_timer *tim, __attri
 
     if (build_code_reject(buffer,s_ppp_ccb,&mulen) < 0)
         return FALSE;
-    drv_xmit(buffer,mulen);
+    drv_xmit(vrg_ccb, buffer, mulen);
 
     return TRUE;
 }
@@ -880,7 +879,7 @@ STATUS A_send_echo_reply(__attribute__((unused)) struct rte_timer *tim, __attrib
 
     if (build_echo_reply(buffer,s_ppp_ccb,&mulen) < 0)
         return FALSE;
-    drv_xmit(buffer,mulen);
+    drv_xmit(vrg_ccb, buffer, mulen);
 
     return TRUE;
 }
@@ -935,4 +934,9 @@ STATUS A_create_close_to_lower_layer(__attribute__((unused)) struct rte_timer *t
     PPP_FSM(tim,s_ppp_ccb,E_CLOSE);
 
     return TRUE;
+}
+
+void fsm_init(VRG_t *ccb)
+{
+    vrg_ccb = ccb;
 }

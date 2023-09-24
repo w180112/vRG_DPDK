@@ -225,7 +225,7 @@ STATUS PPP_decode_frame(tVRG_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_head
 			if (build_auth_ack_pap(buffer, &tmp_s_ppp_ccb, &mulen) < 0)
 				return ERROR;
 				
-			drv_xmit(buffer,mulen);
+			drv_xmit(vrg_ccb, buffer, mulen);
 			RTE_LOG(INFO, EAL, "User %" PRIu16 " recv pap request.\n", s_ppp_ccb->user_num);
 			#ifdef _DP_DBG
 			puts("recv pap request");
@@ -254,7 +254,7 @@ STATUS PPP_decode_frame(tVRG_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_head
 			if (build_auth_response_chap(buffer, &tmp_s_ppp_ccb, &mulen, ppp_chap_data) < 0)
 				return ERROR;
 				
-			drv_xmit(buffer,mulen);
+			drv_xmit(vrg_ccb, buffer, mulen);
 			RTE_LOG(INFO, EAL, "User %" PRIu16 " recv chap challenge.\n", s_ppp_ccb->user_num);
 			#ifdef _DP_DBG
 			puts("recv chap chapllenge");
@@ -438,18 +438,11 @@ STATUS check_nak_reject(U8 flag, pppoe_header_t *pppoe_header, __attribute__((un
 	ppp_hdr->length = sizeof(ppp_header_t);
 	for(ppp_options_t *cur=ppp_options; tmp_total_length<total_lcp_length; cur=(ppp_options_t *)((char *)cur + cur->length)) {
 		if (flag == CONFIG_NAK) {
-			#ifdef _NON_VLAN
-			if (cur->type == MRU && (cur->val[0] != 0x5 || cur->val[1] != 0xD4)) {
-			#else
-			if (cur->type == MRU && (cur->val[0] != 0x5 || cur->val[1] != 0xD0)) {
-			#endif
+			U8 len_byte = vrg_ccb->non_vlan_mode ? 0xD0 : 0xD4;
+			if (cur->type == MRU && (cur->val[0] != 0x5 || cur->val[1] != len_byte)) {
 				bool_flag = 1;
 				cur->val[0] = 0x5;
-				#ifdef _NON_VLAN
-				cur->val[1] = 0xD4;
-				#else
-				cur->val[1] = 0xD0;
-				#endif
+				cur->val[1] = len_byte;
 				rte_memcpy(tmp_cur,cur,cur->length);
 				ppp_hdr->length += cur->length;
 				tmp_cur = (ppp_options_t *)((char *)tmp_cur + cur->length);
@@ -539,7 +532,7 @@ STATUS build_padi(__attribute__((unused)) struct rte_timer *tim, PPP_INFO_t *s_p
 	rte_memcpy(buffer+sizeof(struct rte_ether_hdr),&vlan_header,sizeof(vlan_header_t));
 	rte_memcpy(buffer+sizeof(struct rte_ether_hdr)+sizeof(vlan_header_t),&pppoe_header,sizeof(pppoe_header_t));
 	rte_memcpy(buffer+sizeof(struct rte_ether_hdr)+sizeof(vlan_header_t)+sizeof(pppoe_header_t),&pppoe_header_tag,sizeof(pppoe_header_tag_t));
-	drv_xmit(buffer,mulen);
+	drv_xmit(vrg_ccb, buffer, mulen);
 	s_ppp_ccb->pppoe_phase.timer_counter++;
 
 	return TRUE;
@@ -621,7 +614,7 @@ STATUS build_padr(__attribute__((unused)) struct rte_timer *tim, PPP_INFO_t *s_p
 	rte_memcpy(buffer+sizeof(struct rte_ether_hdr)+sizeof(vlan_header_t),s_ppp_ccb->pppoe_phase.pppoe_header,sizeof(pppoe_header_t));
 	rte_memcpy(buffer+sizeof(struct rte_ether_hdr)+sizeof(vlan_header_t)+sizeof(pppoe_header_t),tmp_pppoe_header_tag,total_tag_length);
 send:
-	drv_xmit(buffer,mulen);
+	drv_xmit(vrg_ccb, buffer, mulen);
 	s_ppp_ccb->pppoe_phase.timer_counter++;
 
 	return TRUE;
@@ -662,7 +655,7 @@ STATUS build_padt(PPP_INFO_t *s_ppp_ccb)
 	rte_memcpy(buffer,&eth_hdr,sizeof(struct rte_ether_hdr));
 	rte_memcpy(buffer+sizeof(struct rte_ether_hdr),&vlan_header,sizeof(vlan_header_t));
 	rte_memcpy(buffer+sizeof(struct rte_ether_hdr)+sizeof(vlan_header_t),&pppoe_header,sizeof(pppoe_header_t));
-	drv_xmit(buffer,mulen);
+	drv_xmit(vrg_ccb, buffer, mulen);
 
 	s_ppp_ccb->phase = PPPOE_PHASE;
 	s_ppp_ccb->pppoe_phase.active = FALSE;

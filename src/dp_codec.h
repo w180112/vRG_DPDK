@@ -12,6 +12,7 @@
 #include <rte_icmp.h>
 #include <rte_tcp.h>
 #include <rte_ip.h>
+#include <common.h>
 #include "pppd.h"
 #include "protocol.h"
 #include "init.h"
@@ -69,9 +70,8 @@ static int encaps_udp(VRG_t *vrg_ccb, struct rte_mbuf **single_pkt, struct rte_e
 	if (unlikely((*single_pkt)->pkt_len > (ETH_MTU - (U16)(sizeof(vlan_header_t) + sizeof(pppoe_header_t) + sizeof(ppp_payload_t))))) {
 		struct rte_mbuf *pkt = rte_pktmbuf_alloc(direct_pool[0]);
 		build_icmp_unreach(vrg_ccb, pkt, user_index, eth_hdr, old_vlan_hdr, ip_hdr);
-		#ifdef _NON_VLAN
-		rte_vlan_strip(pkt);
-		#endif
+		if (unlikely(vrg_ccb->non_vlan_mode == TRUE))
+			rte_vlan_strip(pkt);
 		rte_eth_tx_burst(0, gen_port_q, &pkt, 1);
 		rte_pktmbuf_free((*single_pkt));
 		new_pkt_num = 0;
@@ -179,9 +179,8 @@ static int encaps_tcp(VRG_t *vrg_ccb, struct rte_mbuf **single_pkt, struct rte_e
 		#else
 		struct rte_mbuf *pkt = rte_pktmbuf_alloc(direct_pool[0]);
 		build_icmp_unreach(vrg_ccb, pkt, user_index, eth_hdr, old_vlan_hdr, ip_hdr);
-		#ifdef _NON_VLAN
-		rte_vlan_strip(pkt);
-		#endif
+		if (unlikely(vrg_ccb->non_vlan_mode == TRUE))
+			rte_vlan_strip(pkt);
 		rte_eth_tx_burst(0, gen_port_q, &pkt, 1);
 		rte_pktmbuf_free((*single_pkt));
 		new_pkt_num = 0;

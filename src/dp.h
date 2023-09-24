@@ -9,7 +9,7 @@
 
 #include "vrg.h"
 
-extern void drv_xmit(U8 *mu, U16 mulen);
+void drv_xmit(VRG_t *vrg_ccb, U8 *mu, U16 mulen);
 int wan_recvd(void *arg);
 int uplink(void *arg);
 int downlink(void *arg);

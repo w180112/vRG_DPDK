@@ -60,7 +60,6 @@ static struct rte_eth_conf port_conf_default = {
 extern U16 			get_checksum(const void *const addr, const size_t bytes);
 extern STATUS 		PPP_FSM(struct rte_timer *ppp, PPP_INFO_t *s_ppp_ccb, U16 event);
 int 				control_plane_dequeue(tVRG_MBX **mail);
-void 				drv_xmit(U8 *mu, U16 mulen);
 static int			lsi_event_callback(U16 port_id, enum rte_eth_event_type type, void *param);
 
 int PORT_INIT(VRG_t *vrg_ccb, U16 port)
@@ -142,10 +141,10 @@ int wan_recvd(void *arg)
 		for(i=0; i<nb_rx; i++) {
 			single_pkt = pkt[i];
 			rte_prefetch0(rte_pktmbuf_mtod(single_pkt, void *));
-			#ifdef _NON_VLAN
-			single_pkt->vlan_tci = vrg_ccb->base_vlan;
-			rte_vlan_insert(&single_pkt);
-			#endif
+			if (unlikely(vrg_ccb->non_vlan_mode == TRUE)) {
+				single_pkt->vlan_tci = vrg_ccb->base_vlan;
+				rte_vlan_insert(&single_pkt);
+			}
 			eth_hdr = rte_pktmbuf_mtod(single_pkt,struct rte_ether_hdr *);
 			if (unlikely(eth_hdr->ether_type != rte_cpu_to_be_16(VLAN))) {
 				rte_pktmbuf_free(single_pkt);
@@ -166,15 +165,13 @@ int wan_recvd(void *arg)
 						U16 vlan_id = rte_be_to_cpu_16(vlan_header->tci_union.tci_value) & 0xFFF;
 						struct rte_udp_hdr *udp_hdr = (struct rte_udp_hdr *)(ip_hdr + 1);
 						if (likely(vlan_id == MULTICAST_TAG || ((ip_hdr->dst_addr) & 0xFFFFFF00) == 10)) { // VOD pkt dst ip is always 10.x.x.x
-							#ifdef _NON_VLAN
-							rte_vlan_strip(single_pkt);
-							#endif
+							if (unlikely(vrg_ccb->non_vlan_mode == TRUE))
+								rte_vlan_strip(single_pkt);
 							pkt[total_tx++] = single_pkt;
 						}
 						else if (udp_hdr->dst_port == rte_be_to_cpu_16(68)) {
-							#ifdef _NON_VLAN
-							rte_vlan_strip(single_pkt);
-							#endif
+							if (unlikely(vrg_ccb->non_vlan_mode == TRUE))
+								rte_vlan_strip(single_pkt);
 							pkt[total_tx++] = single_pkt;
 						}
 						else
@@ -182,9 +179,8 @@ int wan_recvd(void *arg)
 						continue;
 					}
 					if (ip_hdr->next_proto_id == IPPROTO_IGMP) {
-						#ifdef _NON_VLAN
-						rte_vlan_strip(single_pkt);
-						#endif
+						if (unlikely(vrg_ccb->non_vlan_mode == TRUE))
+							rte_vlan_strip(single_pkt);
 						pkt[total_tx++] = single_pkt;
 						continue;
 					}
@@ -255,9 +251,8 @@ int wan_recvd(void *arg)
 					icmphdr->icmp_cksum = (U16)icmp_new_cksum;
 					ip_hdr->hdr_checksum = 0;
 					ip_hdr->hdr_checksum = rte_ipv4_cksum(ip_hdr);
-					#ifdef _NON_VLAN
-					rte_vlan_strip(single_pkt);
-					#endif
+					if (unlikely(vrg_ccb->non_vlan_mode == TRUE))
+						rte_vlan_strip(single_pkt);
 					pkt[total_tx++] = single_pkt;
 					#ifdef _DP_DBG
 					puts("nat mapping at port 1");
@@ -360,9 +355,8 @@ int downlink(void *arg)
 				continue;
 			}
 			for(int j=0; j<pkt_num; j++) {
-				#ifdef _NON_VLAN
-				rte_vlan_strip(single_pkt);
-				#endif
+				if (unlikely(vrg_ccb->non_vlan_mode == TRUE))
+					rte_vlan_strip(single_pkt);
 				pkt[total_tx++] = single_pkt;
 				single_pkt = single_pkt->next;
 			}
@@ -420,9 +414,8 @@ int uplink(void *arg)
 				continue;
 			}
 			for(int j=0; j<pkt_num; j++) {
-				#ifdef _NON_VLAN
-				rte_vlan_strip(single_pkt);
-				#endif
+				if (unlikely(vrg_ccb->non_vlan_mode == TRUE))
+					rte_vlan_strip(single_pkt);
 				pkt[total_tx++] = single_pkt;
 				single_pkt = single_pkt->next;
 			}
@@ -481,10 +474,10 @@ int lan_recvd(void *arg)
 		for(i=0; i<nb_rx; i++) {
 			single_pkt = pkt[i];
 			rte_prefetch0(rte_pktmbuf_mtod(single_pkt, void *));
-			#ifdef _NON_VLAN
-			single_pkt->vlan_tci = vrg_ccb->base_vlan;
-			rte_vlan_insert(&single_pkt);
-			#endif
+			if (unlikely(vrg_ccb->non_vlan_mode == TRUE)) {
+				single_pkt->vlan_tci = vrg_ccb->base_vlan;
+				rte_vlan_insert(&single_pkt);
+			}
 			eth_hdr = rte_pktmbuf_mtod(single_pkt, struct rte_ether_hdr*);
 			rte_ethdev_trace_rx_pkt((U8 *)eth_hdr);
 			if (unlikely(eth_hdr->ether_type != rte_cpu_to_be_16(VLAN))) {
@@ -524,9 +517,8 @@ int lan_recvd(void *arg)
 				if (ip_hdr->next_proto_id == PROTO_TYPE_ICMP) {
 					if (unlikely(!rte_is_same_ether_addr(&eth_hdr->dst_addr, &vrg_ccb->nic_info.hsi_lan_mac))) {
 						pkt[total_tx++] = single_pkt;
-						#ifdef _NON_VLAN
-						rte_vlan_strip(single_pkt);
-						#endif
+						if (unlikely(vrg_ccb->non_vlan_mode == TRUE))
+							rte_vlan_strip(single_pkt);
 						continue;
 					}
 					//single_pkt->ol_flags |= PKT_TX_IPV4 | PKT_TX_IP_CKSUM;
@@ -565,9 +557,8 @@ int lan_recvd(void *arg)
 					single_pkt->data_off -= 8;
 					single_pkt->pkt_len += 8;
 					single_pkt->data_len += 8;
-					#ifdef _NON_VLAN
-					rte_vlan_strip(single_pkt);
-					#endif						
+					if (unlikely(vrg_ccb->non_vlan_mode == TRUE))
+						rte_vlan_strip(single_pkt);					
 					pkt[total_tx++] = single_pkt;
 					#ifdef _DP_DBG
 					puts("nat icmp at port 0");
@@ -578,17 +569,15 @@ int lan_recvd(void *arg)
 					rte_pktmbuf_free(single_pkt);
 					continue;
 					#else
-					#ifdef _NON_VLAN
-					rte_vlan_strip(single_pkt);
-					#endif
+					if (unlikely(vrg_ccb->non_vlan_mode == TRUE))
+						rte_vlan_strip(single_pkt);
 					pkt[total_tx++] = single_pkt;
 					#endif
 				}
 				else if (ip_hdr->next_proto_id == PROTO_TYPE_TCP) {
 					if (unlikely(!rte_is_same_ether_addr(&eth_hdr->dst_addr, &vrg_ccb->nic_info.hsi_lan_mac))) {
-						#ifdef _NON_VLAN
-						rte_vlan_strip(single_pkt);
-						#endif
+						if (unlikely(vrg_ccb->non_vlan_mode == TRUE))
+							rte_vlan_strip(single_pkt);
 						pkt[total_tx++] = single_pkt;
 						continue;
 					}
@@ -609,9 +598,8 @@ int lan_recvd(void *arg)
 						continue;
 					}
 					if (unlikely(!rte_is_same_ether_addr(&eth_hdr->dst_addr, &vrg_ccb->nic_info.hsi_lan_mac))) {
-						#ifdef _NON_VLAN
-						rte_vlan_strip(single_pkt);
-						#endif
+						if (unlikely(vrg_ccb->non_vlan_mode == TRUE))
+							rte_vlan_strip(single_pkt);
 						pkt[total_tx++] = single_pkt;
 						continue;
 					}
@@ -686,23 +674,20 @@ int gateway(void *arg)
 					arphdr->arp_data.arp_tip = arphdr->arp_data.arp_sip;
 					arphdr->arp_data.arp_sip = vrg_ccb->lan_ip;
 					arphdr->arp_opcode = rte_cpu_to_be_16(RTE_ARP_OP_REPLY);
-					#ifdef _NON_VLAN
-					rte_vlan_strip(single_pkt);
-					#endif
+					if (unlikely(vrg_ccb->non_vlan_mode == TRUE))
+						rte_vlan_strip(single_pkt);
 					rte_eth_tx_burst(0, gen_port_q, &single_pkt, 1);
 					continue;
 				}
 				/*else if ((arphdr->arp_data.arp_tip << 8) ^ (vrg_ccb.ppp_ccb[user_index].lan_ip << 8)) {
-					#ifdef _NON_VLAN
-					rte_vlan_strip(single_pkt);
-					#endif
+					if (unlikely(vrg_ccb->non_vlan_mode == TRUE))
+						rte_vlan_strip(single_pkt);
 					rte_eth_tx_burst(0, gen_port_q, &single_pkt, 1);
 					continue;
 				}*/
 				else {
-					#ifdef _NON_VLAN
-					rte_vlan_strip(single_pkt);
-					#endif
+					if (unlikely(vrg_ccb->non_vlan_mode == TRUE))
+						rte_vlan_strip(single_pkt);
 					rte_eth_tx_burst(1, gen_port_q, &single_pkt, 1);
 				}
 				continue;
@@ -724,16 +709,14 @@ int gateway(void *arg)
 		  				cksum = (cksum & 0xffff) + (cksum >> 16);
 						cksum = (cksum & 0xffff) + (cksum >> 16);
 						icmphdr->icmp_cksum = ~cksum;
-						#ifdef _NON_VLAN
-						rte_vlan_strip(single_pkt);
-						#endif
+						if (unlikely(vrg_ccb->non_vlan_mode == TRUE))
+							rte_vlan_strip(single_pkt);
 						rte_eth_tx_burst(0, gen_port_q, &single_pkt, 1);
 						continue;
 					}
 					else {
-						#ifdef _NON_VLAN
-						rte_vlan_strip(single_pkt);
-						#endif
+						if (unlikely(vrg_ccb->non_vlan_mode == TRUE))
+							rte_vlan_strip(single_pkt);
 						rte_eth_tx_burst(0, gen_port_q, &single_pkt, 1);
 						continue;
 					}
@@ -748,15 +731,13 @@ int gateway(void *arg)
 						}
 						ret = dhcpd(single_pkt, eth_hdr, vlan_header, ip_hdr, udp_hdr, user_index);
 						if (ret == 0) {
-							#ifdef _NON_VLAN
-							rte_vlan_strip(single_pkt);
-							#endif
+							if (unlikely(vrg_ccb->non_vlan_mode == TRUE))
+								rte_vlan_strip(single_pkt);
 							rte_eth_tx_burst(1, gen_port_q, &single_pkt, 1);
 						}
 						else if (ret > 0) {
-							#ifdef _NON_VLAN
-							rte_vlan_strip(single_pkt);
-							#endif
+							if (unlikely(vrg_ccb->non_vlan_mode == TRUE))
+								rte_vlan_strip(single_pkt);
 							rte_eth_tx_burst(0, gen_port_q, &single_pkt, 1);
 						}
 						else 
@@ -779,7 +760,7 @@ int gateway(void *arg)
 	return 0;
 }
 
-void drv_xmit(U8 *mu, U16 mulen)
+void drv_xmit(VRG_t *vrg_ccb, U8 *mu, U16 mulen)
 {
 	struct rte_mbuf *pkt;
 	char 			*buf;
@@ -789,9 +770,8 @@ void drv_xmit(U8 *mu, U16 mulen)
 	rte_memcpy(buf, mu, mulen);
 	pkt->data_len = mulen;
 	pkt->pkt_len = mulen;
-	#ifdef _NON_VLAN
-	rte_vlan_strip(pkt);
-	#endif
+	if (unlikely(vrg_ccb->non_vlan_mode == TRUE))
+		rte_vlan_strip(pkt);
 	rte_eth_tx_burst(1, ctrl_port_q, &pkt, 1);
 }
 

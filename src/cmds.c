@@ -80,11 +80,10 @@ static void cmd_info_parsed(__attribute__((unused)) void *parsed_result,
 
 	for(int i=0; i<vrg_ccb->user_count; i++) {
 		cmdline_printf(cl, "================================================================================\n");
-		#ifdef _NON_VLAN
-		cmdline_printf(cl, "User %d is in ", i + 1);
-		#else
-		cmdline_printf(cl, "User %d VLAN ID is %" PRIu16 " and is in ", i + 1, vrg_ccb->ppp_ccb[i].vlan);
-		#endif
+		if (vrg_ccb->non_vlan_mode == TRUE)
+			cmdline_printf(cl, "User %d is in ", i + 1);
+		else
+			cmdline_printf(cl, "User %d VLAN ID is %" PRIu16 " and is in ", i + 1, vrg_ccb->ppp_ccb[i].vlan);
 		switch (vrg_ccb->ppp_ccb[i].phase) {
 		case END_PHASE:
 			cmdline_printf(cl, "init phase\n");
