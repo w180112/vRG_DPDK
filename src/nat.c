@@ -23,35 +23,6 @@
 
 extern U16 user_count;
 
-void 	nat_rule_timer(__attribute__((unused)) struct rte_timer *tim, PPP_INFO_t *s_ppp_ccb);
-U16 	get_checksum(const void *const addr, const size_t bytes);
-
-#pragma GCC diagnostic push  // require GCC 4.6
-#pragma GCC diagnostic ignored "-Wcast-qual"
-U16 get_checksum(const void *const addr, const size_t bytes)
-{
-	const U16 	*word;
-	U32 		sum;
-	U16 		checksum;
-	size_t 		nleft;
-
-	assert(addr);
-	assert(bytes > 8 - 1);
-	word = (const U16 *)addr;
-	nleft = bytes;
-  
-	for(sum=0; nleft>1; nleft-=2) {
-    	sum += *word;
-      	++word;
-    }
-  	sum += nleft ? *(U8 *)word : 0;
-  	sum = (sum >> 16) + (sum & 0xffff);
-  	sum += (sum >> 16);
-  
-  	return checksum = ~sum;
-}
-#pragma GCC diagnostic pop   // require GCC 4.6
-
 void nat_rule_timer(__attribute__((unused)) struct rte_timer *tim, PPP_INFO_t *s_ppp_ccb)
 {
 	//U16 user_id;

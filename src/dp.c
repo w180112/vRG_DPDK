@@ -57,7 +57,6 @@ static struct rte_eth_conf port_conf_default = {
 	.intr_conf = {
         .lsc = 1, /**< link status interrupt feature enabled */ },
 };
-extern U16 			get_checksum(const void *const addr, const size_t bytes);
 extern STATUS 		PPP_FSM(struct rte_timer *ppp, PPP_INFO_t *s_ppp_ccb, U16 event);
 int 				control_plane_dequeue(tVRG_MBX **mail);
 static int			lsi_event_callback(U16 port_id, enum rte_eth_event_type type, void *param);

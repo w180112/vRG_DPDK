@@ -73,5 +73,3 @@ extern	"C" {
 #endif
 
 #endif /* header */
-
-extern void nat_rule_timer(__attribute__((unused)) struct rte_timer *tim, PPP_INFO_t *s_ppp_ccb);
