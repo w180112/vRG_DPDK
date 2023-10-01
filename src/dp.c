@@ -603,12 +603,12 @@ int lan_recvd(void *arg)
 					rte_ring_enqueue_burst(uplink_q, (void **)&single_pkt, 1, NULL);
 				}
 				else {
-					VRG_LOG(DBG, NULL, NULL, NULL, "unknown L4 packet with protocol id %x recv on LAN port queue", ip_hdr->next_proto_id);
+					VRG_LOG(DBG, vrg_ccb->fp, NULL, NULL, "unknown L4 packet with protocol id %x recv on LAN port queue", ip_hdr->next_proto_id);
 					rte_pktmbuf_free(single_pkt);
 				}
 			}
 			else {
-				VRG_LOG(DBG, NULL, NULL, NULL, "unknown ether type %x recv on gateway LAN port queue", rte_be_to_cpu_16(eth_hdr->ether_type));
+				VRG_LOG(DBG, vrg_ccb->fp, NULL, NULL, "unknown ether type %x recv on gateway LAN port queue", rte_be_to_cpu_16(eth_hdr->ether_type));
 				rte_pktmbuf_free(single_pkt);
 				continue;
 			}

@@ -10,6 +10,7 @@
 
 #include <common.h>
 #include <rte_timer.h>
+#include "vrg.h"
 #include "dhcp_codec.h"
 
 typedef struct{
@@ -43,6 +44,8 @@ typedef enum {
     E_TIMEOUT,
     E_RELEASE,
 } DHCP_EVENT_TYPE;
+
+void dhcp_fsm_init(VRG_t *ccb);
 
 /*======================= external ==========================*/
 #ifdef __cplusplus

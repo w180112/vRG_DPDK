@@ -54,6 +54,7 @@ int main(int argc, char **argv)
 	vrg_ccb.fp = fopen("./vrg.log","w+");
 	if (vrg_ccb.fp)
         rte_openlog_stream(vrg_ccb.fp);
+	dbg_init(&vrg_ccb);
 	if (rte_lcore_count() < 8)
 		rte_exit(EXIT_FAILURE, "We need at least 8 cores.\n");
 	if (rte_eth_dev_count_avail() < 2)
@@ -77,7 +78,7 @@ int main(int argc, char **argv)
 		printf("parse config file error\n");
 		return -1;
 	}
-	VRG_LOG(INFO, NULL, NULL, NULL, "vRG log level is %s", loglvl2str(vrg_ccb.loglvl));
+	VRG_LOG(INFO, vrg_ccb.fp, NULL, NULL, "vRG log level is %s", loglvl2str(vrg_ccb.loglvl));
 	if (vrg_ccb.non_vlan_mode != FALSE) {
 		vrg_ccb.user_count = 1;
     	vrg_ccb.base_vlan = 2;
@@ -100,20 +101,20 @@ int main(int argc, char **argv)
 	/* init users and ports info */
 
 	if (init_cli(&vrg_ccb) == ERROR) {
-		VRG_LOG(ERR, NULL, NULL, NULL, "Cannot create cmdline instance");
+		VRG_LOG(ERR, vrg_ccb.fp, NULL, NULL, "Cannot create cmdline instance");
 		goto err;
 	}
 
 	ret = sys_init(&vrg_ccb);
 	if (ret) {
-		VRG_LOG(ERR, NULL, NULL, NULL, "System initiation failed: %s", rte_strerror(ret));
+		VRG_LOG(ERR, vrg_ccb.fp, NULL, NULL, "System initiation failed: %s", rte_strerror(ret));
 		goto rm_cli;
 	}
 
 	rte_atomic16_init(&cp_recv_cums);
 
 	if (pppdInit(&vrg_ccb) == ERROR) {
-		VRG_LOG(ERR,  NULL, NULL, NULL, "PPP initiation failed");
+		VRG_LOG(ERR, vrg_ccb.fp, NULL, NULL, "PPP initiation failed");
 		goto rm_cli;
 	}
 	codec_init(&vrg_ccb);
@@ -190,38 +191,39 @@ int vrg_loop(VRG_t *vrg_ccb)
 				break;
 			case IPC_EV_TYPE_CLI:
 				/* mail[i]->refp[0] means cli command, mail[i]->refp[1] means user id */
+				U8 user_id = mail[i]->refp[1]; //user_id = 0 means all users
 				switch (mail[i]->refp[0]) {
 					case CLI_DISCONNECT:
-						if (mail[i]->refp[1] == 0) {
+						if (user_id == 0) {
 							for(int j=0; j<vrg_ccb->user_count; j++) {
 								if (vrg_ccb->ppp_ccb[j].phase == END_PHASE) {
-									printf("Error! User %u is in init phase\nvRG> ", j + 1);
+									VRG_LOG(ERR, vrg_ccb->fp, &(vrg_ccb->ppp_ccb[j]), PPPLOGMSG, "Error! User %u is in init phase", j + 1);
 									continue;
 								}
 								if (vrg_ccb->ppp_ccb[j].ppp_processing == TRUE) {
-									printf("Error! User %u is disconnecting pppoe connection, please wait...\nvRG> ", j + 1);
+									VRG_LOG(ERR, vrg_ccb->fp, &(vrg_ccb->ppp_ccb[j]), PPPLOGMSG, "Error! User %u is disconnecting pppoe connection, please wait...", j + 1);
 									continue;
 								}
 								PPP_bye(&vrg_ccb->ppp_ccb[j]);
 							}
 						}
 						else {
-							if (vrg_ccb->ppp_ccb[mail[i]->refp[1]-1].phase == END_PHASE) {
-								printf("Error! User %u is in init phase\nvRG> ", mail[i]->refp[1]);
+							if (vrg_ccb->ppp_ccb[user_id-1].phase == END_PHASE) {
+								VRG_LOG(ERR, vrg_ccb->fp, &(vrg_ccb->ppp_ccb[user_id-1]), PPPLOGMSG, "Error! User %u is in init phase", user_id);
 								break;
 							}
-							if (vrg_ccb->ppp_ccb[mail[i]->refp[1]-1].ppp_processing == TRUE) {
-								printf("Error! User %u is disconnecting pppoe connection, please wait...\nvRG> ", mail[i]->refp[1]);	
+							if (vrg_ccb->ppp_ccb[user_id-1].ppp_processing == TRUE) {
+								VRG_LOG(ERR, vrg_ccb->fp, &(vrg_ccb->ppp_ccb[user_id-1]), PPPLOGMSG, "Error! User %u is disconnecting pppoe connection, please wait...", user_id);	
 								break;
 							}
-							PPP_bye(&vrg_ccb->ppp_ccb[mail[i]->refp[1]-1]);
+							PPP_bye(&vrg_ccb->ppp_ccb[user_id-1]);
 						}
 						break;
 					case CLI_CONNECT:
-						if (mail[i]->refp[1] == 0) {
+						if (user_id == 0) {
 							for(int j=0; j<vrg_ccb->user_count; j++) {
 								if (vrg_ccb->ppp_ccb[j].phase > END_PHASE) {
-									printf("Error! User %u is in a pppoe connection\nvRG> ", j + 1);
+									VRG_LOG(ERR, vrg_ccb->fp, &(vrg_ccb->ppp_ccb[j]), PPPLOGMSG, "Error! User %u is in a pppoe connection", j + 1);
 									continue;
 								}
 								vrg_ccb->cur_user++;
@@ -236,55 +238,55 @@ int vrg_loop(VRG_t *vrg_ccb)
 							}
 						}
 						else {
-							if (vrg_ccb->ppp_ccb[mail[i]->refp[1]-1].phase > END_PHASE) {
-								printf("Error! User %u is in a pppoe connection\nvRG> ", mail[i]->refp[1]);
+							if (vrg_ccb->ppp_ccb[user_id-1].phase > END_PHASE) {
+								VRG_LOG(ERR, vrg_ccb->fp, &(vrg_ccb->ppp_ccb[user_id-1]), PPPLOGMSG, "Error! User %u is in a pppoe connection", user_id);
 								break;
 							}
 							vrg_ccb->cur_user++;
-							vrg_ccb->ppp_ccb[mail[i]->refp[1]-1].phase = PPPOE_PHASE;
-							vrg_ccb->ppp_ccb[mail[i]->refp[1]-1].pppoe_phase.max_retransmit = MAX_RETRAN;
-							vrg_ccb->ppp_ccb[mail[i]->refp[1]-1].pppoe_phase.timer_counter = 0;
-    						if (build_padi(&(vrg_ccb->ppp_ccb[mail[i]->refp[1]-1].pppoe), &(vrg_ccb->ppp_ccb[mail[i]->refp[1]-1])) == FALSE)
-								PPP_bye(&(vrg_ccb->ppp_ccb[mail[i]->refp[1]-1]));
+							vrg_ccb->ppp_ccb[user_id-1].phase = PPPOE_PHASE;
+							vrg_ccb->ppp_ccb[user_id-1].pppoe_phase.max_retransmit = MAX_RETRAN;
+							vrg_ccb->ppp_ccb[user_id-1].pppoe_phase.timer_counter = 0;
+    						if (build_padi(&(vrg_ccb->ppp_ccb[user_id-1].pppoe), &(vrg_ccb->ppp_ccb[user_id-1])) == FALSE)
+								PPP_bye(&(vrg_ccb->ppp_ccb[user_id-1]));
 							/* set ppp starting boolean flag to TRUE */
-							rte_atomic16_set(&vrg_ccb->ppp_ccb[mail[i]->refp[1]-1].ppp_bool, 1);
-    						rte_timer_reset(&(vrg_ccb->ppp_ccb[mail[i]->refp[1]-1].pppoe),rte_get_timer_hz(),PERIODICAL,lcore.timer_thread,(rte_timer_cb_t)build_padi,&(vrg_ccb->ppp_ccb[mail[i]->refp[1]-1]));
+							rte_atomic16_set(&vrg_ccb->ppp_ccb[user_id-1].ppp_bool, 1);
+    						rte_timer_reset(&(vrg_ccb->ppp_ccb[user_id-1].pppoe),rte_get_timer_hz(),PERIODICAL,lcore.timer_thread,(rte_timer_cb_t)build_padi,&(vrg_ccb->ppp_ccb[user_id-1]));
 						}
 						break;	
 					case CLI_DHCP_START:
-						if (mail[i]->refp[1] == 0) {
+						if (user_id == 0) {
 							for(int j=0; j<vrg_ccb->user_count; j++) {
 								if (rte_atomic16_read(&vrg_ccb->dhcp_ccb[j].dhcp_bool) == 1) {
-									printf("Error! User %u dhcp server is already on\nvRG> ", j);
+									VRG_LOG(ERR, vrg_ccb->fp, &(vrg_ccb->dhcp_ccb[j]), DHCPLOGMSG, "Error! User %u dhcp server is already on", j);
 									continue;
 								}
 								rte_atomic16_set(&vrg_ccb->dhcp_ccb[j].dhcp_bool, 1);
 							}
 						}
 						else {
-							if (rte_atomic16_read(&vrg_ccb->dhcp_ccb[mail[i]->refp[1]-1].dhcp_bool) == 1) {
-								printf("Error! User %u dhcp server is already on\nvRG> ", mail[i]->refp[1]);
+							if (rte_atomic16_read(&vrg_ccb->dhcp_ccb[user_id-1].dhcp_bool) == 1) {
+								VRG_LOG(ERR, vrg_ccb->fp, &(vrg_ccb->dhcp_ccb[user_id-1]), DHCPLOGMSG, "Error! User %u dhcp server is already on", user_id);
 								break;
 							}
-							rte_atomic16_set(&vrg_ccb->dhcp_ccb[mail[i]->refp[1]-1].dhcp_bool, 1);
+							rte_atomic16_set(&vrg_ccb->dhcp_ccb[user_id-1].dhcp_bool, 1);
 						}
 						break;
 					case CLI_DHCP_STOP:
-						if (mail[i]->refp[1] == 0) {
+						if (user_id == 0) {
 							for(int j=0; j<vrg_ccb->user_count; j++) {
 								if (rte_atomic16_read(&vrg_ccb->dhcp_ccb[j].dhcp_bool) == 0) {
-									printf("Error! User %u dhcp server is already off\nvRG> ", j);
+									VRG_LOG(ERR, vrg_ccb->fp, &(vrg_ccb->dhcp_ccb[j]), DHCPLOGMSG, "Error! User %u dhcp server is already off", j);
 									continue;
 								}
 								rte_atomic16_set(&vrg_ccb->dhcp_ccb[j].dhcp_bool, 0);
 							}
 						}
 						else {
-							if (rte_atomic16_read(&vrg_ccb->dhcp_ccb[mail[i]->refp[1]-1].dhcp_bool) == 0) {
-								printf("Error! User %u dhcp server is already off\nvRG> ", mail[i]->refp[1]);
+							if (rte_atomic16_read(&vrg_ccb->dhcp_ccb[user_id-1].dhcp_bool) == 0) {
+								VRG_LOG(ERR, vrg_ccb->fp, &(vrg_ccb->dhcp_ccb[user_id-1]), DHCPLOGMSG, "Error! User %u dhcp server is already off", user_id);
 								break;
 							}
-							rte_atomic16_set(&vrg_ccb->dhcp_ccb[mail[i]->refp[1]-1].dhcp_bool, 0);
+							rte_atomic16_set(&vrg_ccb->dhcp_ccb[user_id-1].dhcp_bool, 0);
 						}
 						break;				
 					case CLI_QUIT:

@@ -7,6 +7,8 @@
 #ifndef _DBG_H_
 #define _DBG_H_
 
+#include "vrg.h"
+
 #define	LOGDBG		 1U
 #define LOGINFO		 2U
 #define	LOGWARN		 3U
@@ -24,6 +26,6 @@ char *loglvl2str(U8 level);
 U8 logstr2lvl(const char *log_str);
 extern void PPPLOGMSG(void *ccb, char *buf);
 extern void DHCPLOGMSG(void *ccb, char *buf);
-extern U8 vRG_dbg_flag;
+void dbg_init(VRG_t *ccb);
 
 #endif

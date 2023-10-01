@@ -16,10 +16,10 @@
 #define 	DBG_VRG_MSG_LEN     		256
 #define 	LOGGER_BUF_LEN 1024
 
-char 		*PPP_state2str(U16 state);
-char 		*DHCP_state2str(U16 state);
-	
-U8       	vRG_dbg_flag=LOGDBG;
+char *PPP_state2str(U16 state);
+char *DHCP_state2str(U16 state);
+
+static VRG_t *vrg_ccb;
 
 char *loglvl2str(U8 level)
 {
@@ -148,7 +148,7 @@ void LOGGER(U8 level, char *filename, int line_num, FILE *log_fp, void *ccb, voi
 	char    buf[LOGGER_BUF_LEN], protocol_buf[LOGGER_BUF_LEN-20] = {'\0'}, msg[DBG_VRG_MSG_LEN];
 	
 	//user offer level must > system requirement
-    if (vRG_dbg_flag > level)
+    if (vrg_ccb->loglvl > level)
 		return;
 	
 	va_start(ap, fmt); /* set ap pointer to 1st unnamed arg */
@@ -161,11 +161,17 @@ void LOGGER(U8 level, char *filename, int line_num, FILE *log_fp, void *ccb, voi
     va_end(ap);
 	
 	buf[sizeof(buf)-1] = '\0';
-    fprintf(stdout, "%s\n", buf);
+	if (vrg_ccb->loglvl == LOGDBG)
+		fprintf(stdout, "%s\n", buf);
 	if (log_fp != NULL) {
         fwrite(buf, sizeof(char), strlen(buf), log_fp);
         char *newline = "\n";
         fwrite(newline, sizeof(char), strlen(newline), log_fp);
         fflush(log_fp);
     }
+}
+
+void dbg_init(VRG_t *ccb)
+{
+	vrg_ccb = ccb;
 }

@@ -9,12 +9,13 @@
 #include "dp.h"
 #include "init.h"
 #include "vrg.h"
+#include "dbg.h"
 
 #define NUM_MBUFS 		8191
 #define MBUF_CACHE_SIZE 512
 #define RING_SIZE 		16384
 
-static int init_mem(void);
+static int init_mem(VRG_t *vrg_ccb);
 static int init_ring(void);
 int init_port(VRG_t *vrg_ccb);
 
@@ -39,7 +40,7 @@ int sys_init(VRG_t *vrg_ccb)
 {
     int ret;
 
-    ret = init_mem();
+    ret = init_mem(vrg_ccb);
     if (ret)
         return ret;
     ret = init_ring();
@@ -59,7 +60,7 @@ int sys_init(VRG_t *vrg_ccb)
     return 0;
 }
 
-static int init_mem(void)
+static int init_mem(VRG_t *vrg_ccb)
 {
 	char buf[PATH_MAX];
 	struct rte_mempool *mp;
@@ -68,23 +69,23 @@ static int init_mem(void)
     /* Creates a new mempool in memory to hold the mbufs. */
     for(int i=0; i<PORT_AMOUNT; i++) {
         if (direct_pool[i] == NULL) {
-		    RTE_LOG(INFO, EAL, "Creating direct mempool on port %i\n", i);
+			VRG_LOG(INFO, vrg_ccb->fp, NULL, NULL, "Creating direct mempool on port %i", i);
 		    snprintf(buf, sizeof(buf), "pool_direct_%i", i);
 		    mp = rte_pktmbuf_pool_create(buf, NUM_MBUFS, MBUF_CACHE_SIZE, 0, RTE_MBUF_DEFAULT_BUF_SIZE, rte_socket_id());
 		    if (mp == NULL) {
-			    RTE_LOG(ERR, EAL, "Cannot create direct mempool\n");
+			    VRG_LOG(ERR, vrg_ccb->fp, NULL, NULL, "Cannot create direct mempool");
 			    return rte_errno;
 		    }
 		    direct_pool[i] = mp;
 	    }
 
 	    if (indirect_pool[i] == NULL) {
-	        RTE_LOG(INFO, EAL, "Creating indirect mempool on port %i\n", i);
+	        VRG_LOG(INFO, vrg_ccb->fp, NULL, NULL, "Creating indirect mempool on port %i", i);
 		    snprintf(buf, sizeof(buf), "pool_indirect_%i", i);
 
 		    mp = rte_pktmbuf_pool_create(buf, NUM_MBUFS, MBUF_CACHE_SIZE, 0, 0, rte_socket_id());
 		    if (mp == NULL) {
-		        RTE_LOG(ERR, EAL, "Cannot create indirect mempool\n");
+		        VRG_LOG(ERR, vrg_ccb->fp, NULL, NULL, "Cannot create indirect mempool");
 			    return rte_errno;
 		    }
 		    indirect_pool[i] = mp;
@@ -116,7 +117,6 @@ int init_port(VRG_t *vrg_ccb)
 {
 	struct ethtool_drvinfo 	dev_info;
 	U8 						portid;
-	struct cmdline 			*cl = vrg_ccb->cl;
 
 	rte_eth_macaddr_get(0, &vrg_ccb->nic_info.hsi_lan_mac);
 	rte_eth_macaddr_get(1, &vrg_ccb->nic_info.hsi_wan_src_mac);
@@ -125,7 +125,7 @@ int init_port(VRG_t *vrg_ccb)
 	for(portid=0; portid<2; portid++) {
 		memset(&dev_info, 0, sizeof(dev_info));
 		if (rte_ethtool_get_drvinfo(portid, &dev_info)) {
-			RTE_LOG(ERR, EAL, "Error getting info for port %i\n", portid);
+			VRG_LOG(ERR, vrg_ccb->fp, NULL, NULL, "Error getting info for port %i", portid);
 			return rte_errno;
 		}
 		for(int i=0; vendor[i].vendor_id; i++) {
@@ -136,12 +136,12 @@ int init_port(VRG_t *vrg_ccb)
 			}
 		}
 
-		cmdline_printf(cl, "vRG> Port %i driver: %s (ver: %s)\n", portid, dev_info.driver, dev_info.version);
-		cmdline_printf(cl, "vRG> firmware-version: %s\n", dev_info.fw_version);
-		cmdline_printf(cl, "vRG> bus-info: %s\n", dev_info.bus_info);
+		VRG_LOG(INFO, vrg_ccb->fp, NULL, NULL, "Port %i driver: %s (ver: %s)", portid, dev_info.driver, dev_info.version);
+		VRG_LOG(INFO, vrg_ccb->fp, NULL, NULL, "firmware-version: %s", dev_info.fw_version);
+		VRG_LOG(INFO, vrg_ccb->fp, NULL, NULL, "bus-info: %s", dev_info.bus_info);
 
 		if (PORT_INIT(vrg_ccb, portid) != 0) {
-			RTE_LOG(ERR, EAL, "Cannot init port %"PRIu8 "\n", portid);
+			VRG_LOG(ERR, vrg_ccb->fp, NULL, NULL, "Cannot init port %"PRIu8 "", portid);
 			return -1;
 		}
 	}

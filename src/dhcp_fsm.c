@@ -17,6 +17,8 @@ STATUS A_send_dhcp_nak(struct rte_timer *tim, dhcp_ccb_t *dhcp_ccb);
 STATUS A_wait_lease_timer(struct rte_timer *tim, dhcp_ccb_t *dhcp_ccb);
 STATUS A_release(struct rte_timer *tim, dhcp_ccb_t *dhcp_ccb);
 
+static FILE *log_fp;
+
 tDHCP_STATE_TBL  dhcp_fsm_tbl[9] = { 
 /*//////////////////////////////////////////////////////////////////////////////////
   	STATE   		EVENT           						      NEXT-STATE            HANDLER       
@@ -60,9 +62,9 @@ STATUS dhcp_fsm(dhcp_ccb_t *dhcp_ccb, U16 event)
     for(i=0; dhcp_fsm_tbl[i].state!=S_DHCP_INVLD; i++)
         if (dhcp_fsm_tbl[i].state == dhcp_ccb->lan_user_info[dhcp_ccb->cur_lan_user_index].state)
             break;
-    VRG_LOG(INFO, NULL, (U8 *)dhcp_ccb, DHCPLOGMSG, "Current state is %s\n", DHCP_state2str(dhcp_fsm_tbl[i].state));
+    VRG_LOG(INFO, log_fp, (U8 *)dhcp_ccb, DHCPLOGMSG, "Current state is %s\n", DHCP_state2str(dhcp_fsm_tbl[i].state));
     if (dhcp_fsm_tbl[i].state == S_DHCP_INVLD) {
-        VRG_LOG(INFO, NULL, (U8 *)dhcp_ccb, DHCPLOGMSG, "Error! unknown state(%d) specified for the event(%d)\n",
+        VRG_LOG(INFO, log_fp, (U8 *)dhcp_ccb, DHCPLOGMSG, "Error! unknown state(%d) specified for the event(%d)\n",
         	dhcp_ccb->lan_user_info[dhcp_ccb->cur_lan_user_index].state, event);
         return FALSE;
     }
@@ -76,7 +78,7 @@ STATUS dhcp_fsm(dhcp_ccb_t *dhcp_ccb, U16 event)
             break;
     
     if (dhcp_fsm_tbl[i].state != dhcp_ccb->lan_user_info[dhcp_ccb->cur_lan_user_index].state) { /* search until meet the next state */
-        VRG_LOG(INFO, NULL, (U8 *)dhcp_ccb, DHCPLOGMSG, "error! invalid event(%d) in state(%s)\n",
+        VRG_LOG(INFO, log_fp, (U8 *)dhcp_ccb, DHCPLOGMSG, "error! invalid event(%d) in state(%s)\n",
             event, DHCP_state2str(dhcp_ccb->lan_user_info[dhcp_ccb->cur_lan_user_index].state));
         return FALSE;
     }
@@ -85,7 +87,7 @@ STATUS dhcp_fsm(dhcp_ccb_t *dhcp_ccb, U16 event)
     if (dhcp_ccb->lan_user_info[dhcp_ccb->cur_lan_user_index].state != dhcp_fsm_tbl[i].next_state) {
         strcpy(str1,DHCP_state2str(dhcp_ccb->lan_user_info[dhcp_ccb->cur_lan_user_index].state));
         strcpy(str2,DHCP_state2str(dhcp_fsm_tbl[i].next_state));
-        VRG_LOG(INFO, NULL, (U8 *)dhcp_ccb, DHCPLOGMSG, "dhcp state changed from %s to %s\n",str1,str2);
+        VRG_LOG(INFO, log_fp, (U8 *)dhcp_ccb, DHCPLOGMSG, "dhcp state changed from %s to %s\n",str1,str2);
         dhcp_ccb->lan_user_info[dhcp_ccb->cur_lan_user_index].state = dhcp_fsm_tbl[i].next_state;
     }
     
@@ -153,4 +155,9 @@ STATUS A_release(struct rte_timer *tim, dhcp_ccb_t *dhcp_ccb)
 {
     dhcp_ccb->ip_pool[dhcp_ccb->cur_ip_pool_index].used = FALSE;
     return TRUE;
+}
+
+void dhcp_fsm_init(VRG_t *ccb)
+{
+    log_fp = ccb->fp;
 }

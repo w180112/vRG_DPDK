@@ -11,7 +11,7 @@ STATUS parse_config(const char *config_path, VRG_t *vrg_ccb)
 
     config_init(&cfg);
     if (!config_read_file(&cfg, config_path)) {
-        VRG_LOG(INFO, NULL, NULL, NULL, "read config file %s content error: %s:%d - %s", 
+        VRG_LOG(INFO, vrg_ccb->fp, NULL, NULL, "read config file %s content error: %s:%d - %s", 
                 config_path, config_error_file(&cfg), config_error_line(&cfg), config_error_text(&cfg));
         config_destroy(&cfg);
         return ERROR;
@@ -26,7 +26,7 @@ STATUS parse_config(const char *config_path, VRG_t *vrg_ccb)
         loglvl = "DBG";
     vrg_ccb->loglvl = logstr2lvl(loglvl);
     if (vrg_ccb->loglvl == 0) {
-        VRG_LOG(INFO, NULL, NULL, NULL, "log level error");
+        VRG_LOG(INFO, vrg_ccb->fp, NULL, NULL, "log level error");
         config_destroy(&cfg);
         return ERROR;
     }

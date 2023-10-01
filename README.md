@@ -103,4 +103,6 @@ For hugepages, NIC binding and other system configuration, please refer to Intel
 1. Remake makefile
 2. Add show command in CLI
 3. Add gRPC interface
-4. Add LCP exception
+4. Split ccb for each CPU core
+5. Support DDP
+6. Add LCP exception

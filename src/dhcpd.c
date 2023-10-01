@@ -27,6 +27,7 @@ STATUS dhcp_init(VRG_t *ccb)
 		vrg_ccb->dhcp_ccb = NULL;
 		return ERROR;
 	}
+    dhcp_fsm_init(vrg_ccb);
     dhcp_ccb_t *dhcp_ccb = vrg_ccb->dhcp_ccb;
 
     for(int i=0; i<RTE_ETHER_ADDR_LEN; i++)

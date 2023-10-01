@@ -628,7 +628,7 @@ STATUS PPP_FSM(struct rte_timer *ppp, PPP_INFO_t *s_ppp_ccb, U16 event)
     char 			str1[30],str2[30];
 
     if (!s_ppp_ccb) {
-        VRG_LOG(ERR, NULL, (U8 *)s_ppp_ccb, PPPLOGMSG, "Error! No port found for the event(%d)",event);
+        VRG_LOG(ERR, vrg_ccb->fp, (U8 *)s_ppp_ccb, PPPLOGMSG, "Error! No port found for the event(%d)",event);
         return FALSE;
     }
     
@@ -637,10 +637,10 @@ STATUS PPP_FSM(struct rte_timer *ppp, PPP_INFO_t *s_ppp_ccb, U16 event)
         if (ppp_fsm_tbl[s_ppp_ccb->cp][i].state == s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].state)
             break;
 
-    VRG_LOG(DBG, NULL, (U8 *)s_ppp_ccb, PPPLOGMSG, "Current state is %s\n", PPP_state2str(ppp_fsm_tbl[s_ppp_ccb->cp][i].state));
+    VRG_LOG(DBG, vrg_ccb->fp, (U8 *)s_ppp_ccb, PPPLOGMSG, "Current state is %s\n", PPP_state2str(ppp_fsm_tbl[s_ppp_ccb->cp][i].state));
 
     if (ppp_fsm_tbl[s_ppp_ccb->cp][i].state == S_INVLD) {
-        VRG_LOG(ERR, NULL, (U8 *)s_ppp_ccb, PPPLOGMSG, "Error! user %" PRIu16 " unknown state(%d) specified for the event(%d)",
+        VRG_LOG(ERR, vrg_ccb->fp, (U8 *)s_ppp_ccb, PPPLOGMSG, "Error! user %" PRIu16 " unknown state(%d) specified for the event(%d)",
         	s_ppp_ccb->user_num, s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].state,event);
         return FALSE;
     }
@@ -654,7 +654,7 @@ STATUS PPP_FSM(struct rte_timer *ppp, PPP_INFO_t *s_ppp_ccb, U16 event)
             break;
     
     if (ppp_fsm_tbl[s_ppp_ccb->cp][i].state != s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].state) { /* search until meet the next state */
-        VRG_LOG(INFO, NULL, (U8 *)s_ppp_ccb, PPPLOGMSG, "Error! user %" PRIu16 " invalid event(%d) in state(%s)",
+        VRG_LOG(INFO, vrg_ccb->fp, (U8 *)s_ppp_ccb, PPPLOGMSG, "Error! user %" PRIu16 " invalid event(%d) in state(%s)",
             s_ppp_ccb->user_num, event, PPP_state2str(s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].state));
   		return TRUE; /* still pass to endpoint */
     }
@@ -663,7 +663,7 @@ STATUS PPP_FSM(struct rte_timer *ppp, PPP_INFO_t *s_ppp_ccb, U16 event)
     if (s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].state != ppp_fsm_tbl[s_ppp_ccb->cp][i].next_state) {
         strcpy(str1,PPP_state2str(s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].state));
         strcpy(str2,PPP_state2str(ppp_fsm_tbl[s_ppp_ccb->cp][i].next_state));
-        VRG_LOG(DBG, NULL, (U8 *)s_ppp_ccb, PPPLOGMSG,"User %" PRIu16 " %s state changed from %s to %s.", s_ppp_ccb->user_num, (s_ppp_ccb->cp == 1 ? "IPCP" : "LCP"), str1, str2);
+        VRG_LOG(DBG, vrg_ccb->fp, (U8 *)s_ppp_ccb, PPPLOGMSG,"User %" PRIu16 " %s state changed from %s to %s.", s_ppp_ccb->user_num, (s_ppp_ccb->cp == 1 ? "IPCP" : "LCP"), str1, str2);
         s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].state = ppp_fsm_tbl[s_ppp_ccb->cp][i].next_state;
     }
     
@@ -704,26 +704,24 @@ STATUS A_this_layer_up(__attribute__((unused)) struct rte_timer *tim, __attribut
     		    return FALSE;
         }
     	drv_xmit(vrg_ccb, buffer, mulen);
-        RTE_LOG(INFO,EAL,"User %" PRIu16 " LCP connection establish successfully.\n", s_ppp_ccb->user_num);
-        RTE_LOG(INFO,EAL,"User %" PRIu16 " starting Authentication.\n", s_ppp_ccb->user_num);
+        VRG_LOG(INFO, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "User %" PRIu16 " LCP connection establish successfully.", s_ppp_ccb->user_num);
+        VRG_LOG(INFO, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "User %" PRIu16 " starting Authentication.", s_ppp_ccb->user_num);
     }
     else if (s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].ppp_payload->ppp_protocol == rte_cpu_to_be_16(IPCP_PROTOCOL)) {
     	rte_atomic16_set(&s_ppp_ccb->dp_start_bool, (BIT16)1);
         s_ppp_ccb->phase = DATA_PHASE;
     	rte_timer_reset(&(s_ppp_ccb->nat),rte_get_timer_hz(),PERIODICAL,lcore.timer_thread,(rte_timer_cb_t)nat_rule_timer,s_ppp_ccb);
-        RTE_LOG(INFO,EAL,"User %" PRIu16 " IPCP connection establish successfully.\n", s_ppp_ccb->user_num);
+        VRG_LOG(INFO, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "User %" PRIu16 " IPCP connection establish successfully.", s_ppp_ccb->user_num);
         if (unlikely(vrg_ccb->non_vlan_mode == TRUE))
-            RTE_LOG(INFO,EAL,"Now user %" PRIu16 " can start to send data via pppoe session id 0x%x.\n", s_ppp_ccb->user_num, rte_cpu_to_be_16(s_ppp_ccb->session_id));
+            VRG_LOG(INFO, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "Now user %" PRIu16 " can start to send data via pppoe session id 0x%x.", s_ppp_ccb->user_num, rte_cpu_to_be_16(s_ppp_ccb->session_id));
         else
-            RTE_LOG(INFO,EAL,"Now user %" PRIu16 " can start to send data via pppoe session id 0x%x and vlan is %" PRIu16 ".\n", s_ppp_ccb->user_num, rte_cpu_to_be_16(s_ppp_ccb->session_id), s_ppp_ccb->vlan);
-        RTE_LOG(INFO,EAL,"User %" PRIu16 " PPPoE client IP address is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 ", PPPoE server IP address is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 "\n", s_ppp_ccb->user_num, *(((U8 *)&(s_ppp_ccb->hsi_ipv4))), *(((U8 *)&(s_ppp_ccb->hsi_ipv4))+1), *(((U8 *)&(s_ppp_ccb->hsi_ipv4))+2), *(((U8 *)&(s_ppp_ccb->hsi_ipv4))+3), *(((U8 *)&(s_ppp_ccb->hsi_ipv4_gw))), *(((U8 *)&(s_ppp_ccb->hsi_ipv4_gw))+1), *(((U8 *)&(s_ppp_ccb->hsi_ipv4_gw))+2), *(((U8 *)&(s_ppp_ccb->hsi_ipv4_gw))+3));
-    	printf("\n");
+            VRG_LOG(INFO, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "Now user %" PRIu16 " can start to send data via pppoe session id 0x%x and vlan is %" PRIu16 ".", s_ppp_ccb->user_num, rte_cpu_to_be_16(s_ppp_ccb->session_id), s_ppp_ccb->vlan);
+        VRG_LOG(INFO, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "User %" PRIu16 " PPPoE client IP address is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 ", PPPoE server IP address is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 , s_ppp_ccb->user_num, *(((U8 *)&(s_ppp_ccb->hsi_ipv4))), *(((U8 *)&(s_ppp_ccb->hsi_ipv4))+1), *(((U8 *)&(s_ppp_ccb->hsi_ipv4))+2), *(((U8 *)&(s_ppp_ccb->hsi_ipv4))+3), *(((U8 *)&(s_ppp_ccb->hsi_ipv4_gw))), *(((U8 *)&(s_ppp_ccb->hsi_ipv4_gw))+1), *(((U8 *)&(s_ppp_ccb->hsi_ipv4_gw))+2), *(((U8 *)&(s_ppp_ccb->hsi_ipv4_gw))+3));
         if (unlikely(vrg_ccb->non_vlan_mode == TRUE))
-            printf("Now user %" PRIu16 " can start to send data via pppoe session id 0x%x.\n", s_ppp_ccb->user_num, rte_cpu_to_be_16(s_ppp_ccb->session_id));
+            VRG_LOG(INFO, vrg_ccb->fp, NULL, PPPLOGMSG, "Now user %" PRIu16 " can start to send data via pppoe session id 0x%x.", s_ppp_ccb->user_num, rte_cpu_to_be_16(s_ppp_ccb->session_id));
     	else
-            printf("Now user %" PRIu16 " can start to send data via pppoe session id 0x%x and vlan is %" PRIu16 ".\n", s_ppp_ccb->user_num, rte_cpu_to_be_16(s_ppp_ccb->session_id), s_ppp_ccb->vlan);
-        printf("User %" PRIu16 " PPPoE client IP address is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 ", PPPoE server IP address is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 "\n", s_ppp_ccb->user_num, *(((U8 *)&(s_ppp_ccb->hsi_ipv4))), *(((U8 *)&(s_ppp_ccb->hsi_ipv4))+1), *(((U8 *)&(s_ppp_ccb->hsi_ipv4))+2), *(((U8 *)&(s_ppp_ccb->hsi_ipv4))+3), *(((U8 *)&(s_ppp_ccb->hsi_ipv4_gw))), *(((U8 *)&(s_ppp_ccb->hsi_ipv4_gw))+1), *(((U8 *)&(s_ppp_ccb->hsi_ipv4_gw))+2), *(((U8 *)&(s_ppp_ccb->hsi_ipv4_gw))+3));
-        printf("vRG> ");
+            VRG_LOG(INFO, vrg_ccb->fp, NULL, PPPLOGMSG, "Now user %" PRIu16 " can start to send data via pppoe session id 0x%x and vlan is %" PRIu16 ".\n", s_ppp_ccb->user_num, rte_cpu_to_be_16(s_ppp_ccb->session_id), s_ppp_ccb->vlan);
+        VRG_LOG(INFO, vrg_ccb->fp, NULL, PPPLOGMSG, "User %" PRIu16 " PPPoE client IP address is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 ", PPPoE server IP address is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 "\n", s_ppp_ccb->user_num, *(((U8 *)&(s_ppp_ccb->hsi_ipv4))), *(((U8 *)&(s_ppp_ccb->hsi_ipv4))+1), *(((U8 *)&(s_ppp_ccb->hsi_ipv4))+2), *(((U8 *)&(s_ppp_ccb->hsi_ipv4))+3), *(((U8 *)&(s_ppp_ccb->hsi_ipv4_gw))), *(((U8 *)&(s_ppp_ccb->hsi_ipv4_gw))+1), *(((U8 *)&(s_ppp_ccb->hsi_ipv4_gw))+2), *(((U8 *)&(s_ppp_ccb->hsi_ipv4_gw))+3));
     }
 
     return TRUE;
@@ -741,13 +739,13 @@ STATUS A_this_layer_up(__attribute__((unused)) struct rte_timer *tim, __attribut
 STATUS A_this_layer_down(__attribute__((unused)) struct rte_timer *tim, __attribute__((unused)) PPP_INFO_t *s_ppp_ccb)
 {
     if (s_ppp_ccb->cp == 1) {
-        VRG_LOG(DBG, NULL, s_ppp_ccb, PPPLOGMSG, "IPCP layer is down");
+        VRG_LOG(DBG, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "IPCP layer is down");
         PPP_FSM(tim,s_ppp_ccb,E_CLOSE);
         rte_atomic16_set(&s_ppp_ccb->dp_start_bool, (BIT16)0);
     }
     else if (s_ppp_ccb->cp == 0) {
         PPP_FSM(tim,s_ppp_ccb,E_CLOSE);
-        VRG_LOG(DBG, NULL, s_ppp_ccb, PPPLOGMSG, "LCP layer is down");
+        VRG_LOG(DBG, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "LCP layer is down");
     }
 
     return TRUE;
@@ -755,14 +753,14 @@ STATUS A_this_layer_down(__attribute__((unused)) struct rte_timer *tim, __attrib
 
 STATUS A_init_restart_count(__attribute__((unused)) struct rte_timer *tim, __attribute__((unused)) PPP_INFO_t *s_ppp_ccb)
 {
-    VRG_LOG(DBG, NULL, s_ppp_ccb, PPPLOGMSG, "init restart count");
+    VRG_LOG(DBG, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "init restart count");
 
     return TRUE;
 }
 
 STATUS A_init_restart_config(__attribute__((unused)) struct rte_timer *tim, __attribute__((unused)) PPP_INFO_t *s_ppp_ccb)
 {
-    RTE_LOG(INFO,EAL,"User %" PRIu16 " init config req timer start.\n", s_ppp_ccb->user_num);
+    VRG_LOG(INFO, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "User %" PRIu16 " init config req timer start.\n", s_ppp_ccb->user_num);
     rte_timer_stop(tim);
     s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].timer_counter = 9;
 	rte_timer_reset(tim,3*rte_get_timer_hz(),PERIODICAL,lcore.timer_thread,(rte_timer_cb_t)A_send_config_request,s_ppp_ccb);
@@ -772,7 +770,7 @@ STATUS A_init_restart_config(__attribute__((unused)) struct rte_timer *tim, __at
 
 STATUS A_init_restart_termin(__attribute__((unused)) struct rte_timer *tim, __attribute__((unused)) PPP_INFO_t *s_ppp_ccb)
 {
-    RTE_LOG(INFO,EAL,"User %" PRIu16 " init termin req timer start.\n", s_ppp_ccb->user_num);
+    VRG_LOG(DBG, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "User %" PRIu16 " init termin req timer start.\n", s_ppp_ccb->user_num);
     rte_timer_stop(tim);
     s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].timer_counter = 9;
 	rte_timer_reset(tim,3*rte_get_timer_hz(),PERIODICAL,lcore.timer_thread,(rte_timer_cb_t)A_send_terminate_request,s_ppp_ccb);
@@ -787,7 +785,7 @@ STATUS A_send_config_request(__attribute__((unused)) struct rte_timer *tim, __at
 
     if (s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].timer_counter == 0) {
     	rte_timer_stop(tim);
-        RTE_LOG(INFO,EAL,"User %" PRIu16 " config request timeout.\n", s_ppp_ccb->user_num);
+        VRG_LOG(DBG, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "User %" PRIu16 " config request timeout.\n", s_ppp_ccb->user_num);
     	PPP_FSM(tim,s_ppp_ccb,E_TIMEOUT_COUNTER_EXPIRED);
     }
     if (build_config_request(buffer,s_ppp_ccb,&mulen) < 0)
@@ -829,7 +827,7 @@ STATUS A_send_terminate_request(__attribute__((unused)) struct rte_timer *tim, _
 
     if (s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].timer_counter == 0) {
     	rte_timer_stop(tim);
-        RTE_LOG(INFO,EAL,"User %" PRIu16 " terminate request timeout.\n", s_ppp_ccb->user_num);
+        VRG_LOG(DBG, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "User %" PRIu16 " terminate request timeout.\n", s_ppp_ccb->user_num);
     	PPP_FSM(tim,s_ppp_ccb,E_TIMEOUT_COUNTER_EXPIRED);
     }
     if (build_terminate_request(buffer,s_ppp_ccb,&mulen) < 0)
@@ -878,14 +876,14 @@ STATUS A_send_echo_reply(__attribute__((unused)) struct rte_timer *tim, __attrib
 
 STATUS A_create_up_event(__attribute__((unused)) struct rte_timer *tim, __attribute__((unused)) PPP_INFO_t *s_ppp_ccb)
 {
-    VRG_LOG(DBG, NULL, s_ppp_ccb, PPPLOGMSG, "create up event");
+    VRG_LOG(DBG, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "create up event");
 
     return TRUE;
 }
 
 STATUS A_create_down_event(__attribute__((unused)) struct rte_timer *tim, __attribute__((unused)) PPP_INFO_t *s_ppp_ccb)
 {
-    VRG_LOG(DBG, NULL, s_ppp_ccb, PPPLOGMSG, "create down event");
+    VRG_LOG(DBG, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "create down event");
 
     PPP_FSM(tim,s_ppp_ccb,E_DOWN);
 
@@ -894,7 +892,7 @@ STATUS A_create_down_event(__attribute__((unused)) struct rte_timer *tim, __attr
 
 STATUS A_zero_restart_count(__attribute__((unused)) struct rte_timer *tim, __attribute__((unused)) PPP_INFO_t *s_ppp_ccb)
 {
-    VRG_LOG(DBG, NULL, s_ppp_ccb, PPPLOGMSG, "zero restart count");
+    VRG_LOG(DBG, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "zero restart count");
     
     return TRUE;
 }
@@ -910,7 +908,7 @@ STATUS A_send_padt(__attribute__((unused)) struct rte_timer *tim, __attribute__(
 
 STATUS A_create_close_to_lower_layer(__attribute__((unused)) struct rte_timer *tim, __attribute__((unused)) PPP_INFO_t *s_ppp_ccb)
 {
-    RTE_LOG(INFO,EAL,"User %" PRIu16 " notify lower layer to close connection.\n", s_ppp_ccb->user_num);
+    VRG_LOG(INFO, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "User %" PRIu16 " notify lower layer to close connection.\n", s_ppp_ccb->user_num);
     s_ppp_ccb->cp = 0;
     s_ppp_ccb->phase -= 2;
     rte_timer_stop(&(s_ppp_ccb->ppp_alive));
