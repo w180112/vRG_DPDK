@@ -28,9 +28,10 @@ For first time build, please use boot.sh to build DPDK library, libutil and vRG
 
 	# ./boot.sh
 
-For just vRG build, please use install.sh
+For just vRG build, clean, install and uninstall, please use makefile
 
-	# ./install.sh
+	# make && make install
+	# make clean && make uninstall
 
 Then
 
@@ -100,9 +101,8 @@ For hugepages, NIC binding and other system configuration, please refer to Intel
 
 ## TODO:
 
-1. Remake makefile
-2. Add show command in CLI
-3. Add gRPC interface
-4. Split ccb for each CPU core
-5. Support DDP
-6. Add LCP exception
+1. Add show command in CLI
+2. Add gRPC interface
+3. Split ccb for each CPU core
+4. Support DDP
+5. Add LCP exception

@@ -28,13 +28,9 @@ popd
 pushd $path/lib/libutil
 autoreconf --install
 ./configure
-make
-make install
+make && make install
 ldconfig
 popd
-pushd $path/src
-make
-popd
 pushd $path
-cp $path/build/vrg /usr/local/bin/
+make && make install
 popd

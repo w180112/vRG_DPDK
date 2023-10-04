@@ -2,3 +2,6 @@
 .vscode
 *.log
 build
+**/*.o
+**/vrg
+**/.libs
