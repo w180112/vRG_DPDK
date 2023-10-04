@@ -72,10 +72,6 @@ To stop all subscribers DHCP server.
 
 	vRG> dhcp-server stop all
 
-To remove the binary files
-
-	# ./uninstall.sh
-
 For hugepages, NIC binding and other system configuration, please refer to Intel DPDK documentation: [DPDK doc](http://doc.dpdk.org/guides/linux_gsg/)
 
 ## Note:
