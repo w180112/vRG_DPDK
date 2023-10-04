@@ -5,9 +5,9 @@
 #include <rte_atomic.h>
 #include <rte_ether.h>
 #include <common.h>
-#include "dhcp_codec.h"
+#include "dhcpd/dhcp_codec.h"
 #include "protocol.h"
-#include "pppd.h"
+#include "pppd/pppd.h"
 
 #define LINK_DOWN           0x0
 #define LINK_UP             0x1

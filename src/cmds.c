@@ -34,9 +34,9 @@
 #include <cmdline_socket.h>
 #include <cmdline.h>
 #include "cmds.h"
-#include "pppd.h"
-#include "protocol.h"
-#include "dhcp_codec.h"
+#include "pppd/pppd.h"
+#include "pppd/header.h"
+#include "dhcpd/dhcp_codec.h"
 #include "init.h"
 #include "vrg.h"
 

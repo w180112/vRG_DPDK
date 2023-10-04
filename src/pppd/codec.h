@@ -7,11 +7,13 @@
 #ifndef _CODEC_H_
 #define _CODEC_H_
 
-#include "protocol.h"
-#include "pppd.h"
-#include <ip_codec.h>
-#include "fsm.h"
+#include <common.h>
 #include <rte_timer.h>
+#include <ip_codec.h>
+#include "../vrg.h"
+#include "header.h"
+#include "pppd.h"
+#include "fsm.h"
 
 void codec_init(VRG_t *ccb);
 

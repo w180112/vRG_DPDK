@@ -27,7 +27,7 @@ all: $(TARGET)
 # 	Must use \tab key after new line
 ######################################
 $(TARGET): $(OBJ)
-	libtool --mode=link $(CC) $(CFLAGS) $(OBJ) -o $(TARGET) $(LDFLAGS)
+	$(CC) $(CFLAGS) $(OBJ) -o $(TARGET) $(LDFLAGS)
 
 ######################################
 # Clean 

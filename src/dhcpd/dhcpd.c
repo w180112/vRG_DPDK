@@ -5,10 +5,8 @@
 #include <rte_ip.h>
 #include <rte_malloc.h>
 #include <sys/mman.h>
-#include "pppd.h"
+#include "../vrg.h"
 #include "dhcp_fsm.h"
-#include "vrg.h"
-#include "protocol.h"
 
 extern struct lcore_map 	lcore;
 

@@ -13,7 +13,6 @@
 #include <rte_tcp.h>
 #include <rte_ip.h>
 #include <common.h>
-#include "pppd.h"
 #include "protocol.h"
 #include "init.h"
 #include "dp_codec.h"

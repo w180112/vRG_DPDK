@@ -4,8 +4,8 @@
 #include <rte_byteorder.h>
 #include <rte_ethdev.h>
 #include <linux/ethtool.h>
-#include "pppd.h"
-#include "dhcp_codec.h"
+#include "pppd/pppd.h"
+#include "dhcpd/dhcp_codec.h"
 #include "dp.h"
 #include "init.h"
 #include "vrg.h"

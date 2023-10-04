@@ -15,10 +15,11 @@
 #include <rte_udp.h>
 #include <rte_tcp.h>
 #include <rte_flow.h>
-#include "fsm.h"
-#include "dbg.h"
-#include "vrg.h"
+#include "../dbg.h"
+#include "../vrg.h"
+#include "../dp.h"
 #include "nat.h"
+#include "fsm.h"
 
 extern struct lcore_map 	lcore;
 static VRG_t *vrg_ccb;

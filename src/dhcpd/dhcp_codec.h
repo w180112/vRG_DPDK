@@ -11,7 +11,7 @@
 #include <rte_udp.h>
 #include <rte_timer.h>
 #include <rte_ether.h>
-#include "protocol.h"
+#include "../protocol.h"
 
 #define MAX_IP_POOL 100
 #define LAN_USER MAX_IP_POOL

@@ -5,9 +5,8 @@
 
   Designed by THE on Jan 14, 2019
 /\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\*/
-#include 	"codec.h"
 #include 	<common.h>
-#include 	"dp.h"
+#include 	"codec.h"
 
 #ifndef _FSM_H_
 #define _FSM_H_

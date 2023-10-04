@@ -29,13 +29,13 @@
 #include 				<sys/mman.h>
 #include 				"pppd.h"
 #include				"fsm.h"
-#include 				"dp.h"
-#include 				"dbg.h"
-#include				"cmds.h"
-#include				"init.h"
-#include				"dp_flow.h"
-#include 				"dhcpd.h"
-#include				"vrg.h"
+#include 				"../dp.h"
+#include 				"../dbg.h"
+#include				"../cmds.h"
+#include				"../init.h"
+#include				"../dp_flow.h"
+#include 				"../dhcpd/dhcpd.h"
+#include				"../vrg.h"
 
 U32						ppp_interval;
 static VRG_t			*vrg_ccb;

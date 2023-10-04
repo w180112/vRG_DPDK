@@ -20,21 +20,21 @@
 #include 				<rte_trace.h>
 #include 				<sys/mman.h>
 #include                "vrg.h"
-#include				"fsm.h"
+#include				"pppd/fsm.h"
 #include 				"dp.h"
 #include 				"dbg.h"
 #include				"cmds.h"
 #include				"init.h"
 #include				"dp_flow.h"
-#include 				"dhcpd.h"
+#include 				"dhcpd/dhcpd.h"
 #include				"config.h"
+#include				"timer.h"
 
 #define 				BURST_SIZE 		32
 
 int                     vrg_loop(VRG_t *vrg_ccb);
 int 				    control_plane(VRG_t *vrg_ccb);
 void                    link_disconnnect(struct rte_timer *tim, VRG_t *vrg_ccb);
-extern int 				timer_loop(__attribute__((unused)) void *arg);
 
 rte_atomic16_t			cp_recv_cums;
 struct lcore_map 		lcore;
@@ -47,7 +47,7 @@ int main(int argc, char **argv)
 		puts("Type vrg <eal_options>");
 		return ERROR;
 	}
-	int ret = rte_eal_init(argc,argv);
+	int ret = rte_eal_init(argc, argv);
 	if (ret < 0)
 		rte_exit(EXIT_FAILURE, "rte initlize fail.\n");
 

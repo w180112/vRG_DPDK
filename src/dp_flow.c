@@ -1,6 +1,6 @@
 #include <rte_flow.h>
 #include <linux/if_ether.h>
-#include "pppd.h"
+#include "pppd/pppd.h"
 #include "vrg.h"
 
 #define MAX_PATTERN_NUM		4

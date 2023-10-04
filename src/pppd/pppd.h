@@ -13,10 +13,9 @@
 #include <rte_timer.h>
 #include <rte_memory.h>
 #include <rte_ether.h>
-#include "protocol.h"
+#include "header.h"
 
 #define MULTICAST_TAG 			4001
-
 #define TOTAL_SOCK_PORT			65536
 
 /**

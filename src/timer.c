@@ -14,8 +14,6 @@
 #include <rte_timer.h>
 #include <rte_debug.h>
 
-int timer_loop(__attribute__((unused)) void *arg);
-
 #define TIMER_RESOLUTION_CYCLES 20000000ULL /* around 10ms at 2 Ghz */
 
 __attribute__((noreturn)) int timer_loop(__attribute__((unused)) void *arg)

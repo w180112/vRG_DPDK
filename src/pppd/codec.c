@@ -1,6 +1,3 @@
-#include "codec.h"
-#include "dbg.h"
-#include "vrg.h"
 #include <rte_timer.h>
 #include <rte_ether.h>
 #include <rte_malloc.h>
@@ -8,7 +5,11 @@
 #include <rte_log.h>
 #include <rte_byteorder.h>
 #include <cmdline_socket.h>
-#include "protocol.h"
+#include "../protocol.h"
+#include "../dbg.h"
+#include "../vrg.h"
+#include "../dp.h"
+#include "codec.h"
 
 extern STATUS PPP_FSM(struct rte_timer *ppp, PPP_INFO_t *s_ppp_ccb, U16 event);
 

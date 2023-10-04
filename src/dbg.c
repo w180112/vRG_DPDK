@@ -8,9 +8,9 @@
 
 #include    <common.h>
 #include 	<rte_byteorder.h>
-#include	"pppd.h"
-#include 	"fsm.h"
-#include 	"dhcp_fsm.h"
+#include	"pppd/pppd.h"
+#include 	"pppd/fsm.h"
+#include 	"dhcpd/dhcp_fsm.h"
 #include    "dbg.h"
 
 #define 	DBG_VRG_MSG_LEN     		256

@@ -20,10 +20,10 @@
 #include <rte_atomic.h>
 #include <rte_ip_frag.h>
 #include "protocol.h"
-#include "nat.h"
+#include "pppd/nat.h"
 #include "init.h"
 #include "dp_codec.h"
-#include "dhcpd.h"
+#include "dhcpd/dhcpd.h"
 #include "dbg.h"
 #include "dp.h"
 #include "trace.h"

@@ -10,7 +10,7 @@
 
 #include <common.h>
 #include <rte_timer.h>
-#include "vrg.h"
+#include "../vrg.h"
 #include "dhcp_codec.h"
 
 typedef struct{

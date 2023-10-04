@@ -12,7 +12,7 @@ CFLAGS = $(INCLUDE) -Wall -g $(shell pkg-config --cflags libdpdk) -O3 -DALLOW_EX
 LDFLAGS = $(shell pkg-config --static --libs libdpdk) -lutils -lconfig
 
 TARGET = vrg
-SRC = $(wildcard src/*.c)
+SRC = $(wildcard src/*.c) $(wildcard src/pppd/*.c) $(wildcard src/dhcpd/*.c)
 OBJ = $(SRC:.c=.o)
 
 TESTDIR = unit_test
@@ -29,7 +29,7 @@ all: $(TARGET)
 # 	Must use \tab key after new line
 ######################################
 $(TARGET): $(OBJ)
-	libtool --mode=link $(CC) $(CFLAGS) $(OBJ) -o $(TARGET) $(LDFLAGS)
+	$(CC) $(CFLAGS) $(OBJ) -o $(TARGET) $(LDFLAGS)
 
 install:
 	cp $(TARGET) /usr/local/bin/$(TARGET)

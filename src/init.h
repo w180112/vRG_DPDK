@@ -8,7 +8,7 @@
 #include <common.h>
 #include <cmdline.h>
 #include "vrg.h"
-#include "codec.h"
+#include "pppd/codec.h"
 
 #ifndef _INIT_H_
 #define _INIT_H_
