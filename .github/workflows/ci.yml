@@ -20,3 +20,5 @@ jobs:
     - uses: actions/checkout@v2
     - run: sudo apt-get update && sudo apt-get install -y libnuma-dev linux-headers-$(uname -r) python3-pip git gcc make libtool-bin pkg-config pciutils iproute2 kmod vim net-tools libconfig-dev
     - run: sudo pip3 install setuptools meson ninja pyelftools
+    - run: sudo ${{ github.workspace }}/boot.sh
+    - run: cd ${{ github.workspace }} && make test

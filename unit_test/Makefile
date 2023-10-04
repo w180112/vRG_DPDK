@@ -11,12 +11,10 @@ CFLAGS = $(INCLUDE) -Wall -g $(shell pkg-config --cflags libdpdk) -O3 -DALLOW_EX
 
 LDFLAGS = $(shell pkg-config --static --libs libdpdk) -lutils -lconfig
 
-TARGET = vrg
-SRC = $(wildcard src/*.c)
-OBJ = $(SRC:.c=.o)
+TARGET = unit-tester
+SRC = $(wildcard *.c)
 
-TESTDIR = unit_test
-TESTBIN = unit-tester
+OBJ = $(SRC:.c=.o)
 
 ifneq ($(shell pkg-config --exists libdpdk && echo 0),0)
 $(error "no installation of DPDK found")
@@ -31,19 +29,8 @@ all: $(TARGET)
 $(TARGET): $(OBJ)
 	libtool --mode=link $(CC) $(CFLAGS) $(OBJ) -o $(TARGET) $(LDFLAGS)
 
-install:
-	cp $(TARGET) /usr/local/bin/$(TARGET)
-
-test:
-	${MAKE} -C $(TESTDIR)
-	./$(TESTDIR)/$(TESTBIN)
-
 ######################################
 # Clean 
 ######################################
 clean:
 	rm -rf $(OBJ) $(TARGET) .libs
-	$(MAKE) -C $(TESTDIR) -f Makefile $@
-
-uninstall:
-	rm -f /usr/local/bin/$(TARGET)
