@@ -1,5 +1,5 @@
 #include <common.h>
-#include "codec_test.h"
+#include "test.h"
 
 int main()
 {

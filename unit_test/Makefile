@@ -12,7 +12,7 @@ CFLAGS = $(INCLUDE) -Wall -g $(shell pkg-config --cflags libdpdk) -O3 -DALLOW_EX
 LDFLAGS = $(shell pkg-config --static --libs libdpdk) -lutils -lconfig
 
 TARGET = unit-tester
-SRC = $(wildcard *.c)
+SRC = $(wildcard *.c) $(wildcard pppd/*.c) $(wildcard dhcpd/*.c)
 
 OBJ = $(SRC:.c=.o)
 
@@ -33,4 +33,4 @@ $(TARGET): $(OBJ)
 # Clean 
 ######################################
 clean:
-	rm -rf $(OBJ) $(TARGET) .libs
+	rm -rf $(OBJ) $(TARGET) .libs 
