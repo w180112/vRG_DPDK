@@ -463,48 +463,40 @@ STATUS check_nak_reject(U8 flag, pppoe_header_t *pppoe_header, __attribute__((un
  * 			*time - PPPoE timer
  * output: 	TRUE/FALSE
  */
-STATUS build_padi(__attribute__((unused)) struct rte_timer *tim, PPP_INFO_t *s_ppp_ccb)
+STATUS build_padi(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb)
 {
-	unsigned char 		buffer[MSG_BUF];
-	U16 			mulen;
-	struct rte_ether_hdr 	eth_hdr;
-	vlan_header_t		vlan_header;
-	pppoe_header_t 		pppoe_header;
-	pppoe_header_tag_t 	pppoe_header_tag;
+	struct rte_ether_hdr *eth_hdr = (struct rte_ether_hdr *)buffer;
+	vlan_header_t		*vlan_header = (vlan_header_t *)(eth_hdr + 1);
+	pppoe_header_t 		*pppoe_header = (pppoe_header_t *)(vlan_header + 1);
+	pppoe_header_tag_t 	*pppoe_header_tag = (pppoe_header_tag_t *)(pppoe_header + 1);
 
 	if (s_ppp_ccb->pppoe_phase.timer_counter >= s_ppp_ccb->pppoe_phase.max_retransmit) {
 		VRG_LOG(ERR, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "User %" PRIu16 " timeout when sending PADI", s_ppp_ccb->user_num);
-		PPP_bye(s_ppp_ccb);
+		return FALSE;
 	}
-	for(int i=0; i<6; i++) {
- 		eth_hdr.src_addr.addr_bytes[i] = vrg_ccb->nic_info.hsi_wan_src_mac.addr_bytes[i];
- 		eth_hdr.dst_addr.addr_bytes[i] = 0xff;
+
+	for(int i=0; i<RTE_ETHER_ADDR_LEN; i++) {
+ 		eth_hdr->src_addr.addr_bytes[i] = vrg_ccb->nic_info.hsi_wan_src_mac.addr_bytes[i];
+ 		eth_hdr->dst_addr.addr_bytes[i] = 0xff;
 	}
-	eth_hdr.ether_type = rte_cpu_to_be_16(VLAN);
+	eth_hdr->ether_type = rte_cpu_to_be_16(VLAN);
 
-	vlan_header.tci_union.tci_struct.priority = 0;
-	vlan_header.tci_union.tci_struct.DEI = 0;
-	vlan_header.tci_union.tci_struct.vlan_id = s_ppp_ccb->vlan;
-	vlan_header.next_proto = rte_cpu_to_be_16(ETH_P_PPP_DIS);
-	vlan_header.tci_union.tci_value = rte_cpu_to_be_16(vlan_header.tci_union.tci_value);
+	vlan_header->tci_union.tci_struct.priority = 0;
+	vlan_header->tci_union.tci_struct.DEI = 0;
+	vlan_header->tci_union.tci_struct.vlan_id = s_ppp_ccb->vlan;
+	vlan_header->next_proto = rte_cpu_to_be_16(ETH_P_PPP_DIS);
+	vlan_header->tci_union.tci_value = rte_cpu_to_be_16(vlan_header->tci_union.tci_value);
 
-	pppoe_header.ver_type = VER_TYPE;
-	pppoe_header.code = PADI;
-	pppoe_header.session_id = 0; 
+	pppoe_header->ver_type = VER_TYPE;
+	pppoe_header->code = PADI;
+	pppoe_header->session_id = 0; 
 
-	pppoe_header_tag.type = rte_cpu_to_be_16(SERVICE_NAME); //padi tag type (service name)
-	pppoe_header_tag.length = 0;
+	pppoe_header_tag->type = rte_cpu_to_be_16(SERVICE_NAME); //padi tag type (service name)
+	pppoe_header_tag->length = 0;
 
-	pppoe_header.length = rte_cpu_to_be_16(sizeof(pppoe_header_tag_t));
+	pppoe_header->length = rte_cpu_to_be_16(sizeof(pppoe_header_tag_t));
 
-	mulen = sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t) + sizeof(pppoe_header_t) + sizeof(pppoe_header_tag_t);
-
-	rte_memcpy(buffer,&eth_hdr,sizeof(struct rte_ether_hdr));
-	rte_memcpy(buffer+sizeof(struct rte_ether_hdr),&vlan_header,sizeof(vlan_header_t));
-	rte_memcpy(buffer+sizeof(struct rte_ether_hdr)+sizeof(vlan_header_t),&pppoe_header,sizeof(pppoe_header_t));
-	rte_memcpy(buffer+sizeof(struct rte_ether_hdr)+sizeof(vlan_header_t)+sizeof(pppoe_header_t),&pppoe_header_tag,sizeof(pppoe_header_tag_t));
-	drv_xmit(vrg_ccb, buffer, mulen);
-	s_ppp_ccb->pppoe_phase.timer_counter++;
+	*mulen = sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t) + sizeof(pppoe_header_t) + sizeof(pppoe_header_tag_t);
 
 	return TRUE;
 }
@@ -1114,6 +1106,34 @@ STATUS build_auth_response_chap(U8 *buffer, PPP_INFO_t *s_ppp_ccb, U16 *mulen, p
 
 	VRG_LOG(DBG, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "User %" PRIu16 " chap response built.", s_ppp_ccb->user_num);
  	return TRUE;
+}
+
+STATUS send_pkt(U8 encode_type, PPP_INFO_t *s_ppp_ccb)
+{
+	U8 buffer[MSG_BUF];
+	U16 mulen;
+
+	switch (encode_type) {
+	case ENCODE_PADI:
+		if (build_padi(buffer, &mulen, s_ppp_ccb) == FALSE) {
+			PPP_bye(s_ppp_ccb);
+			return ERROR;
+		}
+		s_ppp_ccb->pppoe_phase.timer_counter++;
+		break;
+	case ENCODE_PADR:
+		/* code */
+		break;
+	case ENCODE_PADT:
+		/* code */
+		break;
+	default:
+		return ERROR;
+	}
+
+	drv_xmit(vrg_ccb, buffer, mulen);
+
+	return SUCCESS;
 }
 
 void codec_init(VRG_t *ccb)

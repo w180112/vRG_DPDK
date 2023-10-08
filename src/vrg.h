@@ -63,4 +63,6 @@ typedef struct {
 	int	        	len;
 } tVRG_MBX;
 
+int vrg_start(int argc, char **argv);
+
 #endif

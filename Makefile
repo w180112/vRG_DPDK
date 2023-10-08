@@ -7,7 +7,7 @@
 ######################################	
 CC = gcc
 INCLUDE = 
-CFLAGS = $(INCLUDE) -Wall -g $(shell pkg-config --cflags libdpdk) -O3 -DALLOW_EXPERIMENTAL_API
+CFLAGS = $(INCLUDE) -Wall -g $(shell pkg-config --cflags libdpdk) -O3 -DALLOW_EXPERIMENTAL_API -D_TEST_MODE
 
 LDFLAGS = $(shell pkg-config --static --libs libdpdk) -lutils -lconfig
 
@@ -34,7 +34,7 @@ $(TARGET): $(OBJ)
 install:
 	cp $(TARGET) /usr/local/bin/$(TARGET)
 
-test:
+test: $(TARGET)
 	${MAKE} -C $(TESTDIR)
 	./$(TESTDIR)/$(TESTBIN)
 

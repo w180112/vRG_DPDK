@@ -40,13 +40,8 @@ rte_atomic16_t			cp_recv_cums;
 struct lcore_map 		lcore;
 VRG_t                   vrg_ccb;
 
-int main(int argc, char **argv)
+int vrg_start(int argc, char **argv)
 {	
-	if (argc < 5) {
-		puts("Too less parameter.");
-		puts("Type vrg <eal_options>");
-		return ERROR;
-	}
 	int ret = rte_eal_init(argc, argv);
 	if (ret < 0)
 		rte_exit(EXIT_FAILURE, "rte initlize fail.\n");
@@ -230,11 +225,11 @@ int vrg_loop(VRG_t *vrg_ccb)
 								vrg_ccb->ppp_ccb[j].phase = PPPOE_PHASE;
 								vrg_ccb->ppp_ccb[j].pppoe_phase.max_retransmit = MAX_RETRAN;
 								vrg_ccb->ppp_ccb[j].pppoe_phase.timer_counter = 0;
-    							if (build_padi(&(vrg_ccb->ppp_ccb[j].pppoe),&(vrg_ccb->ppp_ccb[j])) == FALSE)
+    							if (send_pkt(ENCODE_PADI, &(vrg_ccb->ppp_ccb[j])) == ERROR)
 									PPP_bye(&(vrg_ccb->ppp_ccb[j]));
 								/* set ppp starting boolean flag to TRUE */
 								rte_atomic16_set(&vrg_ccb->ppp_ccb[j].ppp_bool, 1);
-    							rte_timer_reset(&(vrg_ccb->ppp_ccb[j].pppoe),rte_get_timer_hz(),PERIODICAL,lcore.timer_thread,(rte_timer_cb_t)build_padi,&(vrg_ccb->ppp_ccb[j]));
+    							rte_timer_reset(&(vrg_ccb->ppp_ccb[j].pppoe), rte_get_timer_hz(), PERIODICAL, lcore.timer_thread, (rte_timer_cb_t)A_padi_timer_func, &(vrg_ccb->ppp_ccb[j]));
 							}
 						}
 						else {
@@ -246,11 +241,11 @@ int vrg_loop(VRG_t *vrg_ccb)
 							vrg_ccb->ppp_ccb[user_id-1].phase = PPPOE_PHASE;
 							vrg_ccb->ppp_ccb[user_id-1].pppoe_phase.max_retransmit = MAX_RETRAN;
 							vrg_ccb->ppp_ccb[user_id-1].pppoe_phase.timer_counter = 0;
-    						if (build_padi(&(vrg_ccb->ppp_ccb[user_id-1].pppoe), &(vrg_ccb->ppp_ccb[user_id-1])) == FALSE)
+    						if (send_pkt(ENCODE_PADI, &(vrg_ccb->ppp_ccb[user_id-1])) == ERROR)
 								PPP_bye(&(vrg_ccb->ppp_ccb[user_id-1]));
 							/* set ppp starting boolean flag to TRUE */
 							rte_atomic16_set(&vrg_ccb->ppp_ccb[user_id-1].ppp_bool, 1);
-    						rte_timer_reset(&(vrg_ccb->ppp_ccb[user_id-1].pppoe),rte_get_timer_hz(),PERIODICAL,lcore.timer_thread,(rte_timer_cb_t)build_padi,&(vrg_ccb->ppp_ccb[user_id-1]));
+    						rte_timer_reset(&(vrg_ccb->ppp_ccb[user_id-1].pppoe), rte_get_timer_hz(), PERIODICAL, lcore.timer_thread, (rte_timer_cb_t)A_padi_timer_func, &(vrg_ccb->ppp_ccb[user_id-1]));
 						}
 						break;	
 					case CLI_DHCP_START:

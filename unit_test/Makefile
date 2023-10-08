@@ -14,7 +14,7 @@ LDFLAGS = $(shell pkg-config --static --libs libdpdk) -lutils -lconfig
 TARGET = unit-tester
 SRC = $(wildcard *.c) $(wildcard pppd/*.c) $(wildcard dhcpd/*.c)
 
-OBJ = $(SRC:.c=.o)
+OBJ = $(SRC:.c=.o) $(wildcard ../src/pppd/*.o) $(wildcard ../src/dhcpd/*.o) $(filter-out ../src/main.o, $(wildcard ../src/*.o))
 
 ifneq ($(shell pkg-config --exists libdpdk && echo 0),0)
 $(error "no installation of DPDK found")
