@@ -274,6 +274,8 @@ STATUS ppp_process(void	*mail)
 			VRG_LOG(INFO, vrg_ccb->fp, &ppp_ccb[session_index], PPPLOGMSG, "Session 0x%x connection disconnected.", rte_be_to_cpu_16(ppp_ccb[session_index].session_id));
 			ppp_ccb[session_index].phase = END_PHASE;
 			ppp_ccb[session_index].pppoe_phase.active = FALSE;
+			ppp_ccb[session_index].ppp_phase[0].state = S_INIT;
+			ppp_ccb[session_index].ppp_phase[1].state = S_INIT;
 			PPP_bye(&ppp_ccb[session_index]);
 			return FALSE;		
 		case PADM:

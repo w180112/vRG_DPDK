@@ -110,6 +110,7 @@ STATUS PPP_decode_frame(tVRG_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_head
 					default:
 						;
 				}
+				s_ppp_ccb->auth_method = auth_method;
 				*event = E_RECV_GOOD_CONFIG_REQUEST;
 				ppp_hdr->length = rte_cpu_to_be_16(total_lcp_length);
 				return TRUE;
@@ -140,14 +141,16 @@ STATUS PPP_decode_frame(tVRG_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_head
 				*event = E_RECV_CONFIG_NAK_REJ;
 				if (ppp_options->type == AUTH)
 					s_ppp_ccb->auth_method = PAP_PROTOCOL;
+				VRG_LOG(WARN, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "User %" PRIu16 " recv LCP nak message with option %x.", s_ppp_ccb->user_num, ppp_options->type);
 				return TRUE;
 			case CONFIG_REJECT :
 				*event = E_RECV_CONFIG_NAK_REJ;
 				VRG_LOG(WARN, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "User %" PRIu16 " recv LCP reject message with option %x.", s_ppp_ccb->user_num, ppp_options->type);
 				if (ppp_options->type == AUTH) {
-					if (s_ppp_ccb->is_pap_auth == FALSE)
+					if (s_ppp_ccb->is_pap_auth == TRUE)
 						return ERROR;
-					s_ppp_ccb->is_pap_auth = FALSE;
+					s_ppp_ccb->is_pap_auth = TRUE;
+					s_ppp_ccb->auth_method = PAP_PROTOCOL;
 				}
 				return TRUE;
 			case TERMIN_REQUEST :
@@ -412,9 +415,10 @@ STATUS check_nak_reject(U8 flag, pppoe_header_t *pppoe_header, __attribute__((un
 	ppp_hdr->length = sizeof(ppp_header_t);
 	for(ppp_options_t *cur=ppp_options; tmp_total_length<total_lcp_length; cur=(ppp_options_t *)((char *)cur + cur->length)) {
 		if (flag == CONFIG_NAK) {
-			U8 len_byte = vrg_ccb->non_vlan_mode ? 0xD0 : 0xD4;
+			U8 len_byte = vrg_ccb->non_vlan_mode ? 0xD4 : 0xD0;
 			if (cur->type == MRU && (cur->val[0] != 0x5 || cur->val[1] != len_byte)) {
 				bool_flag = 1;
+				VRG_LOG(WARN, vrg_ccb->fp, NULL, PPPLOGMSG, "MRU = %x%x", cur->val[0], cur->val[1]);
 				cur->val[0] = 0x5;
 				cur->val[1] = len_byte;
 				rte_memcpy(tmp_cur,cur,cur->length);
@@ -422,12 +426,23 @@ STATUS check_nak_reject(U8 flag, pppoe_header_t *pppoe_header, __attribute__((un
 				tmp_cur = (ppp_options_t *)((char *)tmp_cur + cur->length);
 			}
 			else if (cur->type == AUTH) {
-				if (((auth_method & 0xff) != cur->val[1]) || (((auth_method & 0xff00) >> 8) != cur->val[0])) {
-					cur->val[1] = auth_method & 0xff;
-					cur->val[0] = (auth_method & 0xff00) >> 8;
-					rte_memcpy(tmp_cur,cur,cur->length);
-					ppp_hdr->length += cur->length;
-					tmp_cur = (ppp_options_t *)((char *)tmp_cur + cur->length);
+				U16 ppp_server_auth_method = cur->val[0] << 8 | cur->val[1];
+				if (ppp_server_auth_method != auth_method) {
+					/* if server wants to use pap or chap, then we just follow it */
+					if (ppp_server_auth_method == PAP_PROTOCOL)
+						auth_method = PAP_PROTOCOL;
+					else if (ppp_server_auth_method == CHAP_PROTOCOL)
+						auth_method = CHAP_PROTOCOL;
+					else {
+						bool_flag = 1;
+						/* by default, we use pap auth */
+						auth_method = PAP_PROTOCOL;
+						cur->val[1] = auth_method & 0xff;
+						cur->val[0] = (auth_method & 0xff00) >> 8;
+						rte_memcpy(tmp_cur,cur,cur->length);
+						ppp_hdr->length += cur->length;
+						tmp_cur = (ppp_options_t *)((char *)tmp_cur + cur->length);
+					}
 				}
 			}
 		}
@@ -676,19 +691,9 @@ STATUS build_config_request(unsigned char *buffer, PPP_INFO_t *s_ppp_ccb, U16 *m
  	}
  	else if (s_ppp_ccb->cp == 0) {
  		ppp_payload->ppp_protocol = rte_cpu_to_be_16(LCP_PROTOCOL);
- 		/* options, max recv units */
- 		ppp_options_t *cur = ppp_options;
-
- 		cur->type = MRU;
- 		cur->length = 0x4;
- 		U16 max_recv_unit = rte_cpu_to_be_16(MAX_RECV);
- 		rte_memcpy(cur->val,&max_recv_unit,sizeof(U16));
- 		pppoe_header->length += 4;
- 		ppp_hdr->length += 4;
-
- 		cur = (ppp_options_t *)((char *)(cur + 1) + sizeof(max_recv_unit));
- 		/* option, auth */
- 		if (s_ppp_ccb->auth_method == PAP_PROTOCOL) {
+		ppp_options_t *cur = ppp_options;
+		/* option, auth */
+ 		/*if (s_ppp_ccb->auth_method == PAP_PROTOCOL) {
  			cur->type = AUTH;
  			cur->length = 0x4;
  			U16 auth_pro = rte_cpu_to_be_16(PAP_PROTOCOL);
@@ -704,12 +709,22 @@ STATUS build_config_request(unsigned char *buffer, PPP_INFO_t *s_ppp_ccb, U16 *m
  			U16 auth_pro = rte_cpu_to_be_16(CHAP_PROTOCOL);
  			rte_memcpy(cur->val,&auth_pro,sizeof(U16));
 			U8 auth_method = 0x5; // CHAP with MD5
-			rte_memcpy(cur->val,&auth_method,sizeof(U8));
+			rte_memcpy((cur->val)+2,&auth_method,sizeof(U8));
  			pppoe_header->length += 5;
  			ppp_hdr->length += 5;
 
  			cur = (ppp_options_t *)((char *)(cur + 1) + sizeof(auth_pro) + sizeof(auth_method));
-		}
+		}*/
+ 		/* options, max recv units */
+
+ 		cur->type = MRU;
+ 		cur->length = 0x4;
+ 		U16 max_recv_unit = rte_cpu_to_be_16(MAX_RECV);
+ 		rte_memcpy(cur->val,&max_recv_unit,sizeof(U16));
+ 		pppoe_header->length += 4;
+ 		ppp_hdr->length += 4;
+
+ 		cur = (ppp_options_t *)((char *)(cur + 1) + sizeof(max_recv_unit));
  		/* options, magic number */
  		cur->type = MAGIC_NUM;
  		cur->length = 0x6;
@@ -732,7 +747,7 @@ STATUS build_config_request(unsigned char *buffer, PPP_INFO_t *s_ppp_ccb, U16 *m
  	rte_memcpy(buffer+14+sizeof(vlan_header_t)+sizeof(pppoe_header_t)+sizeof(ppp_payload_t)+sizeof(ppp_header_t),ppp_options,rte_cpu_to_be_16(ppp_hdr->length) - sizeof(ppp_header_t));
 
 	VRG_LOG(DBG, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "User %" PRIu16 " config request built.", s_ppp_ccb->user_num);
- 	return TRUE;
+	return TRUE;
 }
 
 /**
@@ -770,7 +785,7 @@ STATUS build_config_ack(unsigned char* buffer, PPP_INFO_t *s_ppp_ccb, U16 *mulen
  	rte_memcpy(buffer+14+sizeof(vlan_header_t)+sizeof(pppoe_header_t)+sizeof(ppp_payload_t)+sizeof(ppp_header_t),ppp_options,rte_cpu_to_be_16(ppp_hdr->length) - sizeof(ppp_header_t));
 
 	VRG_LOG(DBG, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "User %" PRIu16 " config ack built.", s_ppp_ccb->user_num);
- 	return TRUE;
+	return TRUE;
 }
 
 /**

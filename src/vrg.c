@@ -114,6 +114,7 @@ int vrg_start(int argc, char **argv)
 	}
 	codec_init(&vrg_ccb);
 	dhcp_init(&vrg_ccb);
+	fsm_init(&vrg_ccb);
 	/* Init the pppoe alive user count */
 	vrg_ccb.cur_user = 0;
     vrg_ccb.quit_flag = FALSE;
