@@ -37,7 +37,7 @@ STATUS check_ipcp_nak_rej(U8 flag, pppoe_header_t *pppoe_header, ppp_payload_t *
 STATUS build_auth_response_chap(unsigned char* buffer, PPP_INFO_t *s_ppp_ccb, U16 *mulen, ppp_chap_data_t *ppp_chap_data);
 
 STATUS build_padi(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb);
-STATUS build_padr(__attribute__((unused)) struct rte_timer *tim, PPP_INFO_t *s_ppp_ccb);
+STATUS build_padr(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb);
 STATUS build_padt(PPP_INFO_t *s_ppp_ccb);
 STATUS send_pkt(U8 encode_type, PPP_INFO_t *s_ppp_ccb);
 

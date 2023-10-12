@@ -237,11 +237,11 @@ STATUS ppp_process(void	*mail)
 			ppp_ccb[session_index].pppoe_phase.timer_counter = 0;
 			rte_timer_stop(&(ppp_ccb[session_index].pppoe));
 			rte_ether_addr_copy(&eth_hdr.src_addr, &ppp_ccb[session_index].PPP_dst_mac);
-			if (build_padr(&(ppp_ccb[session_index].pppoe),&(ppp_ccb[session_index])) == FALSE) {
+			if (send_pkt(ENCODE_PADR, &(ppp_ccb[session_index])) == ERROR) {
 				exit_ppp(&(ppp_ccb[session_index].pppoe), &(ppp_ccb[session_index]));
 				return FALSE;
 			}
-			rte_timer_reset(&(ppp_ccb[session_index].pppoe),rte_get_timer_hz(),PERIODICAL,lcore.timer_thread,(rte_timer_cb_t)build_padr,&ppp_ccb[session_index]);
+			rte_timer_reset(&(ppp_ccb[session_index].pppoe), rte_get_timer_hz(), PERIODICAL, lcore.timer_thread, (rte_timer_cb_t)A_padr_timer_func, &ppp_ccb[session_index]);
 			return FALSE;
 		case PADS:
 			rte_timer_stop(&(ppp_ccb[session_index].pppoe));

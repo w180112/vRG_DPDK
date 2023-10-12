@@ -923,6 +923,11 @@ STATUS A_padi_timer_func(__attribute__((unused)) struct rte_timer *tim, __attrib
     return send_pkt(ENCODE_PADI, s_ppp_ccb);
 }
 
+STATUS A_padr_timer_func(__attribute__((unused)) struct rte_timer *tim, __attribute__((unused)) PPP_INFO_t *s_ppp_ccb)
+{
+    return send_pkt(ENCODE_PADR, s_ppp_ccb);
+}
+
 void fsm_init(VRG_t *ccb)
 {
     vrg_ccb = ccb;
