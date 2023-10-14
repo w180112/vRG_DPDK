@@ -32,6 +32,7 @@ int main()
     test_build_padi();
     test_build_padr();
     test_build_padt();
+    test_build_config_request();
     puts("ok!");
 
     puts("\nall test successfully");

@@ -789,8 +789,7 @@ STATUS A_send_config_request(__attribute__((unused)) struct rte_timer *tim, __at
         VRG_LOG(DBG, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "User %" PRIu16 " config request timeout.\n", s_ppp_ccb->user_num);
     	PPP_FSM(tim,s_ppp_ccb,E_TIMEOUT_COUNTER_EXPIRED);
     }
-    if (build_config_request(buffer,s_ppp_ccb,&mulen) < 0)
-        return FALSE;
+    build_config_request(buffer, &mulen, s_ppp_ccb);
     drv_xmit(vrg_ccb, buffer, mulen);
     s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].timer_counter--;
     

@@ -638,8 +638,6 @@ void build_padt(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb)
 	pppoe_header->length = 0;
 
 	*mulen = sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t) + sizeof(pppoe_header_t);
-
-	return SUCCESS;
 }
 
 /**
@@ -652,14 +650,14 @@ void build_padt(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb)
  * output: 	TRUE/FALSE
  * return: 	packet buffer
  */
-STATUS build_config_request(unsigned char *buffer, PPP_INFO_t *s_ppp_ccb, U16 *mulen)
+void build_config_request(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb)
 {
-	struct rte_ether_hdr 	*eth_hdr = s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].eth_hdr;
-	vlan_header_t		*vlan_header = s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].vlan_header;
-	pppoe_header_t 		*pppoe_header = s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].pppoe_header;
-	ppp_payload_t 		*ppp_payload = s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].ppp_payload;
-	ppp_header_t 		*ppp_hdr = s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].ppp_hdr;
-	ppp_options_t 		*ppp_options = s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].ppp_options;
+	struct rte_ether_hdr 	*eth_hdr = (struct rte_ether_hdr *)buffer;
+	vlan_header_t		*vlan_header = (vlan_header_t *)(eth_hdr + 1);
+	pppoe_header_t 		*pppoe_header = (pppoe_header_t *)(vlan_header + 1);
+	ppp_payload_t 		*ppp_payload = (ppp_payload_t *)(pppoe_header + 1);
+	ppp_header_t 		*ppp_hdr = (ppp_header_t *)(ppp_payload + 1);
+	ppp_options_t 		*ppp_options = (ppp_options_t *)(ppp_hdr + 1);
 
 	srand(time(NULL));
 
@@ -691,7 +689,7 @@ STATUS build_config_request(unsigned char *buffer, PPP_INFO_t *s_ppp_ccb, U16 *m
  	if (s_ppp_ccb->cp == 1) {
  		ppp_payload->ppp_protocol = rte_cpu_to_be_16(IPCP_PROTOCOL);
  		ppp_options->type = IP_ADDRESS;
- 		rte_memcpy(ppp_options->val,&(s_ppp_ccb->hsi_ipv4),4);
+ 		rte_memcpy(ppp_options->val, &(s_ppp_ccb->hsi_ipv4), 4);
  		ppp_options->length = sizeof(s_ppp_ccb->hsi_ipv4) + sizeof(ppp_options_t);
  		pppoe_header->length += ppp_options->length;
  		ppp_hdr->length += ppp_options->length;
@@ -745,16 +743,8 @@ STATUS build_config_request(unsigned char *buffer, PPP_INFO_t *s_ppp_ccb, U16 *m
 
  	pppoe_header->length = rte_cpu_to_be_16(pppoe_header->length);
  	ppp_hdr->length = rte_cpu_to_be_16(ppp_hdr->length);
- 	memset(buffer,0,MSG_BUF);
- 	rte_memcpy(buffer,eth_hdr,14);
-	rte_memcpy(buffer+14,vlan_header,sizeof(vlan_header_t));
- 	rte_memcpy(buffer+14+sizeof(vlan_header_t),pppoe_header,sizeof(pppoe_header_t));
- 	rte_memcpy(buffer+14+sizeof(vlan_header_t)+sizeof(pppoe_header_t),ppp_payload,sizeof(ppp_payload_t));
- 	rte_memcpy(buffer+14+sizeof(vlan_header_t)+sizeof(pppoe_header_t)+sizeof(ppp_payload_t),ppp_hdr,sizeof(ppp_header_t));
- 	rte_memcpy(buffer+14+sizeof(vlan_header_t)+sizeof(pppoe_header_t)+sizeof(ppp_payload_t)+sizeof(ppp_header_t),ppp_options,rte_cpu_to_be_16(ppp_hdr->length) - sizeof(ppp_header_t));
-
+ 	
 	VRG_LOG(DBG, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "User %" PRIu16 " config request built.", s_ppp_ccb->user_num);
-	return TRUE;
 }
 
 /**

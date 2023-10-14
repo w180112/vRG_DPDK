@@ -4,5 +4,6 @@
 void test_build_padi();
 void test_build_padr();
 void test_build_padt();
+void test_build_config_request();
 
 #endif
