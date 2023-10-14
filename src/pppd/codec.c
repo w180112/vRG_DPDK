@@ -641,14 +641,16 @@ void build_padt(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb)
 }
 
 /**
- * build_config_request
- *
- * purpose: For build PPP configure request, either in NCP or LCP phase.
- * input: 	*buffer - packet buffer,
- * 		    *s_ppp_ccb,
- * 			*mulen - packet length
- * output: 	TRUE/FALSE
- * return: 	packet buffer
+ * For build PPP configure request, either in NCP or LCP phase.
+ * 
+ * @param buffer
+ * 		pkt buffer
+ * @param mulen
+ * 		pkt length
+ * @param s_ppp_ccb
+ * 		ppp ccb
+ * @return
+ * 		- none
  */
 void build_config_request(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb)
 {
