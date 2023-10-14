@@ -38,7 +38,7 @@ STATUS build_auth_response_chap(unsigned char* buffer, PPP_INFO_t *s_ppp_ccb, U1
 
 STATUS build_padi(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb);
 STATUS build_padr(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb);
-STATUS build_padt(PPP_INFO_t *s_ppp_ccb);
+void build_padt(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb);
 STATUS send_pkt(U8 encode_type, PPP_INFO_t *s_ppp_ccb);
 
 typedef enum {

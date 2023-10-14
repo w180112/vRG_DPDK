@@ -31,6 +31,7 @@ int main()
     puts("====================test pppd/codec.c====================");
     test_build_padi();
     test_build_padr();
+    test_build_padt();
     puts("ok!");
 
     puts("\nall test successfully");

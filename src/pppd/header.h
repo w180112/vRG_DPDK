@@ -79,13 +79,13 @@
 typedef struct pppoe_header {
 	U8 ver_type;
 	U8 code;
-	U16 session_id;
-	U16 length;
+	U16 session_id; // network byte order
+	U16 length; // host byte order
 } pppoe_header_t;
 
 typedef struct pppoe_header_tag {
-	U16 type;
-  	U16 length;
+	U16 type; // network byte order
+  	U16 length; // host byte order
   	// depend on the type and length.
   	U8 value[0];
 } pppoe_header_tag_t;
@@ -93,7 +93,7 @@ typedef struct pppoe_header_tag {
 typedef struct ppp_header {
 	U8 code;
 	U8 identifier;
-	U16 length;
+	U16 length; // host byte order
 }ppp_header_t;
 
 typedef struct ppp_pap_ack_nak {

@@ -900,8 +900,7 @@ STATUS A_zero_restart_count(__attribute__((unused)) struct rte_timer *tim, __att
 
 STATUS A_send_padt(__attribute__((unused)) struct rte_timer *tim, __attribute__((unused)) PPP_INFO_t *s_ppp_ccb)
 {
-    if (build_padt(s_ppp_ccb) < 0)
-        return FALSE;
+    send_pkt(ENCODE_PADT, s_ppp_ccb);
     s_ppp_ccb->phase = END_PHASE;
 
     return TRUE;

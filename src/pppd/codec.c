@@ -473,10 +473,11 @@ STATUS check_nak_reject(U8 flag, pppoe_header_t *pppoe_header, __attribute__((un
 /**
  * build_padi
  *
- * purpose: For build PPPoE init and send.
- * input: 	*s_ppp_ccb
- * 			*time - PPPoE timer
- * output: 	TRUE/FALSE
+ * purpose: For build PPPoE init.
+ * input: 	*buffer - pkt buffer
+ * 			*mulen - pkt length
+ * 			*s_ppp_ccb - ppp ccb
+ * output: 	SUCCESS/ERROR
  */
 STATUS build_padi(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb)
 {
@@ -519,10 +520,11 @@ STATUS build_padi(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb)
 /**
  * build_padr
  *
- * purpose: For build PPPoE request and send.
- * input: 	*s_ppp_ccb
- * 			*time - PPPoE timer
- * output: 	TRUE/FALSE
+ * purpose: For build PPPoE request.
+ * input: 	*buffer - pkt buffer
+ * 			*mulen - pkt length
+ * 			*s_ppp_ccb - ppp ccb
+ * output: 	SUCCESS/ERROR
  */
 STATUS build_padr(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb)
 {
@@ -597,47 +599,36 @@ STATUS build_padr(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb)
 /**
  * build_padt
  *
- * purpose: For build PPPoE terminate and send.
- * input: 	*s_ppp_ccb
- * output: 	TRUE/FALSE
+ * purpose: For build PPPoE termination.
+ * input: 	*buffer - pkt buffer
+ * 			*mulen - pkt length
+ * 			*s_ppp_ccb - ppp ccb
+ * output: 	
  */
-STATUS build_padt(PPP_INFO_t *s_ppp_ccb)
+void build_padt(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb)
 {
-	unsigned char 		buffer[MSG_BUF];
-	U16 			mulen;
-	struct rte_ether_hdr 	eth_hdr;
-	vlan_header_t		vlan_header;
-	pppoe_header_t 		pppoe_header;
+	struct rte_ether_hdr *eth_hdr = (struct rte_ether_hdr *)buffer;
+	vlan_header_t		*vlan_header = (vlan_header_t *)(eth_hdr + 1);
+	pppoe_header_t 		*pppoe_header = (pppoe_header_t *)(vlan_header + 1);
 
-	rte_ether_addr_copy(&vrg_ccb->nic_info.hsi_wan_src_mac, &eth_hdr.src_addr);
-	rte_ether_addr_copy(&s_ppp_ccb->PPP_dst_mac, &eth_hdr.dst_addr);
-	eth_hdr.ether_type = rte_cpu_to_be_16(VLAN);
+	rte_ether_addr_copy(&vrg_ccb->nic_info.hsi_wan_src_mac, &eth_hdr->src_addr);
+	rte_ether_addr_copy(&s_ppp_ccb->PPP_dst_mac, &eth_hdr->dst_addr);
+	eth_hdr->ether_type = rte_cpu_to_be_16(VLAN);
 
-	vlan_header.tci_union.tci_struct.priority = 0;
-	vlan_header.tci_union.tci_struct.DEI = 0;
-	vlan_header.tci_union.tci_struct.vlan_id = s_ppp_ccb->vlan;
-	vlan_header.next_proto = rte_cpu_to_be_16(ETH_P_PPP_DIS);
-	vlan_header.tci_union.tci_value = rte_cpu_to_be_16(vlan_header.tci_union.tci_value);
+	vlan_header->tci_union.tci_struct.priority = 0;
+	vlan_header->tci_union.tci_struct.DEI = 0;
+	vlan_header->tci_union.tci_struct.vlan_id = s_ppp_ccb->vlan;
+	vlan_header->next_proto = rte_cpu_to_be_16(ETH_P_PPP_DIS);
+	vlan_header->tci_union.tci_value = rte_cpu_to_be_16(vlan_header->tci_union.tci_value);
 
-	pppoe_header.ver_type = VER_TYPE;
-	pppoe_header.code = PADT;
-	pppoe_header.session_id = s_ppp_ccb->session_id; 
-	pppoe_header.length = 0;
+	pppoe_header->ver_type = VER_TYPE;
+	pppoe_header->code = PADT;
+	pppoe_header->session_id = s_ppp_ccb->session_id; 
+	pppoe_header->length = 0;
 
-	mulen = sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t) + sizeof(pppoe_header_t);
+	*mulen = sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t) + sizeof(pppoe_header_t);
 
-	rte_memcpy(buffer,&eth_hdr,sizeof(struct rte_ether_hdr));
-	rte_memcpy(buffer+sizeof(struct rte_ether_hdr),&vlan_header,sizeof(vlan_header_t));
-	rte_memcpy(buffer+sizeof(struct rte_ether_hdr)+sizeof(vlan_header_t),&pppoe_header,sizeof(pppoe_header_t));
-	drv_xmit(vrg_ccb, buffer, mulen);
-
-	s_ppp_ccb->phase = PPPOE_PHASE;
-	s_ppp_ccb->pppoe_phase.active = FALSE;
-	VRG_LOG(DBG, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "User %u PPPoE session closed successfully.", s_ppp_ccb->user_num);
-
-	PPP_bye(s_ppp_ccb);
-
-	return TRUE;
+	return SUCCESS;
 }
 
 /**
@@ -1140,6 +1131,7 @@ STATUS send_pkt(U8 encode_type, PPP_INFO_t *s_ppp_ccb)
 			return ERROR;
 		}
 		s_ppp_ccb->pppoe_phase.timer_counter++;
+		drv_xmit(vrg_ccb, buffer, mulen);
 		break;
 	case ENCODE_PADR:
 		if (build_padr(buffer, &mulen, s_ppp_ccb) == ERROR) {
@@ -1147,15 +1139,19 @@ STATUS send_pkt(U8 encode_type, PPP_INFO_t *s_ppp_ccb)
 			return ERROR;
 		}
 		s_ppp_ccb->pppoe_phase.timer_counter++;
+		drv_xmit(vrg_ccb, buffer, mulen);
 		break;
 	case ENCODE_PADT:
-		/* code */
+		build_padt(buffer, &mulen, s_ppp_ccb);
+		drv_xmit(vrg_ccb, buffer, mulen);
+		s_ppp_ccb->phase = PPPOE_PHASE;
+		s_ppp_ccb->pppoe_phase.active = FALSE;
+		VRG_LOG(DBG, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "User %u PPPoE session closed successfully.", s_ppp_ccb->user_num);
+		PPP_bye(s_ppp_ccb);
 		break;
 	default:
 		return ERROR;
 	}
-
-	drv_xmit(vrg_ccb, buffer, mulen);
 
 	return SUCCESS;
 }

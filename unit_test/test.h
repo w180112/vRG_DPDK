@@ -3,5 +3,6 @@
 
 void test_build_padi();
 void test_build_padr();
+void test_build_padt();
 
 #endif
