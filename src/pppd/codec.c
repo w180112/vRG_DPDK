@@ -471,13 +471,17 @@ STATUS check_nak_reject(U8 flag, pppoe_header_t *pppoe_header, __attribute__((un
 }
 
 /**
- * build_padi
- *
- * purpose: For build PPPoE init.
- * input: 	*buffer - pkt buffer
- * 			*mulen - pkt length
- * 			*s_ppp_ccb - ppp ccb
- * output: 	SUCCESS/ERROR
+ * For build PPPoE init.
+ * 
+ * @param buffer
+ * 		pkt buffer
+ * @param mulen
+ * 		pkt length
+ * @param s_ppp_ccb
+ * 		ppp ccb
+ * @return
+ * 		- SUCCESS when build success
+ * 		- ERROR when build fail
  */
 STATUS build_padi(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb)
 {
@@ -518,13 +522,17 @@ STATUS build_padi(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb)
 }
 
 /**
- * build_padr
- *
- * purpose: For build PPPoE request.
- * input: 	*buffer - pkt buffer
- * 			*mulen - pkt length
- * 			*s_ppp_ccb - ppp ccb
- * output: 	SUCCESS/ERROR
+ * For build PPPoE request.
+ * 
+ * @param buffer
+ * 		pkt buffer
+ * @param mulen
+ * 		pkt length
+ * @param s_ppp_ccb
+ * 		ppp ccb
+ * @return
+ * 		- SUCCESS when build success
+ * 		- ERROR when build fail
  */
 STATUS build_padr(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb)
 {
@@ -597,13 +605,16 @@ STATUS build_padr(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb)
 }
 
 /**
- * build_padt
- *
- * purpose: For build PPPoE termination.
- * input: 	*buffer - pkt buffer
- * 			*mulen - pkt length
- * 			*s_ppp_ccb - ppp ccb
- * output: 	
+ * For build PPPoE termination.
+ * 
+ * @param buffer
+ * 		pkt buffer
+ * @param mulen
+ * 		pkt length
+ * @param s_ppp_ccb
+ * 		ppp ccb
+ * @return
+ * 		- none
  */
 void build_padt(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb)
 {
