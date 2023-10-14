@@ -156,10 +156,10 @@ void test_build_config_request() {
     assert(test_ppp_hdr->code == CONFIG_REQUEST);
     assert(test_ppp_hdr->length == htons(0x000e));
     ppp_options_t *test_ppp_options = (ppp_options_t *)(test_ppp_hdr + 1);
-    assert(test_ppp_options->type == 0x01);
+    assert(test_ppp_options->type == MRU);
     assert(test_ppp_options->length == 0x04);
     test_ppp_options = (ppp_options_t *)((U8 *)test_ppp_options + test_ppp_options->length);
-    assert(test_ppp_options->type == 0x05);
+    assert(test_ppp_options->type == MAGIC_NUM);
     assert(test_ppp_options->length == 0x06);
 
     /* test IPCP */
@@ -172,6 +172,6 @@ void test_build_config_request() {
     assert(test_ppp_hdr->code == CONFIG_REQUEST);
     assert(test_ppp_hdr->length == htons(0x000a));
     test_ppp_options = (ppp_options_t *)(test_ppp_hdr + 1);
-    assert(test_ppp_options->type == 0x03);
+    assert(test_ppp_options->type == IP_ADDRESS);
     assert(test_ppp_options->length == 0x06);
 }
