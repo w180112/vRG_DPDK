@@ -33,6 +33,7 @@ int main()
     test_build_padr();
     test_build_padt();
     test_build_config_request();
+    test_build_config_ack();
     puts("ok!");
 
     puts("\nall test successfully");

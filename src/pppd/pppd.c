@@ -208,7 +208,7 @@ STATUS ppp_process(void	*mail)
 	pppoe_header_t 		pppoe_header;
 	ppp_payload_t		ppp_payload;
 	ppp_header_t		ppp_hdr;
-	ppp_options_t		*ppp_options = (ppp_options_t *)rte_malloc(NULL,40*sizeof(char),0);
+	ppp_options_t		*ppp_options = (ppp_options_t *)rte_malloc(NULL, 80*sizeof(U8), 0);
 
 	#pragma GCC diagnostic push  // require GCC 4.6
 	#pragma GCC diagnostic ignored "-Wstrict-aliasing"

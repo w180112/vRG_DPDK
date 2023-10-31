@@ -715,11 +715,6 @@ STATUS A_this_layer_up(__attribute__((unused)) struct rte_timer *tim, __attribut
         VRG_LOG(INFO, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "User %" PRIu16 " IPCP connection establish successfully.", s_ppp_ccb->user_num);
         if (unlikely(vrg_ccb->non_vlan_mode == TRUE))
             VRG_LOG(INFO, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "Now user %" PRIu16 " can start to send data via pppoe session id 0x%x.", s_ppp_ccb->user_num, rte_cpu_to_be_16(s_ppp_ccb->session_id));
-        else
-            VRG_LOG(INFO, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "Now user %" PRIu16 " can start to send data via pppoe session id 0x%x and vlan is %" PRIu16 ".", s_ppp_ccb->user_num, rte_cpu_to_be_16(s_ppp_ccb->session_id), s_ppp_ccb->vlan);
-        VRG_LOG(INFO, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "User %" PRIu16 " PPPoE client IP address is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 ", PPPoE server IP address is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 , s_ppp_ccb->user_num, *(((U8 *)&(s_ppp_ccb->hsi_ipv4))), *(((U8 *)&(s_ppp_ccb->hsi_ipv4))+1), *(((U8 *)&(s_ppp_ccb->hsi_ipv4))+2), *(((U8 *)&(s_ppp_ccb->hsi_ipv4))+3), *(((U8 *)&(s_ppp_ccb->hsi_ipv4_gw))), *(((U8 *)&(s_ppp_ccb->hsi_ipv4_gw))+1), *(((U8 *)&(s_ppp_ccb->hsi_ipv4_gw))+2), *(((U8 *)&(s_ppp_ccb->hsi_ipv4_gw))+3));
-        if (unlikely(vrg_ccb->non_vlan_mode == TRUE))
-            VRG_LOG(INFO, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "Now user %" PRIu16 " can start to send data via pppoe session id 0x%x.", s_ppp_ccb->user_num, rte_cpu_to_be_16(s_ppp_ccb->session_id));
     	else
             VRG_LOG(INFO, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "Now user %" PRIu16 " can start to send data via pppoe session id 0x%x and vlan is %" PRIu16 ".\n", s_ppp_ccb->user_num, rte_cpu_to_be_16(s_ppp_ccb->session_id), s_ppp_ccb->vlan);
         VRG_LOG(INFO, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "User %" PRIu16 " PPPoE client IP address is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 ", PPPoE server IP address is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 "\n", s_ppp_ccb->user_num, *(((U8 *)&(s_ppp_ccb->hsi_ipv4))), *(((U8 *)&(s_ppp_ccb->hsi_ipv4))+1), *(((U8 *)&(s_ppp_ccb->hsi_ipv4))+2), *(((U8 *)&(s_ppp_ccb->hsi_ipv4))+3), *(((U8 *)&(s_ppp_ccb->hsi_ipv4_gw))), *(((U8 *)&(s_ppp_ccb->hsi_ipv4_gw))+1), *(((U8 *)&(s_ppp_ccb->hsi_ipv4_gw))+2), *(((U8 *)&(s_ppp_ccb->hsi_ipv4_gw))+3));
@@ -813,8 +808,7 @@ STATUS A_send_config_ack(__attribute__((unused)) struct rte_timer *tim, __attrib
     unsigned char buffer[MSG_BUF];
     U16 mulen;
 
-    if (build_config_ack(buffer,s_ppp_ccb,&mulen) < 0)
-        return FALSE;
+    build_config_ack(buffer, &mulen, s_ppp_ccb);
     drv_xmit(vrg_ccb, buffer, mulen);
 
     return TRUE;
