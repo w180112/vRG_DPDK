@@ -192,61 +192,23 @@ int vrg_loop(VRG_t *vrg_ccb)
 					case CLI_DISCONNECT:
 						if (user_id == 0) {
 							for(int j=0; j<vrg_ccb->user_count; j++) {
-								if (vrg_ccb->ppp_ccb[j].phase == END_PHASE) {
-									VRG_LOG(ERR, vrg_ccb->fp, &(vrg_ccb->ppp_ccb[j]), PPPLOGMSG, "Error! User %u is in init phase", j + 1);
+								if (ppp_disconnect(&(vrg_ccb->ppp_ccb[j]), j+1) != SUCCESS)
 									continue;
-								}
-								if (vrg_ccb->ppp_ccb[j].ppp_processing == TRUE) {
-									VRG_LOG(ERR, vrg_ccb->fp, &(vrg_ccb->ppp_ccb[j]), PPPLOGMSG, "Error! User %u is disconnecting pppoe connection, please wait...", j + 1);
-									continue;
-								}
-								PPP_bye(&vrg_ccb->ppp_ccb[j]);
 							}
 						}
-						else {
-							if (vrg_ccb->ppp_ccb[user_id-1].phase == END_PHASE) {
-								VRG_LOG(ERR, vrg_ccb->fp, &(vrg_ccb->ppp_ccb[user_id-1]), PPPLOGMSG, "Error! User %u is in init phase", user_id);
-								break;
-							}
-							if (vrg_ccb->ppp_ccb[user_id-1].ppp_processing == TRUE) {
-								VRG_LOG(ERR, vrg_ccb->fp, &(vrg_ccb->ppp_ccb[user_id-1]), PPPLOGMSG, "Error! User %u is disconnecting pppoe connection, please wait...", user_id);	
-								break;
-							}
-							PPP_bye(&vrg_ccb->ppp_ccb[user_id-1]);
-						}
+						else
+							ppp_disconnect(&(vrg_ccb->ppp_ccb[user_id-1]), user_id);
 						break;
 					case CLI_CONNECT:
 						if (user_id == 0) {
 							for(int j=0; j<vrg_ccb->user_count; j++) {
-								if (vrg_ccb->ppp_ccb[j].phase > END_PHASE) {
-									VRG_LOG(ERR, vrg_ccb->fp, &(vrg_ccb->ppp_ccb[j]), PPPLOGMSG, "Error! User %u is in a pppoe connection", j + 1);
-									continue;
-								}
-								vrg_ccb->cur_user++;
-								vrg_ccb->ppp_ccb[j].phase = PPPOE_PHASE;
-								vrg_ccb->ppp_ccb[j].pppoe_phase.max_retransmit = MAX_RETRAN;
-								vrg_ccb->ppp_ccb[j].pppoe_phase.timer_counter = 0;
-    							if (send_pkt(ENCODE_PADI, &(vrg_ccb->ppp_ccb[j])) == ERROR)
-									PPP_bye(&(vrg_ccb->ppp_ccb[j]));
-								/* set ppp starting boolean flag to TRUE */
-								rte_atomic16_set(&vrg_ccb->ppp_ccb[j].ppp_bool, 1);
-    							rte_timer_reset(&(vrg_ccb->ppp_ccb[j].pppoe), rte_get_timer_hz(), PERIODICAL, lcore.timer_thread, (rte_timer_cb_t)A_padi_timer_func, &(vrg_ccb->ppp_ccb[j]));
+								if (ppp_connect(&(vrg_ccb->ppp_ccb[j]), j+1) == SUCCESS)
+									vrg_ccb->cur_user++;
 							}
 						}
 						else {
-							if (vrg_ccb->ppp_ccb[user_id-1].phase > END_PHASE) {
-								VRG_LOG(ERR, vrg_ccb->fp, &(vrg_ccb->ppp_ccb[user_id-1]), PPPLOGMSG, "Error! User %u is in a pppoe connection", user_id);
-								break;
-							}
-							vrg_ccb->cur_user++;
-							vrg_ccb->ppp_ccb[user_id-1].phase = PPPOE_PHASE;
-							vrg_ccb->ppp_ccb[user_id-1].pppoe_phase.max_retransmit = MAX_RETRAN;
-							vrg_ccb->ppp_ccb[user_id-1].pppoe_phase.timer_counter = 0;
-    						if (send_pkt(ENCODE_PADI, &(vrg_ccb->ppp_ccb[user_id-1])) == ERROR)
-								PPP_bye(&(vrg_ccb->ppp_ccb[user_id-1]));
-							/* set ppp starting boolean flag to TRUE */
-							rte_atomic16_set(&vrg_ccb->ppp_ccb[user_id-1].ppp_bool, 1);
-    						rte_timer_reset(&(vrg_ccb->ppp_ccb[user_id-1].pppoe), rte_get_timer_hz(), PERIODICAL, lcore.timer_thread, (rte_timer_cb_t)A_padi_timer_func, &(vrg_ccb->ppp_ccb[user_id-1]));
+							if (ppp_connect(&(vrg_ccb->ppp_ccb[user_id-1]), user_id) == SUCCESS)
+								vrg_ccb->cur_user++;
 						}
 						break;	
 					case CLI_DHCP_START:

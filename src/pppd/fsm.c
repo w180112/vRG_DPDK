@@ -814,7 +814,7 @@ STATUS A_send_config_ack(__attribute__((unused)) struct rte_timer *tim, __attrib
     return TRUE;
 }
 
-STATUS A_send_terminate_request(__attribute__((unused)) struct rte_timer *tim, __attribute__((unused)) PPP_INFO_t *s_ppp_ccb)
+STATUS A_send_terminate_request(struct rte_timer *tim, PPP_INFO_t *s_ppp_ccb)
 {
     unsigned char buffer[MSG_BUF];
     U16 mulen;
@@ -824,8 +824,7 @@ STATUS A_send_terminate_request(__attribute__((unused)) struct rte_timer *tim, _
         VRG_LOG(DBG, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "User %" PRIu16 " terminate request timeout.\n", s_ppp_ccb->user_num);
     	PPP_FSM(tim,s_ppp_ccb,E_TIMEOUT_COUNTER_EXPIRED);
     }
-    if (build_terminate_request(buffer,s_ppp_ccb,&mulen) < 0)
-        return FALSE;
+    build_terminate_request(buffer, &mulen, s_ppp_ccb);
     drv_xmit(vrg_ccb, buffer, mulen);
     s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].timer_counter--;
     

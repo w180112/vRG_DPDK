@@ -27,7 +27,7 @@ void build_config_ack(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb);
 extern STATUS build_config_nak_rej(unsigned char *buffer, PPP_INFO_t *s_ppp_ccb, U16 *mulen);
 extern STATUS build_terminate_ack(unsigned char *buffer, PPP_INFO_t *s_ppp_ccb, U16 *mulen);
 extern STATUS build_code_reject(unsigned char *buffer, PPP_INFO_t *s_ppp_ccb, U16 *mulen);
-extern STATUS build_terminate_request(unsigned char *buffer, PPP_INFO_t *s_ppp_ccb, U16 *mulen);
+void build_terminate_request(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb);
 extern STATUS build_echo_reply(unsigned char *buffer, PPP_INFO_t *s_ppp_ccb, U16 *mulen);
 extern STATUS build_auth_request_pap(unsigned char *buffer, PPP_INFO_t *s_ppp_ccb, U16 *mulen);
 extern STATUS build_auth_ack_pap(unsigned char *buffer, PPP_INFO_t *s_ppp_ccb, U16 *mulen);

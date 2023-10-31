@@ -161,6 +161,7 @@ STATUS pppdInit(void *ccb)
 			rte_atomic16_init(&ppp_ccb[i].addr_table[j].is_fill);
 		}
 		memset(ppp_ccb[i].PPP_dst_mac.addr_bytes, 0, ETH_ALEN);
+		//ppp_ccb[i].fp = vrg_ccb->fp;
 		rte_timer_init(&(ppp_ccb[i].pppoe));
 		rte_timer_init(&(ppp_ccb[i].ppp));
 		rte_timer_init(&(ppp_ccb[i].nat));
@@ -173,6 +174,39 @@ STATUS pppdInit(void *ccb)
     
 	sleep(1);
 	VRG_LOG(INFO, vrg_ccb->fp, NULL, PPPLOGMSG, "============ pppoe init successfully ==============\n");
+	return SUCCESS;
+}
+
+STATUS ppp_connect(PPP_INFO_t *ppp_ccb, U16 user_id)
+{
+	if (ppp_ccb->phase > END_PHASE) {
+		VRG_LOG(ERR, vrg_ccb->fp, ppp_ccb, PPPLOGMSG, "Error! User %u is in a pppoe connection", user_id);
+		return ERROR;
+	}
+	ppp_ccb->phase = PPPOE_PHASE;
+	ppp_ccb->pppoe_phase.max_retransmit = MAX_RETRAN;
+	ppp_ccb->pppoe_phase.timer_counter = 0;
+    if (send_pkt(ENCODE_PADI, ppp_ccb) == ERROR)
+		PPP_bye(ppp_ccb);
+	/* set ppp starting boolean flag to TRUE */
+	rte_atomic16_set(&ppp_ccb->ppp_bool, 1);
+	rte_timer_reset(&ppp_ccb->pppoe, rte_get_timer_hz(), PERIODICAL, lcore.timer_thread, (rte_timer_cb_t)A_padi_timer_func, ppp_ccb);
+
+	return SUCCESS;
+}
+
+STATUS ppp_disconnect(PPP_INFO_t *ppp_ccb, U16 user_id)
+{
+	if (ppp_ccb->phase == END_PHASE) {
+		VRG_LOG(ERR, vrg_ccb->fp, ppp_ccb, PPPLOGMSG, "Error! User %u is in init phase", user_id);
+		return ERROR;
+	}
+	if (ppp_ccb->ppp_processing == TRUE) {
+		VRG_LOG(ERR, vrg_ccb->fp, ppp_ccb, PPPLOGMSG, "Error! User %u is disconnecting pppoe connection, please wait...", user_id);
+		return ERROR;
+	}
+	PPP_bye(ppp_ccb);
+
 	return SUCCESS;
 }
 

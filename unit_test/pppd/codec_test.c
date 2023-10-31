@@ -268,3 +268,46 @@ void test_build_config_ack() {
     assert(mulen == sizeof(pkt_ipcp));
     assert(memcmp(buffer, pkt_ipcp, sizeof(pkt_ipcp)) == 0);
 }
+
+void test_build_terminate_request() {
+    U8 buffer[80];
+    U16 mulen = 0;
+
+    PPP_INFO_t s_ppp_ccb_1 = {
+        .ppp_phase = {{
+            .timer_counter = 0,
+            .max_retransmit = 10,
+        },{
+            .timer_counter = 0,
+            .max_retransmit = 10,
+        },},
+        .user_num = 1,
+        .vlan = 2,
+        .PPP_dst_mac = (struct rte_ether_addr){
+            .addr_bytes = {0x74, 0x4d, 0x28, 0x8d, 0x00, 0x31},
+        },
+        .session_id = htons(0x000a),
+        .cp = 0,
+    };
+
+    char pkt_lcp[] = {/* mac */0x74, 0x4d, 0x28, 0x8d, 0x00, 0x31, 0x9c, 0x69, 0xb4, 
+    0x61, 0x16, 0xdd, 0x81, 0x00, /* vlan */0x00, 0x02, 0x88, 0x64, /* pppoe hdr */
+    0x11, 0x00, 0x00, 0x0a, 0x00, 0x06, /* ppp protocol */0xc0, 0x21, /* ppp hdr*/
+    0x05, 0x03, 0x00, 0x04};
+    char pkt_ipcp[] = {/* mac */0x74, 0x4d, 0x28, 0x8d, 0x00, 0x31, 0x9c, 0x69, 0xb4, 
+    0x61, 0x16, 0xdd, 0x81, 0x00, /* vlan */0x00, 0x02, 0x88, 0x64, /* pppoe hdr */
+    0x11, 0x00, 0x00, 0x0a, 0x00, 0x06, /* ppp protocol */0x80, 0x21, /* ppp hdr*/
+    0x05, 0x03, 0x00, 0x04};
+
+    /* test LCP */
+    build_terminate_request(buffer, &mulen, &s_ppp_ccb_1);
+    assert(mulen == sizeof(pkt_lcp));
+    assert(memcmp(buffer, pkt_lcp, sizeof(pkt_lcp)) == 0);
+
+    /* test IPCP */
+    memset(buffer, 0, sizeof(buffer));
+    s_ppp_ccb_1.cp = 1;
+    build_terminate_request(buffer, &mulen, &s_ppp_ccb_1);
+    assert(mulen == sizeof(pkt_ipcp));
+    assert(memcmp(buffer, pkt_ipcp, sizeof(pkt_ipcp)) == 0);
+}

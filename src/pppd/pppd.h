@@ -55,6 +55,7 @@ typedef struct {
     rte_atomic16_t 			ppp_bool; 		/* boolean flag for accept ppp packets at data plane */
     rte_atomic16_t 			dp_start_bool;	/* hsi data plane starting boolean flag */
     BOOL					ppp_processing; /* boolean flag for checking ppp is disconnecting */
+	//FILE 					*fp;			/* log file pointer */
     addr_table_t 			addr_table[TOTAL_SOCK_PORT]; /* hsi nat addr table */
     struct rte_timer 	    pppoe;			/* pppoe timer */
 	struct rte_timer 	    ppp;			/* ppp timer */
@@ -67,6 +68,8 @@ extern U32			ppp_interval;
 void 				PPP_int(void);
 void 				exit_ppp(__attribute__((unused)) struct rte_timer *tim, PPP_INFO_t *ppp_ccb);
 extern STATUS 		ppp_process(void *mail);
+STATUS 				ppp_connect(PPP_INFO_t *ppp_ccb, U16 user_id);
+STATUS 				ppp_disconnect(PPP_INFO_t *ppp_ccb, U16 user_id);
 STATUS 				pppdInit(void *ccb);
 void 				PPP_bye(PPP_INFO_t *ppp_ccb);
 

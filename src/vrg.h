@@ -59,7 +59,7 @@ struct lcore_map {
  */
 typedef struct {
 	U16  			type;
-	U8          	refp[ETH_MTU];
+	U8          	refp[ETH_JUMBO];
 	int	        	len;
 } tVRG_MBX;
 

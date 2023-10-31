@@ -4,6 +4,7 @@
 #include <common.h>
 
 #define ETH_MTU				1500
+#define ETH_JUMBO			9000
 
 #define ETH_P_PPP_DIS 		0x8863
 #define ETH_P_PPP_SES		0x8864

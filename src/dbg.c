@@ -13,7 +13,7 @@
 #include 	"dhcpd/dhcp_fsm.h"
 #include    "dbg.h"
 
-#define 	DBG_VRG_MSG_LEN     		256
+#define 	DBG_VRG_MSG_LEN     			2048
 #define 	LOGGER_BUF_LEN 1024
 
 char *PPP_state2str(U16 state);
@@ -59,7 +59,7 @@ void PPPLOGMSG(void *ccb, char *buf)
 {
 	PPP_INFO_t *s_ppp_ccb = (PPP_INFO_t *)ccb;
     if (s_ppp_ccb) {
-    	sprintf(buf,"pppd> Session id [%x.%s] ", rte_be_to_cpu_16(s_ppp_ccb->session_id), PPP_state2str(s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].state));
+    	sprintf(buf, "pppd> Session id [%x.%s] ", rte_be_to_cpu_16(s_ppp_ccb->session_id), PPP_state2str(s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].state));
 	}
 }
 
@@ -145,8 +145,10 @@ char *DHCP_state2str(U16 state)
 void LOGGER(U8 level, char *filename, int line_num, FILE *log_fp, void *ccb, void (*ccb2str)(void *, char *), const char *fmt,...)
 {
 	va_list ap; /* points to each unnamed arg in turn */
-	char    buf[LOGGER_BUF_LEN], protocol_buf[LOGGER_BUF_LEN-20] = {'\0'}, msg[DBG_VRG_MSG_LEN];
+	char    buf[LOGGER_BUF_LEN], protocol_buf[LOGGER_BUF_LEN-100], msg[DBG_VRG_MSG_LEN];
 	
+	protocol_buf[0] = '\0';
+
 	//user offer level must > system requirement
     if (vrg_ccb->loglvl > level)
 		return;
@@ -156,7 +158,8 @@ void LOGGER(U8 level, char *filename, int line_num, FILE *log_fp, void *ccb, voi
 
 	if (ccb2str)
 		ccb2str(ccb, protocol_buf);
-	sprintf(buf, "vRG[%s]: %s:%d> %s", loglvl2str(level), filename, line_num, protocol_buf);
+
+	snprintf(buf, sizeof(buf)-1, "vRG[%s]: %s:%d> %s", loglvl2str(level), filename, line_num, protocol_buf);
 	strncat(buf, msg, sizeof(buf)-1);
     va_end(ap);
 	

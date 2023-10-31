@@ -7,7 +7,7 @@
 ######################################	
 CC = gcc
 INCLUDE = 
-CFLAGS = $(INCLUDE) -Wall -g $(shell pkg-config --cflags libdpdk) -O3 -DALLOW_EXPERIMENTAL_API -D_TEST_MODE
+CFLAGS = $(INCLUDE) -Wall -g $(shell pkg-config --cflags libdpdk) -O3 -DALLOW_EXPERIMENTAL_API -D_TEST_MODE #-Wextra -fsanitize=address
 
 LDFLAGS = $(shell pkg-config --static --libs libdpdk) -lutils -lconfig
 

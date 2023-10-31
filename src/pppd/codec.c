@@ -45,8 +45,9 @@ STATUS PPP_decode_frame(tVRG_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_head
     U16	mulen;
 	struct rte_timer *tim = &s_ppp_ccb->ppp;
 
-	if (mail->len > ETH_MTU){
+	if (mail->len > ETH_MTU) {
 	    VRG_LOG(ERR, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "error! too large frame(%d)", mail->len);
+		/* TODO: store pkt buffer to log file, not just print out */
 		PRINT_MESSAGE(mail->refp, mail->len);
 	    return ERROR;
 	}
@@ -903,13 +904,13 @@ STATUS build_terminate_ack(unsigned char* buffer, PPP_INFO_t *s_ppp_ccb, U16 *mu
  * output: 	TRUE/FALSE
  * return: 	packet buffer
  */
-STATUS build_terminate_request(unsigned char* buffer, PPP_INFO_t *s_ppp_ccb, U16 *mulen)
+void build_terminate_request(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb)
 {
-	struct rte_ether_hdr 	*eth_hdr = s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].eth_hdr;
-	vlan_header_t		*vlan_header = s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].vlan_header;
-	pppoe_header_t 		*pppoe_header = s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].pppoe_header;
-	ppp_payload_t 		*ppp_payload = s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].ppp_payload;
-	ppp_header_t 		*ppp_hdr = s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].ppp_hdr;
+	struct rte_ether_hdr 	*eth_hdr = (struct rte_ether_hdr *)buffer;
+	vlan_header_t		*vlan_header = (vlan_header_t *)(eth_hdr + 1);
+	pppoe_header_t 		*pppoe_header = (pppoe_header_t *)(vlan_header + 1);
+	ppp_payload_t 		*ppp_payload = (ppp_payload_t *)(pppoe_header + 1);
+	ppp_header_t 		*ppp_hdr = (ppp_header_t *)(ppp_payload + 1);
 
 	rte_ether_addr_copy(&vrg_ccb->nic_info.hsi_wan_src_mac, &eth_hdr->src_addr);
 	rte_ether_addr_copy(&s_ppp_ccb->PPP_dst_mac, &eth_hdr->dst_addr);
@@ -942,15 +943,8 @@ STATUS build_terminate_request(unsigned char* buffer, PPP_INFO_t *s_ppp_ccb, U16
 	*mulen = pppoe_header->length + sizeof(struct rte_ether_hdr) + sizeof(pppoe_header_t) + sizeof(vlan_header_t);
  	pppoe_header->length = rte_cpu_to_be_16(pppoe_header->length);
  	ppp_hdr->length = rte_cpu_to_be_16(ppp_hdr->length);
- 	memset(buffer,0,MSG_BUF);
- 	rte_memcpy(buffer,eth_hdr,sizeof(struct rte_ether_hdr));
-	rte_memcpy(buffer+sizeof(struct rte_ether_hdr),vlan_header,sizeof(vlan_header_t));
- 	rte_memcpy(buffer+sizeof(struct rte_ether_hdr)+sizeof(vlan_header_t),pppoe_header,sizeof(pppoe_header_t));
- 	rte_memcpy(buffer+sizeof(struct rte_ether_hdr)+sizeof(vlan_header_t)+sizeof(pppoe_header_t),ppp_payload,sizeof(ppp_payload_t));
- 	rte_memcpy(buffer+sizeof(struct rte_ether_hdr)+sizeof(vlan_header_t)+sizeof(pppoe_header_t)+sizeof(ppp_payload_t),ppp_hdr,sizeof(ppp_header_t));
  	
 	VRG_LOG(DBG, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "User %" PRIu16 " terminate request built.", s_ppp_ccb->user_num);
- 	return TRUE;
 }
 
 STATUS build_code_reject(__attribute__((unused)) unsigned char* buffer, __attribute__((unused)) PPP_INFO_t *s_ppp_ccb, __attribute__((unused)) U16 *mulen)
