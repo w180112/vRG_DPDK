@@ -796,8 +796,7 @@ STATUS A_send_config_nak_rej(__attribute__((unused)) struct rte_timer *tim, __at
     unsigned char buffer[MSG_BUF];
     U16 mulen;
 
-    if (build_config_nak_rej(buffer,s_ppp_ccb,&mulen) < 0)
-        return FALSE;
+    build_config_nak_rej(buffer, &mulen, s_ppp_ccb);
     drv_xmit(vrg_ccb, buffer, mulen);
 
     return TRUE;

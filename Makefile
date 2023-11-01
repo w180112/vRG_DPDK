@@ -36,7 +36,7 @@ install:
 
 test: $(TARGET)
 	${MAKE} -C $(TESTDIR)
-	./$(TESTDIR)/$(TESTBIN)
+	ulimit -s 16384 && ./$(TESTDIR)/$(TESTBIN)
 
 ######################################
 # Clean 

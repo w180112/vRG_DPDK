@@ -6,5 +6,7 @@ void test_build_padr();
 void test_build_padt();
 void test_build_config_request();
 void test_build_config_ack();
+void test_build_terminate_request();
+void test_build_config_nak_rej();
 
 #endif

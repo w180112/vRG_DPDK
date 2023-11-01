@@ -14,7 +14,6 @@
 #include 				<rte_timer.h>
 #include				<rte_malloc.h>
 #include 				<rte_ether.h>
-#include 				<rte_log.h>
 #include 				<cmdline_rdline.h>
 #include 				<cmdline_parse.h>
 #include 				<cmdline_parse_string.h>

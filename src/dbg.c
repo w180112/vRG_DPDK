@@ -13,7 +13,7 @@
 #include 	"dhcpd/dhcp_fsm.h"
 #include    "dbg.h"
 
-#define 	DBG_VRG_MSG_LEN     			2048
+#define 	DBG_VRG_MSG_LEN 256
 #define 	LOGGER_BUF_LEN 1024
 
 char *PPP_state2str(U16 state);
@@ -148,6 +148,8 @@ void LOGGER(U8 level, char *filename, int line_num, FILE *log_fp, void *ccb, voi
 	char    buf[LOGGER_BUF_LEN], protocol_buf[LOGGER_BUF_LEN-100], msg[DBG_VRG_MSG_LEN];
 	
 	protocol_buf[0] = '\0';
+	msg[0] = 0;
+	buf[0] = 0;
 
 	//user offer level must > system requirement
     if (vrg_ccb->loglvl > level)

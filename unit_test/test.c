@@ -1,4 +1,5 @@
 #include <common.h>
+#include <sys/resource.h>
 #include "../src/vrg.h"
 #include "../src/pppd/codec.h"
 #include "../src/dbg.h"
@@ -34,6 +35,8 @@ int main()
     test_build_padt();
     test_build_config_request();
     test_build_config_ack();
+    test_build_config_nak_rej();
+    test_build_terminate_request();
     puts("ok!");
 
     puts("\nall test successfully");
