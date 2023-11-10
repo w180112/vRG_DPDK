@@ -8,5 +8,6 @@ void test_build_config_request();
 void test_build_config_ack();
 void test_build_terminate_request();
 void test_build_config_nak_rej();
+void test_build_terminate_ack();
 
 #endif

@@ -25,7 +25,7 @@ extern void   DECODE_OBJID(U8 *vp, U8 vlen, U32 *oids, U8 *oids_len);
 void build_config_request(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb);
 void build_config_ack(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb);
 void build_config_nak_rej(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb);
-extern STATUS build_terminate_ack(unsigned char *buffer, PPP_INFO_t *s_ppp_ccb, U16 *mulen);
+void build_terminate_ack(unsigned char *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb);
 extern STATUS build_code_reject(unsigned char *buffer, PPP_INFO_t *s_ppp_ccb, U16 *mulen);
 void build_terminate_request(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb);
 extern STATUS build_echo_reply(unsigned char *buffer, PPP_INFO_t *s_ppp_ccb, U16 *mulen);

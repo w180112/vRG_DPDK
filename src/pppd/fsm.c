@@ -830,13 +830,12 @@ STATUS A_send_terminate_request(struct rte_timer *tim, PPP_INFO_t *s_ppp_ccb)
     return TRUE;
 }
 
-STATUS A_send_terminate_ack(__attribute__((unused)) struct rte_timer *tim, __attribute__((unused)) PPP_INFO_t *s_ppp_ccb)
+STATUS A_send_terminate_ack(__attribute__((unused)) struct rte_timer *tim, PPP_INFO_t *s_ppp_ccb)
 {
     unsigned char buffer[MSG_BUF];
     U16 mulen;
 
-    if (build_terminate_ack(buffer,s_ppp_ccb,&mulen) < 0)
-        return FALSE;
+    build_terminate_ack(buffer, s_ppp_ccb, &mulen);
     drv_xmit(vrg_ccb, buffer, mulen);
 
     return TRUE;

@@ -494,3 +494,98 @@ void test_build_config_nak_rej()
     assert(mulen == sizeof(pkt_ipcp_2));
     assert(memcmp(buffer, pkt_ipcp_2, sizeof(pkt_ipcp_2)) == 0);
 }
+
+void test_build_terminate_ack() {
+    U8 buffer[80];
+    U16 mulen = 0;
+
+    PPP_INFO_t s_ppp_ccb_1 = {
+        .ppp_phase = {{
+            .timer_counter = 0,
+            .max_retransmit = 10,
+            .eth_hdr = &(struct rte_ether_hdr) {
+                .ether_type = htons(VLAN),
+            },
+            .vlan_header = &(vlan_header_t) {
+                .tci_union.tci_value = htons(0002),
+                .next_proto = htons(ETH_P_PPP_SES),
+            },
+            .pppoe_header = &(pppoe_header_t) {
+                .code = 0,
+                .ver_type = 0x11,
+                .session_id = htons(0x000a),
+                .length = htons(0x0014),
+            },
+            .ppp_payload = &(ppp_payload_t) {
+                .ppp_protocol = htons(LCP_PROTOCOL),
+            },
+            .ppp_hdr = &(ppp_header_t) {
+                .code = TERMIN_REQUEST,
+                .identifier = 0x01,
+                .length = htons(0x0012),
+            },
+            /* this field is not used, we juts leave this here to make sure it won't
+            be inserted into terminate ack packet */
+            .ppp_options = (ppp_options_t *)(U8 []){
+                0x03, 0x04, 0xc0, 0x23, 0x01, 0x04, 0x05, 0xd0, 0x05, 0x06, 0x01, 0x02, 0x03, 0x04
+            }, // MRU, AUTH, MAGIC NUMBER
+        },{
+            .timer_counter = 0,
+            .max_retransmit = 10,
+            .eth_hdr = &(struct rte_ether_hdr) {
+                .ether_type = htons(VLAN),
+            },
+            .vlan_header = &(vlan_header_t) {
+                .tci_union.tci_value = htons(0002),
+                .next_proto = htons(ETH_P_PPP_SES),
+            },
+            .pppoe_header = &(pppoe_header_t) {
+                .code = 0,
+                .ver_type = 0x11,
+                .session_id = htons(0x000a),
+                .length = htons(0x000c),
+            },
+            .ppp_payload = &(ppp_payload_t) {
+                .ppp_protocol = htons(IPCP_PROTOCOL),
+            },
+            .ppp_hdr = &(ppp_header_t) {
+                .code = CONFIG_REQUEST,
+                .identifier = 0x01,
+                .length = htons(0x000a),
+            },
+            /* this field is not used, we juts leave this here to make sure it won't
+            be inserted into terminate ack packet */
+            .ppp_options = (ppp_options_t *)(U8 []){
+                0x03, 0x06, 0xc0, 0xa8, 0xc8, 0x01
+            }, // IP_ADDRESS
+        },},
+        .user_num = 1,
+        .vlan = 2,
+        .PPP_dst_mac = (struct rte_ether_addr){
+            .addr_bytes = {0x74, 0x4d, 0x28, 0x8d, 0x00, 0x31},
+        },
+        .session_id = htons(0x000a),
+        .cp = 0,
+    };
+
+    char pkt_lcp[] = {/* mac */0x74, 0x4d, 0x28, 0x8d, 0x00, 0x31, 0x9c, 0x69, 0xb4, 
+    0x61, 0x16, 0xdd, 0x81, 0x00, /* vlan */0x00, 0x02, 0x88, 0x64, /* pppoe hdr */
+    0x11, 0x00, 0x00, 0x0a, 0x00, 0x06, /* ppp protocol */0xc0, 0x21, /* ppp hdr*/
+    0x06, 0x01, 0x00, 0x04};
+    char pkt_ipcp[] = {/* mac */0x74, 0x4d, 0x28, 0x8d, 0x00, 0x31, 0x9c, 0x69, 0xb4, 
+    0x61, 0x16, 0xdd, 0x81, 0x00, /* vlan */0x00, 0x02, 0x88, 0x64, /* pppoe hdr */
+    0x11, 0x00, 0x00, 0x0a, 0x00, 0x06, /* ppp protocol */0x80, 0x21, /* ppp hdr*/
+    0x06, 0x01, 0x00, 0x04};
+
+    /* test LCP */
+    build_terminate_ack(buffer, &mulen, &s_ppp_ccb_1);
+    assert(mulen == sizeof(pkt_lcp));
+    assert(memcmp(buffer, pkt_lcp, sizeof(pkt_lcp)) == 0);
+
+    memset(buffer, 0, sizeof(buffer));
+    /* test IPCP */
+    s_ppp_ccb_1.cp = 1;
+    build_terminate_ack(buffer, &mulen, &s_ppp_ccb_1);
+    assert(mulen == sizeof(pkt_ipcp));
+    assert(memcmp(buffer, pkt_ipcp, sizeof(pkt_ipcp)) == 0);
+}

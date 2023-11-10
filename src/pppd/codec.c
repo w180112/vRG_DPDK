@@ -859,37 +859,42 @@ STATUS build_echo_reply(unsigned char* buffer, PPP_INFO_t *s_ppp_ccb, U16 *mulen
 /**
  * build_terminate_ack
  *
- * purpose: For build PPP terminate ack, either in NCP or LCP phase.
- * input: 	*buffer - packet buffer,
- * 		    *s_ppp_ccb,
- * 			*mulen - packet length
- * output: 	TRUE/FALSE
- * return: 	packet buffer
+ * @brief 
+ * 		For build PPP terminate ack, either in NCP or LCP phase.
+ * @param buffer 
+ * 		The buffer to be processed by the codec.
+ * @param s_ppp_ccb 
+ * 		The ppp ccb.
+ * @param len 
+ * 		The length of the buffer.
+ * @return 
+ * 		void
  */
-STATUS build_terminate_ack(unsigned char* buffer, PPP_INFO_t *s_ppp_ccb, U16 *mulen)
+void build_terminate_ack(unsigned char* buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb)
 {
-	struct rte_ether_hdr *eth_hdr = s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].eth_hdr;
-	vlan_header_t		*vlan_header = s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].vlan_header;
-	pppoe_header_t 		*pppoe_header = s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].pppoe_header;
-	ppp_payload_t 		*ppp_payload = s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].ppp_payload;
-	ppp_header_t 		*ppp_hdr = s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].ppp_hdr;
-
-	ppp_hdr->code = TERMIN_ACK;
+	struct rte_ether_hdr *eth_hdr = (struct rte_ether_hdr *)buffer;
+	vlan_header_t		*vlan_header = (vlan_header_t *)(eth_hdr + 1);
+	pppoe_header_t 		*pppoe_header = (pppoe_header_t *)(vlan_header + 1);
+	ppp_payload_t 		*ppp_payload = (ppp_payload_t *)(pppoe_header + 1);
+	ppp_header_t 		*ppp_hdr = (ppp_header_t *)(ppp_payload + 1);
 
 	rte_ether_addr_copy(&vrg_ccb->nic_info.hsi_wan_src_mac, &eth_hdr->src_addr);
 	rte_ether_addr_copy(&s_ppp_ccb->PPP_dst_mac, &eth_hdr->dst_addr);
+	eth_hdr->ether_type = s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].eth_hdr->ether_type;
 
-	*mulen = ntohs(pppoe_header->length) + sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t) + sizeof(pppoe_header_t);
+	*vlan_header = *(s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].vlan_header);
+	*pppoe_header = *(s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].pppoe_header);
+	*ppp_payload = *(s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].ppp_payload);
+	*ppp_hdr = *(s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].ppp_hdr);
 
-	memset(buffer,0,MSG_BUF);
-	rte_memcpy(buffer,eth_hdr,sizeof(struct rte_ether_hdr));
-	rte_memcpy(buffer+14,vlan_header,sizeof(vlan_header_t));
- 	rte_memcpy(buffer+14+sizeof(vlan_header_t),pppoe_header,sizeof(pppoe_header_t));
- 	rte_memcpy(buffer+14+sizeof(vlan_header_t)+sizeof(pppoe_header_t),ppp_payload,sizeof(ppp_payload_t));
- 	rte_memcpy(buffer+14+sizeof(vlan_header_t)+sizeof(pppoe_header_t)+sizeof(ppp_payload_t),ppp_hdr,sizeof(ppp_header_t));
+	ppp_hdr->code = TERMIN_ACK;
+	ppp_hdr->length = rte_cpu_to_be_16(sizeof(ppp_header_t));
+
+	pppoe_header->length = rte_cpu_to_be_16(sizeof(ppp_header_t) + sizeof(ppp_payload_t));
+
+	*mulen = rte_be_to_cpu_16(pppoe_header->length) + sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t) + sizeof(pppoe_header_t);
  	
 	VRG_LOG(DBG, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "User %" PRIu16 " terminate ack built.", s_ppp_ccb->user_num);
- 	return TRUE;
 }
 
 /**
