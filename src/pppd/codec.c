@@ -471,17 +471,18 @@ STATUS check_nak_reject(U8 flag, pppoe_header_t *pppoe_header, __attribute__((un
 }
 
 /**
- * For build PPPoE init.
+ * build_padi
  * 
- * @param buffer
- * 		pkt buffer
- * @param mulen
- * 		pkt length
- * @param s_ppp_ccb
- * 		ppp ccb
- * @return
- * 		- SUCCESS when build success
- * 		- ERROR when build fail
+ * @brief 
+ * 		For build PPPoE init.
+ * @param buffer 
+ * 		The buffer to be processed by the codec.
+ * @param s_ppp_ccb 
+ * 		The ppp ccb.
+ * @param len 
+ * 		The length of the buffer.
+ * @return 
+ * 		void
  */
 STATUS build_padi(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb)
 {
@@ -522,17 +523,18 @@ STATUS build_padi(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb)
 }
 
 /**
- * For build PPPoE request.
+ * build_padr
  * 
- * @param buffer
- * 		pkt buffer
- * @param mulen
- * 		pkt length
- * @param s_ppp_ccb
- * 		ppp ccb
- * @return
- * 		- SUCCESS when build success
- * 		- ERROR when build fail
+ * @brief 
+ * 		For build PPPoE request.
+ * @param buffer 
+ * 		The buffer to be processed by the codec.
+ * @param s_ppp_ccb 
+ * 		The ppp ccb.
+ * @param len 
+ * 		The length of the buffer.
+ * @return 
+ * 		void
  */
 STATUS build_padr(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb)
 {
@@ -605,16 +607,18 @@ STATUS build_padr(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb)
 }
 
 /**
- * For build PPPoE termination.
+ * build_padt
  * 
- * @param buffer
- * 		pkt buffer
- * @param mulen
- * 		pkt length
- * @param s_ppp_ccb
- * 		ppp ccb
- * @return
- * 		- none
+ * @brief 
+ * 		For build PPPoE termination.
+ * @param buffer 
+ * 		The buffer to be processed by the codec.
+ * @param s_ppp_ccb 
+ * 		The ppp ccb.
+ * @param len 
+ * 		The length of the buffer.
+ * @return 
+ * 		void
  */
 void build_padt(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb)
 {
@@ -641,16 +645,18 @@ void build_padt(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb)
 }
 
 /**
- * For build PPP configure request, either in NCP or LCP phase.
+ * build_config_request
  * 
- * @param buffer
- * 		pkt buffer
- * @param mulen
- * 		pkt length
- * @param s_ppp_ccb
- * 		ppp ccb
- * @return
- * 		- none
+ * @brief 
+ * 		For build PPP configure request, either in NCP or LCP phase.
+ * @param buffer 
+ * 		The buffer to be processed by the codec.
+ * @param s_ppp_ccb 
+ * 		The ppp ccb.
+ * @param len 
+ * 		The length of the buffer.
+ * @return 
+ * 		void
  */
 void build_config_request(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb)
 {
@@ -660,8 +666,6 @@ void build_config_request(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb)
 	ppp_payload_t 		*ppp_payload = (ppp_payload_t *)(pppoe_header + 1);
 	ppp_header_t 		*ppp_hdr = (ppp_header_t *)(ppp_payload + 1);
 	ppp_options_t 		*ppp_options = (ppp_options_t *)(ppp_hdr + 1);
-
-	srand(time(NULL));
 
 	rte_ether_addr_copy(&vrg_ccb->nic_info.hsi_wan_src_mac, &eth_hdr->src_addr);
 	rte_ether_addr_copy(&s_ppp_ccb->PPP_dst_mac, &eth_hdr->dst_addr);
@@ -735,8 +739,7 @@ void build_config_request(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb)
  		/* options, magic number */
  		cur->type = MAGIC_NUM;
  		cur->length = 0x6;
- 		s_ppp_ccb->magic_num = rte_cpu_to_be_32((rand() % 0xFFFFFFFE) + 1);
- 		rte_memcpy(cur->val,&(s_ppp_ccb->magic_num),sizeof(U32));
+ 		rte_memcpy(cur->val, &(s_ppp_ccb->magic_num), sizeof(U32));
  		pppoe_header->length += 6;
  		ppp_hdr->length += 6;
 	}
@@ -752,12 +755,16 @@ void build_config_request(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb)
 /**
  * build_config_ack
  *
- * purpose: For build PPP configure ack, either in NCP or LCP phase.
- * input: 	*buffer - packet buffer,
- * 		    *s_ppp_ccb,
- * 			*mulen - packet length
- * output: 	TRUE/FALSE
- * return: 	packet buffer
+ * @brief 
+ * 		For build PPP config ack, either in NCP or LCP phase.
+ * @param buffer 
+ * 		The buffer to be processed by the codec.
+ * @param s_ppp_ccb 
+ * 		The ppp ccb.
+ * @param len 
+ * 		The length of the buffer.
+ * @return 
+ * 		void
  */
 void build_config_ack(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb)
 {
@@ -787,12 +794,16 @@ void build_config_ack(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb)
 /**
  * build_config_nak_rej
  *
- * purpose: For build PPP configure nak or reject, either in NCP or LCP phase.
- * input: 	*buffer - packet buffer,
- * 		    *s_ppp_ccb,
- * 			*mulen - packet length
- * output: 	TRUE/FALSE
- * return: 	packet buffer
+ * @brief 
+ * 		For build PPP config reject and nak, either in NCP or LCP phase.
+ * @param buffer 
+ * 		The buffer to be processed by the codec.
+ * @param s_ppp_ccb 
+ * 		The ppp ccb.
+ * @param len 
+ * 		The length of the buffer.
+ * @return 
+ * 		void
  */
 void build_config_nak_rej(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb)
 {
@@ -822,38 +833,56 @@ void build_config_nak_rej(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb)
 /**
  * build_echo_reply
  *
- * purpose: For build PPP echo reply, only in LCP phase.
- * input: 	*buffer - packet buffer,
- * 		    *s_ppp_ccb,
- * 			*mulen - packet length
- * output: 	TRUE/FALSE
- * return: 	packet buffer
+ * @brief 
+ * 		For build PPP echo reply, only in LCP phase.
+ * @param buffer 
+ * 		The buffer to be processed by the codec.
+ * @param s_ppp_ccb 
+ * 		The ppp ccb.
+ * @param len 
+ * 		The length of the buffer.
+ * @return 
+ * 		void
  */
-STATUS build_echo_reply(unsigned char* buffer, PPP_INFO_t *s_ppp_ccb, U16 *mulen)
+void build_echo_reply(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb)
 {
-	struct rte_ether_hdr *eth_hdr = s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].eth_hdr;
-	vlan_header_t		*vlan_header = s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].vlan_header;
-	pppoe_header_t 		*pppoe_header = s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].pppoe_header;
-	ppp_payload_t 		*ppp_payload = s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].ppp_payload;
-	ppp_header_t 		*ppp_hdr = s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].ppp_hdr;
-
-	ppp_hdr->code = ECHO_REPLY;
+	struct rte_ether_hdr *eth_hdr = (struct rte_ether_hdr *)buffer;
+	vlan_header_t		*vlan_header = (vlan_header_t *)(eth_hdr + 1);
+	pppoe_header_t 		*pppoe_header = (pppoe_header_t *)(vlan_header + 1);
+	ppp_payload_t 		*ppp_payload = (ppp_payload_t *)(pppoe_header + 1);
+	ppp_header_t 		*ppp_hdr = (ppp_header_t *)(ppp_payload + 1);
+	U8 *magic_num = (U8 *)(ppp_hdr + 1);
+	U8 ppp_opt_len = rte_be_to_cpu_16(s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].ppp_hdr->length) - sizeof(ppp_header_t);
 
 	rte_ether_addr_copy(&vrg_ccb->nic_info.hsi_wan_src_mac, &eth_hdr->src_addr);
 	rte_ether_addr_copy(&s_ppp_ccb->PPP_dst_mac, &eth_hdr->dst_addr);
+	eth_hdr->ether_type = s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].eth_hdr->ether_type;
 
-	pppoe_header->length = rte_cpu_to_be_16(sizeof(ppp_payload_t) + sizeof(ppp_header_t) + 4);
-	*mulen = ntohs(pppoe_header->length) + sizeof(struct rte_ether_hdr) + sizeof(pppoe_header_t) + sizeof(vlan_header_t);
+	*vlan_header = *(s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].vlan_header);
+	*pppoe_header = *(s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].pppoe_header);
+	*ppp_payload = *(s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].ppp_payload);
+	*ppp_hdr = *(s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].ppp_hdr);
 
-	memset(buffer,0,MSG_BUF);
-	rte_memcpy(buffer,eth_hdr,sizeof(struct rte_ether_hdr));
-	rte_memcpy(buffer+14,vlan_header,sizeof(vlan_header_t));
- 	rte_memcpy(buffer+14+sizeof(vlan_header_t),pppoe_header,sizeof(pppoe_header_t));
- 	rte_memcpy(buffer+14+sizeof(vlan_header_t)+sizeof(pppoe_header_t),ppp_payload,sizeof(ppp_payload_t));
- 	rte_memcpy(buffer+14+sizeof(vlan_header_t)+sizeof(pppoe_header_t)+sizeof(ppp_payload_t),ppp_hdr,sizeof(ppp_header_t));
- 	rte_memcpy(buffer+14+sizeof(vlan_header_t)+sizeof(pppoe_header_t)+sizeof(ppp_payload_t)+sizeof(ppp_header_t),&(s_ppp_ccb->magic_num),4);
- 	
- 	return TRUE;
+	ppp_hdr->code = ECHO_REPLY;
+	ppp_hdr->length = sizeof(ppp_header_t);
+	pppoe_header->length = sizeof(ppp_payload_t) + sizeof(ppp_header_t);
+
+	if (ppp_opt_len > 0) {
+		*(U32 *)magic_num = s_ppp_ccb->magic_num;
+		ppp_hdr->length += sizeof(s_ppp_ccb->magic_num);
+		pppoe_header->length += sizeof(s_ppp_ccb->magic_num);
+	}
+	ppp_opt_len -= sizeof(s_ppp_ccb->magic_num);
+	if (ppp_opt_len == sizeof(U32)/* echo requester's nmagic number */) {
+		magic_num += sizeof(s_ppp_ccb->magic_num);
+		*(U32 *)magic_num = *(U32 *)s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].ppp_options;
+		ppp_hdr->length += ppp_opt_len;
+		pppoe_header->length += ppp_opt_len;
+	}
+
+	*mulen = pppoe_header->length + sizeof(struct rte_ether_hdr) + sizeof(pppoe_header_t) + sizeof(vlan_header_t);
+	ppp_hdr->length = rte_cpu_to_be_16(ppp_hdr->length);
+	pppoe_header->length = rte_cpu_to_be_16(pppoe_header->length);
 }
 
 /**
@@ -900,12 +929,16 @@ void build_terminate_ack(unsigned char* buffer, U16 *mulen, PPP_INFO_t *s_ppp_cc
 /**
  * build_terminate_request
  *
- * purpose: For build PPP terminate request, either in NCP or LCP phase.
- * input: 	*buffer - packet buffer,
- * 		    *s_ppp_ccb,
- * 			*mulen - packet length
- * output: 	TRUE/FALSE
- * return: 	packet buffer
+ * @brief 
+ * 		For build PPP terminate request, either in NCP or LCP phase.
+ * @param buffer 
+ * 		The buffer to be processed by the codec.
+ * @param s_ppp_ccb 
+ * 		The ppp ccb.
+ * @param len 
+ * 		The length of the buffer.
+ * @return 
+ * 		void
  */
 void build_terminate_request(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb)
 {

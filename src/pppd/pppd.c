@@ -136,6 +136,8 @@ STATUS pppdInit(void *ccb)
 		return ERROR;
 	}
 
+	srand(time(NULL));
+
 	PPP_INFO_t *ppp_ccb = vrg_ccb->ppp_ccb;
 	ppp_interval = (uint32_t)(3*SECOND); 
 
@@ -155,6 +157,7 @@ STATUS pppdInit(void *ccb)
 		ppp_ccb[i].phase = END_PHASE;
 		ppp_ccb[i].is_pap_auth = FALSE;
 		ppp_ccb[i].auth_method = CHAP_PROTOCOL;
+		ppp_ccb[i].magic_num = rte_cpu_to_be_32((rand() % 0xFFFFFFFE) + 1);
 		for(int j=0; j<TOTAL_SOCK_PORT; j++) {
 			rte_atomic16_init(&ppp_ccb[i].addr_table[j].is_alive);
 			rte_atomic16_init(&ppp_ccb[i].addr_table[j].is_fill);

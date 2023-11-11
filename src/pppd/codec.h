@@ -20,15 +20,13 @@ void codec_init(VRG_t *ccb);
 extern STATUS PPP_decode_frame(tVRG_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_header_t *vlan_header, pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp_header_t *ppp_hdr, ppp_options_t *ppp_options, U16 *event, PPP_INFO_t *s_ppp_ccb);
 extern STATUS decode_ipcp(pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp_header_t *ppp_hdr, ppp_options_t *ppp_options, U16 total_lcp_length, U16 *event, struct rte_timer *tim, PPP_INFO_t *s_ppp_ccb);
 
-extern void   DECODE_OBJID(U8 *vp, U8 vlen, U32 *oids, U8 *oids_len);
-
 void build_config_request(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb);
 void build_config_ack(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb);
 void build_config_nak_rej(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb);
-void build_terminate_ack(unsigned char *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb);
+void build_terminate_ack(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb);
 extern STATUS build_code_reject(unsigned char *buffer, PPP_INFO_t *s_ppp_ccb, U16 *mulen);
 void build_terminate_request(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb);
-extern STATUS build_echo_reply(unsigned char *buffer, PPP_INFO_t *s_ppp_ccb, U16 *mulen);
+void build_echo_reply(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb);
 extern STATUS build_auth_request_pap(unsigned char *buffer, PPP_INFO_t *s_ppp_ccb, U16 *mulen);
 extern STATUS build_auth_ack_pap(unsigned char *buffer, PPP_INFO_t *s_ppp_ccb, U16 *mulen);
 

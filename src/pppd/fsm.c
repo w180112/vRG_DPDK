@@ -835,7 +835,7 @@ STATUS A_send_terminate_ack(__attribute__((unused)) struct rte_timer *tim, PPP_I
     unsigned char buffer[MSG_BUF];
     U16 mulen;
 
-    build_terminate_ack(buffer, s_ppp_ccb, &mulen);
+    build_terminate_ack(buffer, &mulen, s_ppp_ccb);
     drv_xmit(vrg_ccb, buffer, mulen);
 
     return TRUE;
@@ -858,8 +858,7 @@ STATUS A_send_echo_reply(__attribute__((unused)) struct rte_timer *tim, __attrib
     unsigned char buffer[MSG_BUF];
     U16 mulen;
 
-    if (build_echo_reply(buffer,s_ppp_ccb,&mulen) < 0)
-        return FALSE;
+    build_echo_reply(buffer, &mulen, s_ppp_ccb);
     drv_xmit(vrg_ccb, buffer, mulen);
 
     return TRUE;

@@ -38,6 +38,7 @@ int main()
     test_build_config_nak_rej();
     test_build_terminate_request();
     test_build_terminate_ack();
+    test_build_echo_reply();
     puts("ok!");
 
     puts("\nall test successfully");
