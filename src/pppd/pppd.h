@@ -36,6 +36,9 @@ typedef struct addr_table {
 typedef struct {
 	U16						user_num;		/* subscriptor id */
 	U16 					vlan;			/* subscriptor vlan */
+	struct rte_ether_hdr 	eth_hdr;
+	vlan_header_t			vlan_header __rte_aligned(sizeof(vlan_header_t));
+	pppoe_header_t 			pppoe_header __rte_aligned(sizeof(vlan_header_t));
     ppp_phase_t 			ppp_phase[2];	/* store lcp and ipcp info, index 0 means lcp, index 1 means ipcp */
 	pppoe_phase_t			pppoe_phase;	/* store pppoe info */
 	U8 						cp:1;			/* cp is "control protocol", means we need to determine cp is LCP or NCP after parsing packet */
@@ -63,14 +66,14 @@ typedef struct {
     struct rte_timer 	    ppp_alive; 		/* PPP connection checking timer */
 }__rte_cache_aligned PPP_INFO_t;
 
-extern U32			ppp_interval;
+extern U32	ppp_interval;
 
-void 				PPP_int(void);
-void 				exit_ppp(__attribute__((unused)) struct rte_timer *tim, PPP_INFO_t *ppp_ccb);
-extern STATUS 		ppp_process(void *mail);
-STATUS 				ppp_connect(PPP_INFO_t *ppp_ccb, U16 user_id);
-STATUS 				ppp_disconnect(PPP_INFO_t *ppp_ccb, U16 user_id);
-STATUS 				pppdInit(void *ccb);
-void 				PPP_bye(PPP_INFO_t *ppp_ccb);
+void 		PPP_int(void);
+void 		exit_ppp(__attribute__((unused)) struct rte_timer *tim, PPP_INFO_t *ppp_ccb);
+STATUS 		ppp_process(void *mail);
+STATUS 		ppp_connect(PPP_INFO_t *ppp_ccb, U16 user_id);
+STATUS 		ppp_disconnect(PPP_INFO_t *ppp_ccb, U16 user_id);
+STATUS 		pppdInit(void *ccb);
+void 		PPP_bye(PPP_INFO_t *ppp_ccb);
 
 #endif

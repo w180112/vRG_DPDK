@@ -176,7 +176,11 @@ static void cmd_quit_parsed(__attribute__((unused)) void *parsed_result,
 			    __attribute__((unused)) struct cmdline *cl,
 			    __attribute__((unused)) void *data)
 {
-	tVRG_MBX *mail = (tVRG_MBX *)rte_malloc(NULL,sizeof(tVRG_MBX),0);
+	tVRG_MBX *mail = (tVRG_MBX *)rte_malloc(NULL, sizeof(tVRG_MBX), 0);
+	if (mail == NULL) {
+		cmdline_printf(cl, "cmd_quit_parsed failed: rte_malloc failed: %s\n", rte_strerror(rte_errno));
+		return;
+	}
 	cli_to_main_msg_t *msg = (cli_to_main_msg_t *)mail->refp;
 
     msg->type = CLI_QUIT;
@@ -244,7 +248,11 @@ static void cmd_connect_parsed( void *parsed_result,
 			    __attribute__((unused)) void *data)
 {
 	struct cmd_connect_result *res = parsed_result;
-	tVRG_MBX *mail = (tVRG_MBX *)rte_malloc(NULL,sizeof(tVRG_MBX),0);
+	tVRG_MBX *mail = (tVRG_MBX *)rte_malloc(NULL, sizeof(tVRG_MBX), 0);
+	if (mail == NULL) {
+		cmdline_printf(cl, "cmd_connect_parsed failed: rte_malloc failed: %s\n", rte_strerror(rte_errno));
+		return;
+	}
 	cli_to_main_msg_t *msg = (cli_to_main_msg_t *)mail->refp;
 
 	if (strcmp(res->connect, "connect") == 0)
@@ -304,7 +312,11 @@ static void cmd_dhcp_parsed( void *parsed_result,
 			    __attribute__((unused)) void *data)
 {
 	struct cmd_dhcp_result *res = parsed_result;
-	tVRG_MBX *mail = (tVRG_MBX *)rte_malloc(NULL,sizeof(tVRG_MBX),0);
+	tVRG_MBX *mail = (tVRG_MBX *)rte_malloc(NULL, sizeof(tVRG_MBX), 0);
+	if (mail == NULL) {
+		cmdline_printf(cl, "cmd_dhcp_parsed failed: rte_malloc failed: %s\n", rte_strerror(rte_errno));
+		return;
+	}
 	cli_to_main_msg_t *msg = (cli_to_main_msg_t *)mail->refp;
 
 	if (strcmp(res->cmd, "start") == 0)

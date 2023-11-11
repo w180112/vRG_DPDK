@@ -173,6 +173,11 @@ STATUS pppdInit(void *ccb)
 		rte_atomic16_init(&ppp_ccb[i].ppp_bool);
 		ppp_ccb[i].ppp_user_id = (unsigned char *)"asdf";
 		ppp_ccb[i].ppp_passwd = (unsigned char *)"zxcv";
+		ppp_ccb[i].pppoe_phase.pppoe_header_tag = rte_malloc(NULL, RTE_CACHE_LINE_SIZE, RTE_CACHE_LINE_SIZE);
+		if (ppp_ccb[i].pppoe_phase.pppoe_header_tag == NULL) {
+			VRG_LOG(ERR, vrg_ccb->fp, NULL, PPPLOGMSG, "rte_malloc failed: %s", rte_strerror(errno));
+			return ERROR;
+		}
 	}
     
 	sleep(1);
@@ -236,16 +241,18 @@ void exit_ppp(__attribute__((unused)) struct rte_timer *tim, PPP_INFO_t *ppp_ccb
  */
 STATUS ppp_process(void	*mail)
 {
-	tVRG_MBX	*vrg_mail = (tVRG_MBX *)mail;
+	tVRG_MBX			*vrg_mail = (tVRG_MBX *)mail;
 	PPP_INFO_t			*ppp_ccb = vrg_ccb->ppp_ccb;
 	int 				cp, ret;
-	uint16_t			event, session_index = 0;
-	struct rte_ether_hdr eth_hdr;
-	vlan_header_t		vlan_header;
-	pppoe_header_t 		pppoe_header;
+	U16					event, session_index = 0;
 	ppp_payload_t		ppp_payload;
 	ppp_header_t		ppp_hdr;
 	ppp_options_t		*ppp_options = (ppp_options_t *)rte_malloc(NULL, 80*sizeof(U8), 0);
+
+	if (ppp_options == NULL) {
+		VRG_LOG(ERR, vrg_ccb->fp, vrg_ccb, NULL, "ppp_process failed: rte_malloc failed: %s\n", rte_strerror(rte_errno));
+		return FALSE;
+	}
 
 	#pragma GCC diagnostic push  // require GCC 4.6
 	#pragma GCC diagnostic ignored "-Wstrict-aliasing"
@@ -257,72 +264,9 @@ STATUS ppp_process(void	*mail)
 		return FALSE;
 	}
 	#pragma GCC diagnostic pop   // require GCC 4.6
-	ret = PPP_decode_frame(vrg_mail, &eth_hdr, &vlan_header, &pppoe_header, &ppp_payload, &ppp_hdr, ppp_options, &event ,&ppp_ccb[session_index]);
+	ret = PPP_decode_frame(vrg_mail, &ppp_payload, &ppp_hdr, ppp_options, &event ,&ppp_ccb[session_index], session_index);
 	if (ret == ERROR)					
 		return FALSE;
-	if (ret == FALSE) {
-		switch(pppoe_header.code) {
-		case PADO:
-			if (ppp_ccb[session_index].pppoe_phase.active == TRUE)
-				return FALSE;
-			ppp_ccb[session_index].pppoe_phase.active = TRUE;
-    		ppp_ccb[session_index].pppoe_phase.eth_hdr = &eth_hdr;
-			ppp_ccb[session_index].pppoe_phase.vlan_header = &vlan_header;
-			ppp_ccb[session_index].pppoe_phase.pppoe_header = &pppoe_header;
-			ppp_ccb[session_index].pppoe_phase.pppoe_header_tag = (pppoe_header_tag_t *)((pppoe_header_t *)((vlan_header_t *)((struct rte_ether_hdr *)vrg_mail->refp + 1) + 1) + 1);
-			ppp_ccb[session_index].pppoe_phase.max_retransmit = MAX_RETRAN;
-			ppp_ccb[session_index].pppoe_phase.timer_counter = 0;
-			rte_timer_stop(&(ppp_ccb[session_index].pppoe));
-			rte_ether_addr_copy(&eth_hdr.src_addr, &ppp_ccb[session_index].PPP_dst_mac);
-			if (send_pkt(ENCODE_PADR, &(ppp_ccb[session_index])) == ERROR) {
-				exit_ppp(&(ppp_ccb[session_index].pppoe), &(ppp_ccb[session_index]));
-				return FALSE;
-			}
-			rte_timer_reset(&(ppp_ccb[session_index].pppoe), rte_get_timer_hz(), PERIODICAL, lcore.timer_thread, (rte_timer_cb_t)A_padr_timer_func, &ppp_ccb[session_index]);
-			return FALSE;
-		case PADS:
-			rte_timer_stop(&(ppp_ccb[session_index].pppoe));
-			ppp_ccb[session_index].session_id = pppoe_header.session_id;
-			ppp_ccb[session_index].cp = 0;
-    		for (int i=0; i<2; i++) {
-    			ppp_ccb[session_index].ppp_phase[i].eth_hdr = &eth_hdr;
-				ppp_ccb[session_index].ppp_phase[i].vlan_header = &vlan_header;
-    			ppp_ccb[session_index].ppp_phase[i].pppoe_header = &pppoe_header;
-    			ppp_ccb[session_index].ppp_phase[i].ppp_payload = &ppp_payload;
-    			ppp_ccb[session_index].ppp_phase[i].ppp_hdr = &ppp_hdr;
-    			ppp_ccb[session_index].ppp_phase[i].ppp_options = ppp_options;
-   			}
-    		PPP_FSM(&(ppp_ccb[session_index].ppp),&ppp_ccb[session_index],E_OPEN);
-			return FALSE;
-		case PADT:
-			for(session_index=0; session_index<vrg_ccb->user_count; session_index++) {
-				if (ppp_ccb[session_index].session_id == pppoe_header.session_id)
-					break;
-    		}
-    		if (session_index == vrg_ccb->user_count) {
-				VRG_LOG(WARN, vrg_ccb->fp, NULL, PPPLOGMSG, "Out of range session id in PADT");
-    			return FALSE;
-    		}
-    		ppp_ccb[session_index].pppoe_phase.eth_hdr = &eth_hdr;
-			ppp_ccb[session_index].pppoe_phase.pppoe_header = &pppoe_header;
-			ppp_ccb[session_index].pppoe_phase.pppoe_header_tag = (pppoe_header_tag_t *)((pppoe_header_t *)((struct rte_ether_hdr *)vrg_mail->refp + 1) + 1);
-			ppp_ccb[session_index].pppoe_phase.max_retransmit = MAX_RETRAN;
-
-			VRG_LOG(INFO, vrg_ccb->fp, &ppp_ccb[session_index], PPPLOGMSG, "Session 0x%x connection disconnected.", rte_be_to_cpu_16(ppp_ccb[session_index].session_id));
-			ppp_ccb[session_index].phase = END_PHASE;
-			ppp_ccb[session_index].pppoe_phase.active = FALSE;
-			ppp_ccb[session_index].ppp_phase[0].state = S_INIT;
-			ppp_ccb[session_index].ppp_phase[1].state = S_INIT;
-			PPP_bye(&ppp_ccb[session_index]);
-			return FALSE;		
-		case PADM:
-			VRG_LOG(INFO, vrg_ccb->fp, &ppp_ccb[session_index], PPPLOGMSG, "recv active discovery message");
-			return FALSE;
-		default:
-			VRG_LOG(WARN, vrg_ccb->fp, &ppp_ccb[session_index], PPPLOGMSG, "Unknown PPPoE discovery type %x", pppoe_header.code);
-			return FALSE;
-		}
-	}
 	ppp_ccb[session_index].ppp_phase[0].ppp_options = ppp_options;
 	ppp_ccb[session_index].ppp_phase[1].ppp_options = ppp_options;
 	if (ppp_payload.ppp_protocol == rte_cpu_to_be_16(PAP_PROTOCOL) || ppp_payload.ppp_protocol == rte_cpu_to_be_16(CHAP_PROTOCOL)) {

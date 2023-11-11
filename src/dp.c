@@ -127,12 +127,17 @@ int wan_recvd(void *arg)
 	struct rte_mbuf 	*pkt[BURST_SIZE];
 	U16 				ori_port_id, nb_rx;
 	ppp_payload_t 		*ppp_payload;
-	tVRG_MBX 			*mail = rte_malloc(NULL,sizeof(tVRG_MBX)*32,65536);
+	tVRG_MBX 			*mail = rte_malloc(NULL, sizeof(tVRG_MBX)*32, 65536);
 	int 				i;
 	U32 				icmp_new_cksum;
 	char 				*cur;
 	U16 				user_index;
 	VRG_t 				*vrg_ccb = (VRG_t *)arg;
+
+	if (mail == NULL) {
+		VRG_LOG(ERR, vrg_ccb->fp, NULL, NULL, "wan_recvd failed: rte_malloc failed: %s\n", rte_strerror(rte_errno));
+		return -1;
+	}
 	
 	usleep(500000);
 	for(;;) {
@@ -765,7 +770,12 @@ void drv_xmit(VRG_t *vrg_ccb, U8 *mu, U16 mulen)
 static int lsi_event_callback(U16 port_id, enum rte_eth_event_type type, void *param)
 {
 	struct rte_eth_link link;
-	tVRG_MBX			*mail = (tVRG_MBX *)rte_malloc(NULL,sizeof(tVRG_MBX),2048);
+	tVRG_MBX			*mail = (tVRG_MBX *)rte_malloc(NULL, sizeof(tVRG_MBX), 2048);
+
+	if (mail == NULL) {
+		VRG_LOG(ERR, NULL, NULL, NULL, "lsi_event_callback failed: rte_malloc failed: %s\n", rte_strerror(rte_errno));
+		return -1;
+	}
 
 	RTE_SET_USED(param);
 

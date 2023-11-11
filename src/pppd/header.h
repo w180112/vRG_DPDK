@@ -81,25 +81,25 @@ typedef struct pppoe_header {
 	U8 code;
 	U16 session_id; // network byte order
 	U16 length; // host byte order
-} pppoe_header_t;
+}__rte_packed pppoe_header_t;
 
 typedef struct pppoe_header_tag {
 	U16 type; // network byte order
   	U16 length; // host byte order
   	// depend on the type and length.
   	U8 value[0];
-} pppoe_header_tag_t;
+}__rte_packed pppoe_header_tag_t;
 
 typedef struct ppp_header {
 	U8 code;
 	U8 identifier;
 	U16 length; // host byte order
-}ppp_header_t;
+}__rte_packed ppp_header_t;
 
 typedef struct ppp_pap_ack_nak {
 	U8 msg_length;
 	U8 msg[0];
-}ppp_pap_ack_nak_t;
+}__rte_packed ppp_pap_ack_nak_t;
 
 typedef struct ppp_chap_data {
 	U8 val_size;
@@ -109,23 +109,20 @@ typedef struct ppp_chap_data {
 
 typedef struct ppp_payload {
 	U16 ppp_protocol;
-}ppp_payload_t;
+}__rte_packed ppp_payload_t;
 
 typedef struct ppp_options {
 	U8 type;
 	U8 length;
 	U8 val[0];
-}ppp_options_t;
+}__rte_packed ppp_options_t;
 
 typedef struct pppoe_phase {
-	struct rte_ether_hdr *eth_hdr;
-	vlan_header_t		*vlan_header;
-	pppoe_header_t 		*pppoe_header;
 	pppoe_header_tag_t	*pppoe_header_tag;
 	U8 					max_retransmit;
 	U8					timer_counter;
 	BOOL 				active;
-}pppoe_phase_t;
+}__rte_cache_aligned pppoe_phase_t;
 
 typedef struct ppp_phase {
 	U16 				state;
@@ -138,6 +135,6 @@ typedef struct ppp_phase {
 	ppp_options_t 		*ppp_options;
 	U8 					max_retransmit;
 	U8					timer_counter;
-}ppp_phase_t;
+}__rte_cache_aligned ppp_phase_t;
 
 #endif
