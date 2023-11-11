@@ -187,8 +187,7 @@ STATUS PPP_decode_frame(tVRG_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_head
 	else if (ppp_payload->ppp_protocol == rte_cpu_to_be_16(PAP_PROTOCOL)) {
 		if (s_ppp_ccb->phase != AUTH_PHASE)
 			return ERROR;
-		//ppp_pap_ack_nak_t ppp_pap_ack_nak, *tmp_ppp_pap_ack_nak = (ppp_pap_ack_nak_t *)(tmp_ppp_hdr + 1);
-		//rte_memcpy(&ppp_pap_ack_nak,tmp_ppp_pap_ack_nak,tmp_ppp_pap_ack_nak->msg_length + sizeof(U8));
+		// we don't care what msg pap server send to us, just check it's ack or nak
 		if (ppp_hdr->code == PAP_ACK) {
 			VRG_LOG(INFO, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "User %" PRIu16 " auth success.", s_ppp_ccb->user_num);
 			s_ppp_ccb->phase = IPCP_PHASE;
@@ -196,7 +195,7 @@ STATUS PPP_decode_frame(tVRG_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_head
 		}
 		else if (ppp_hdr->code == PAP_NAK) {
     		s_ppp_ccb->phase = LCP_PHASE;
-    		PPP_FSM(&(s_ppp_ccb->ppp),s_ppp_ccb,E_CLOSE);
+    		PPP_FSM(&(s_ppp_ccb->ppp), s_ppp_ccb, E_CLOSE);
 			VRG_LOG(WARN, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "User %" PRIu16 " auth fail.", s_ppp_ccb->user_num);
 			return TRUE;
 		}
