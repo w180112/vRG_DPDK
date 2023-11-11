@@ -238,10 +238,9 @@ STATUS PPP_decode_frame(tVRG_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_head
     		tmp_s_ppp_ccb.ppp_phase[0].ppp_options = NULL;
     		tmp_s_ppp_ccb.cp = 0;
 			tmp_s_ppp_ccb.session_id = s_ppp_ccb->session_id;
-			if (build_auth_response_chap(buffer, &tmp_s_ppp_ccb, &mulen, ppp_chap_data) < 0)
-				return ERROR;
-				
-			drv_xmit(vrg_ccb, buffer, mulen);
+
+            build_auth_response_chap(buffer, &mulen, &tmp_s_ppp_ccb, ppp_chap_data);
+            drv_xmit(vrg_ccb, buffer, mulen);
 			VRG_LOG(INFO, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "User %" PRIu16 " recv chap challenge.", s_ppp_ccb->user_num);
 			return TRUE;
 		}
@@ -475,10 +474,10 @@ STATUS check_nak_reject(U8 flag, pppoe_header_t *pppoe_header, __attribute__((un
  * 		For build PPPoE init.
  * @param buffer 
  * 		The buffer to be processed by the codec.
+ * @param mulen 
+ * 		The length of the buffer.
  * @param s_ppp_ccb 
  * 		The ppp ccb.
- * @param len 
- * 		The length of the buffer.
  * @return 
  * 		void
  */
@@ -527,10 +526,10 @@ STATUS build_padi(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb)
  * 		For build PPPoE request.
  * @param buffer 
  * 		The buffer to be processed by the codec.
+ * @param mulen 
+ * 		The length of the buffer.
  * @param s_ppp_ccb 
  * 		The ppp ccb.
- * @param len 
- * 		The length of the buffer.
  * @return 
  * 		void
  */
@@ -611,10 +610,10 @@ STATUS build_padr(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb)
  * 		For build PPPoE termination.
  * @param buffer 
  * 		The buffer to be processed by the codec.
+ * @param mulen 
+ * 		The length of the buffer.
  * @param s_ppp_ccb 
  * 		The ppp ccb.
- * @param len 
- * 		The length of the buffer.
  * @return 
  * 		void
  */
@@ -649,10 +648,10 @@ void build_padt(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb)
  * 		For build PPP configure request, either in NCP or LCP phase.
  * @param buffer 
  * 		The buffer to be processed by the codec.
+ * @param mulen 
+ * 		The length of the buffer.
  * @param s_ppp_ccb 
  * 		The ppp ccb.
- * @param len 
- * 		The length of the buffer.
  * @return 
  * 		void
  */
@@ -756,10 +755,10 @@ void build_config_request(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb)
  * 		For build PPP config ack, either in NCP or LCP phase.
  * @param buffer 
  * 		The buffer to be processed by the codec.
+ * @param mulen 
+ * 		The length of the buffer.
  * @param s_ppp_ccb 
  * 		The ppp ccb.
- * @param len 
- * 		The length of the buffer.
  * @return 
  * 		void
  */
@@ -795,10 +794,10 @@ void build_config_ack(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb)
  * 		For build PPP config reject and nak, either in NCP or LCP phase.
  * @param buffer 
  * 		The buffer to be processed by the codec.
+ * @param mulen 
+ * 		The length of the buffer.
  * @param s_ppp_ccb 
  * 		The ppp ccb.
- * @param len 
- * 		The length of the buffer.
  * @return 
  * 		void
  */
@@ -834,10 +833,10 @@ void build_config_nak_rej(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb)
  * 		For build PPP echo reply, only in LCP phase.
  * @param buffer 
  * 		The buffer to be processed by the codec.
+ * @param mulen 
+ * 		The length of the buffer.
  * @param s_ppp_ccb 
  * 		The ppp ccb.
- * @param len 
- * 		The length of the buffer.
  * @return 
  * 		void
  */
@@ -889,10 +888,10 @@ void build_echo_reply(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb)
  * 		For build PPP terminate ack, either in NCP or LCP phase.
  * @param buffer 
  * 		The buffer to be processed by the codec.
+ * @param mulen 
+ * 		The length of the buffer.
  * @param s_ppp_ccb 
  * 		The ppp ccb.
- * @param len 
- * 		The length of the buffer.
  * @return 
  * 		void
  */
@@ -930,10 +929,10 @@ void build_terminate_ack(unsigned char* buffer, U16 *mulen, PPP_INFO_t *s_ppp_cc
  * 		For build PPP terminate request, either in NCP or LCP phase.
  * @param buffer 
  * 		The buffer to be processed by the codec.
+ * @param mulen 
+ * 		The length of the buffer.
  * @param s_ppp_ccb 
  * 		The ppp ccb.
- * @param len 
- * 		The length of the buffer.
  * @return 
  * 		void
  */
@@ -994,10 +993,10 @@ STATUS build_code_reject(__attribute__((unused)) unsigned char* buffer, __attrib
  * 		For PAP auth, send after LCP nego complete.
  * @param buffer 
  * 		The buffer to be processed by the codec.
+ * @param mulen 
+ * 		The length of the buffer.
  * @param s_ppp_ccb 
  * 		The ppp ccb.
- * @param len 
- * 		The length of the buffer.
  * @return 
  * 		void
  */
@@ -1049,10 +1048,10 @@ void build_auth_request_pap(unsigned char* buffer, U16 *mulen, PPP_INFO_t *s_ppp
  * 		For Spirent test center, in pap, we will receive pap request packet.
  * @param buffer 
  * 		The buffer to be processed by the codec.
+ * @param mulen 
+ * 		The length of the buffer.
  * @param s_ppp_ccb 
  * 		The ppp ccb.
- * @param len 
- * 		The length of the buffer.
  * @return 
  * 		void
  */
@@ -1092,16 +1091,22 @@ void build_auth_ack_pap(unsigned char *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb
 
 /* TODO: not yet tested */
 /**
- * @brief build_auth_request_chap
- * For CHAP auth, starting after LCP nego complete.
- * 
- * @param buffer ppp pkt buffer
+ * build_auth_request_chap
+ *
+ * @brief 
+ * 		For CHAP auth, starting after LCP nego complete.
+ * @param buffer 
+ * 		The buffer to be processed by the codec.
+ * @param mulen 
+ * 		The length of the buffer.
  * @param s_ppp_ccb 
- * @param mulen ppp pkt buffer length
- * @retval TRUE if encode successfully
- * @retval FALSE if encode failed 
+ * 		The ppp ccb.
+ * @param ppp_chap_data
+ *      The chap data to be sent.
+ * @return 
+ * 		void
  */
-STATUS build_auth_response_chap(U8 *buffer, PPP_INFO_t *s_ppp_ccb, U16 *mulen, ppp_chap_data_t *ppp_chap_data)
+void build_auth_response_chap(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb, ppp_chap_data_t *ppp_chap_data)
 {
 	U8 chap_hash[16];
 	U8 *buf_ptr = buffer;
@@ -1142,7 +1147,6 @@ STATUS build_auth_response_chap(U8 *buffer, PPP_INFO_t *s_ppp_ccb, U16 *mulen, p
 	*mulen = buf_ptr - buffer;
 
 	VRG_LOG(DBG, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "User %" PRIu16 " chap response built.", s_ppp_ccb->user_num);
- 	return TRUE;
 }
 
 STATUS send_pkt(U8 encode_type, PPP_INFO_t *s_ppp_ccb)
