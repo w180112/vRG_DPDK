@@ -123,58 +123,59 @@ void test_build_config_request() {
     U8 buffer[80];
     U16 mulen = 0;
 
-    PPP_INFO_t s_ppp_ccb_1 = {
-        .ppp_phase = {{
-            .timer_counter = 0,
-            .max_retransmit = 10,
-        },{
-            .timer_counter = 0,
-            .max_retransmit = 10,
-        },},
-        .user_num = 1,
-        .vlan = 2,
-        .PPP_dst_mac = (struct rte_ether_addr){
-            .addr_bytes = {0x74, 0x4d, 0x28, 0x8d, 0x00, 0x31},
+    PPP_INFO_t s_ppp_ccb[] = {
+        {
+            .ppp_phase = {{
+                .timer_counter = 0,
+                .max_retransmit = 10,
+            },{
+                .timer_counter = 0,
+                .max_retransmit = 10,
+            },},
+            .user_num = 1,
+            .vlan = 2,
+            .PPP_dst_mac = (struct rte_ether_addr){
+                .addr_bytes = {0x74, 0x4d, 0x28, 0x8d, 0x00, 0x31},
+            },
+            .session_id = htons(0x000a),
+            .cp = 0,
+            .magic_num = htonl(0x01020304),
+            .identifier = 0xfd,
+            .hsi_ipv4 = 0x0,
         },
-        .session_id = htons(0x000a),
-        .cp = 0,
-        .magic_num = htonl(0x01020304),
     };
 
-    char pkt_lcp[] = {0x74, 0x4d, 0x28, 0x8d, 0x00, 0x31, 0x9c, 0x69, 0xb4, 0x61, 
-    0x16, 0xdd, 0x81, 0x00, 0x00, 0x02, 0x88, 0x64, 0x11, 0x00, 0x00, 0x0a, 0x00, 
-    0x10, 0xc0, 0x21, 0x01, 0x01, 0x00, 0x0e, 0x01, 0x04, 0x05, 0xd0, 0x05, 0x06, 
-    0x01, 0x02, 0x03, 0x04};
-    char pkt_ipcp[] = {0x74, 0x4d, 0x28, 0x8d, 0x00, 0x31, 0x9c, 0x69, 0xb4, 0x61, 
-    0x16, 0xdd, 0x81, 0x00, 0x00, 0x02, 0x88, 0x64, 0x11, 0x00, 0x00, 0x0a, 0x00, 
-    0x0c, 0x80, 0x21, 0x01, 0x01, 0x00, 0x0a, 0x03, 0x06, 0x00, 0x00, 0x00, 0x00};
+    U8 pkt_lcp[] = {/* mac */0x74, 0x4d, 0x28, 0x8d, 0x00, 0x31, 0x9c, 0x69, 0xb4, 
+    0x61, 0x16, 0xdd, 0x81, 0x00, /* vlan */0x00, 0x02, 0x88, 0x64, /* pppoe hdr */
+    0x11, 0x00, 0x00, 0x0a, 0x00, 0x10, /* ppp protocol */0xc0, 0x21, /* ppp hdr */
+    0x01, 0xfe, 0x00, 0x0e, /* ppp option */0x01, 0x04, 0x05, 0xd0, 0x05, 0x06, 0x01, 
+    0x02, 0x03, 0x04};
+    U8 pkt_ipcp_1[] = {/* mac */0x74, 0x4d, 0x28, 0x8d, 0x00, 0x31, 0x9c, 0x69, 0xb4, 
+    0x61, 0x16, 0xdd, 0x81, 0x00, /* vlan */0x00, 0x02, 0x88, 0x64, /* pppoe hdr */
+    0x11, 0x00, 0x00, 0x0a, 0x00, 0x0c, /* ppp protocol */0x80, 0x21, /* ppp hdr */
+    0x01, 0xff, 0x00, 0x0a, /* ppp option */0x03, 0x06, 0x00, 0x00, 0x00, 0x00};
+    U8 pkt_ipcp_2[] = {/* mac */0x74, 0x4d, 0x28, 0x8d, 0x00, 0x31, 0x9c, 0x69, 0xb4, 
+    0x61, 0x16, 0xdd, 0x81, 0x00, /* vlan */0x00, 0x02, 0x88, 0x64, /* pppoe hdr */
+    0x11, 0x00, 0x00, 0x0a, 0x00, 0x0c, /* ppp protocol */0x80, 0x21, /* ppp hdr */
+    0x01, 0x01, 0x00, 0x0a, /* ppp option */0x03, 0x06, 0xc0, 0xa8, 0xc8, 0x01};
 
-    /* test LCP */
-    build_config_request(buffer, &mulen, &s_ppp_ccb_1);
-    assert(mulen == sizeof(pkt_lcp));
-    assert(memcmp(buffer, pkt_lcp, 26/* only memcmp to lcp field */) == 0);
-    ppp_header_t *test_ppp_hdr = (ppp_header_t *)(buffer + 26);
-    assert(test_ppp_hdr->code == CONFIG_REQUEST);
-    assert(test_ppp_hdr->length == htons(0x000e));
-    ppp_options_t *test_ppp_options = (ppp_options_t *)(test_ppp_hdr + 1);
-    assert(test_ppp_options->type == MRU);
-    assert(test_ppp_options->length == 0x04);
-    test_ppp_options = (ppp_options_t *)((U8 *)test_ppp_options + test_ppp_options->length);
-    assert(test_ppp_options->type == MAGIC_NUM);
-    assert(test_ppp_options->length == 0x06);
-
-    /* test IPCP */
-    memset(buffer, 0, sizeof(buffer));
-    s_ppp_ccb_1.cp = 1;
-    build_config_request(buffer, &mulen, &s_ppp_ccb_1);
-    assert(mulen == sizeof(pkt_ipcp));
-    assert(memcmp(buffer, pkt_ipcp, 26/* only memcmp to ipcp field */) == 0);
-    test_ppp_hdr = (ppp_header_t *)(buffer + 26);
-    assert(test_ppp_hdr->code == CONFIG_REQUEST);
-    assert(test_ppp_hdr->length == htons(0x000a));
-    test_ppp_options = (ppp_options_t *)(test_ppp_hdr + 1);
-    assert(test_ppp_options->type == IP_ADDRESS);
-    assert(test_ppp_options->length == 0x06);
+    for(int i=0; i<sizeof(s_ppp_ccb)/sizeof(s_ppp_ccb[0]); i++) {
+        /* test LCP */
+        build_config_request(buffer, &mulen, &s_ppp_ccb[0]);
+        assert(mulen == sizeof(pkt_lcp));
+        assert(memcmp(buffer, pkt_lcp, sizeof(pkt_lcp)) == 0);
+        /* test IPCP */
+        s_ppp_ccb[0].cp = 1;
+        memset(buffer, 0, sizeof(buffer));
+        build_config_request(buffer, &mulen, &s_ppp_ccb[0]);
+        assert(mulen == sizeof(pkt_ipcp_1));
+        assert(memcmp(buffer, pkt_ipcp_1, sizeof(pkt_ipcp_1)) == 0);
+        s_ppp_ccb[0].hsi_ipv4 = htonl(0xc0a8c801);
+        memset(buffer, 0, sizeof(buffer));
+        build_config_request(buffer, &mulen, &s_ppp_ccb[0]);
+        assert(mulen == sizeof(pkt_ipcp_2));
+        assert(memcmp(buffer, pkt_ipcp_2, sizeof(pkt_ipcp_2)) == 0);
+    }
 }
 
 void test_build_config_ack() {

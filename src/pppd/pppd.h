@@ -47,7 +47,7 @@ typedef struct {
 	U32						hsi_primary_dns;/* 1st dns addr pppoe server assign to pppoe client */
 	U32						hsi_second_dns;	/* 2nd dns addr pppoe server assign to pppoe client */
     U8						identifier;		/* ppp pkt id */
-	U32						magic_num;		/* ppp pkt magic number */
+	U32						magic_num;		/* ppp pkt magic number, in network order */
     BOOL					is_pap_auth;	/* pap auth boolean flag */
     U16 					auth_method;	/* use chap or pap */
 	unsigned char 			*ppp_user_id;	/* pap/chap account */

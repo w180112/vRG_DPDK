@@ -150,14 +150,15 @@ STATUS pppdInit(void *ccb)
 		/* vlan of each subscriptor is adding the base_vlan value in vRG_setup file to i */
 		ppp_ccb[i].vlan = i + vrg_ccb->base_vlan;
 		
-		ppp_ccb[i].hsi_ipv4 = 0;
-		ppp_ccb[i].hsi_ipv4_gw = 0;
-		ppp_ccb[i].hsi_primary_dns = 0;
-		ppp_ccb[i].hsi_second_dns = 0;
+		ppp_ccb[i].hsi_ipv4 = 0x0;
+		ppp_ccb[i].hsi_ipv4_gw = 0x0;
+		ppp_ccb[i].hsi_primary_dns = 0x0;
+		ppp_ccb[i].hsi_second_dns = 0x0;
 		ppp_ccb[i].phase = END_PHASE;
 		ppp_ccb[i].is_pap_auth = FALSE;
 		ppp_ccb[i].auth_method = CHAP_PROTOCOL;
 		ppp_ccb[i].magic_num = rte_cpu_to_be_32((rand() % 0xFFFFFFFE) + 1);
+		ppp_ccb[i].identifier = 0x0;
 		for(int j=0; j<TOTAL_SOCK_PORT; j++) {
 			rte_atomic16_init(&ppp_ccb[i].addr_table[j].is_alive);
 			rte_atomic16_init(&ppp_ccb[i].addr_table[j].is_fill);

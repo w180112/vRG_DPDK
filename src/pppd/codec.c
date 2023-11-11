@@ -685,9 +685,8 @@ void build_config_request(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb)
  	pppoe_header->session_id = s_ppp_ccb->session_id; 
 
  	ppp_hdr->code = CONFIG_REQUEST;
- 	ppp_hdr->identifier = ((rand() % 254) + 1);
-
- 	s_ppp_ccb->identifier = ppp_hdr->identifier;
+	s_ppp_ccb->identifier = (s_ppp_ccb->identifier % UINT8_MAX) + 1;
+ 	ppp_hdr->identifier = s_ppp_ccb->identifier;
 
  	pppoe_header->length = sizeof(ppp_header_t) + sizeof(ppp_payload->ppp_protocol);
  	ppp_hdr->length = sizeof(ppp_header_t);
@@ -739,7 +738,7 @@ void build_config_request(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb)
  		/* options, magic number */
  		cur->type = MAGIC_NUM;
  		cur->length = 0x6;
- 		rte_memcpy(cur->val, &(s_ppp_ccb->magic_num), sizeof(U32));
+		*(U32 *)(cur->val) = s_ppp_ccb->magic_num;
  		pppoe_header->length += 6;
  		ppp_hdr->length += 6;
 	}
