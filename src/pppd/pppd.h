@@ -50,8 +50,8 @@ typedef struct {
 	U32						magic_num;		/* ppp pkt magic number, in network order */
     BOOL					is_pap_auth;	/* pap auth boolean flag */
     U16 					auth_method;	/* use chap or pap */
-	unsigned char 			*ppp_user_id;	/* pap/chap account */
-	unsigned char 			*ppp_passwd;	/* pap/chap password */
+	U8 						*ppp_user_id;	/* pap/chap account */
+	U8 						*ppp_passwd;	/* pap/chap password */
     rte_atomic16_t 			ppp_bool; 		/* boolean flag for accept ppp packets at data plane */
     rte_atomic16_t 			dp_start_bool;	/* hsi data plane starting boolean flag */
     BOOL					ppp_processing; /* boolean flag for checking ppp is disconnecting */

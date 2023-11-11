@@ -496,7 +496,8 @@ void test_build_config_nak_rej()
     assert(memcmp(buffer, pkt_ipcp_2, sizeof(pkt_ipcp_2)) == 0);
 }
 
-void test_build_terminate_ack() {
+void test_build_terminate_ack() 
+{
     U8 buffer[80];
     U16 mulen = 0;
 
@@ -591,7 +592,8 @@ void test_build_terminate_ack() {
     assert(memcmp(buffer, pkt_ipcp, sizeof(pkt_ipcp)) == 0);
 }
 
-void test_build_echo_reply() {
+void test_build_echo_reply() 
+{
     U8 buffer[80];
     U16 mulen = 0;
 
@@ -639,7 +641,6 @@ void test_build_echo_reply() {
     0x11, 0x00, 0x00, 0x0a, 0x00, 0x0a, /* ppp protocol */0xc0, 0x21, /* ppp hdr*/
     0x0a, 0x01, 0x00, 0x08, /* magic number */0x01, 0x02, 0x03, 0x04};
 
-    /* test LCP */
     build_echo_reply(buffer, &mulen, &s_ppp_ccb_1);
     assert(mulen == sizeof(pkt_lcp_1));
     assert(memcmp(buffer, pkt_lcp_1, sizeof(pkt_lcp_1)) == 0);
@@ -654,4 +655,127 @@ void test_build_echo_reply() {
     build_echo_reply(buffer, &mulen, &s_ppp_ccb_1);
     assert(mulen == sizeof(pkt_lcp_2));
     assert(memcmp(buffer, pkt_lcp_2, sizeof(pkt_lcp_2)) == 0);
+}
+
+void test_build_auth_request_pap()
+{
+    U8 buffer[80];
+    U16 mulen = 0;
+
+    PPP_INFO_t s_ppp_ccb_1 = {
+        .ppp_phase = {{
+            .timer_counter = 0,
+            .max_retransmit = 10,
+            .eth_hdr = &(struct rte_ether_hdr) {
+                .ether_type = htons(VLAN),
+            },
+            .vlan_header = &(vlan_header_t) {
+                .tci_union.tci_value = htons(0002),
+                .next_proto = htons(ETH_P_PPP_SES),
+            },
+            .pppoe_header = &(pppoe_header_t) {
+                .code = 0,
+                .ver_type = 0x11,
+                .session_id = htons(0x000a),
+                .length = htons(0x0000),
+            },
+            .ppp_payload = &(ppp_payload_t) {
+                .ppp_protocol = htons(LCP_PROTOCOL),
+            },
+            .ppp_hdr = &(ppp_header_t) {
+                .code = CONFIG_REQUEST,
+                .identifier = 0x01,
+                .length = htons(0x0000),
+            },
+        },{},},
+        .user_num = 1,
+        .vlan = 2,
+        .PPP_dst_mac = (struct rte_ether_addr){
+            .addr_bytes = {0x74, 0x4d, 0x28, 0x8d, 0x00, 0x31},
+        },
+        .session_id = htons(0x000a),
+        .cp = 0,
+        .magic_num = htonl(0x01020304),
+        .ppp_user_id = (U8 *)"asdf", // 0x61, 0x73, 0x64, 0x66
+        .ppp_passwd = (U8 *)"zxcv", // 0x7a, 0x78, 0x63, 0x76
+        .identifier = 0xfe,
+    };
+
+    char pkt_lcp_1[] = {/* mac */0x74, 0x4d, 0x28, 0x8d, 0x00, 0x31, 0x9c, 0x69, 0xb4, 
+    0x61, 0x16, 0xdd, 0x81, 0x00, /* vlan */0x00, 0x02, 0x88, 0x64, /* pppoe hdr */
+    0x11, 0x00, 0x00, 0x0a, 0x00, 0x10, /* ppp protocol */0xc0, 0x23, /* ppp hdr*/
+    0x01, 0xfe, 0x00, 0x0e, /* pap user */0x04, 0x61, 0x73, 0x64, 0x66, /* pap passwd */ 
+    0x04, 0x7a, 0x78, 0x63, 0x76};
+
+    build_auth_request_pap(buffer, &mulen, &s_ppp_ccb_1);
+    assert(mulen == sizeof(pkt_lcp_1));
+    assert(memcmp(buffer, pkt_lcp_1, sizeof(pkt_lcp_1)) == 0);
+
+    char pkt_lcp_2[] = {/* mac */0x74, 0x4d, 0x28, 0x8d, 0x00, 0x31, 0x9c, 0x69, 0xb4, 
+    0x61, 0x16, 0xdd, 0x81, 0x00, /* vlan */0x00, 0x02, 0x88, 0x64, /* pppoe hdr */
+    0x11, 0x00, 0x00, 0x0a, 0x00, 0x20, /* ppp protocol */0xc0, 0x23, /* ppp hdr*/
+    0x01, 0xfe, 0x00, 0x1e, /* pap user */0x08, 0x31, 0x71, 0x61, 0x7a, 0x32, 0x77, 
+    0x73, 0x78, /* pap passwd */0x10, 0x33, 0x65, 0x64, 0x63, 0x34, 0x72, 0x66, 0x76, 
+    0x35, 0x74, 0x67, 0x62, 0x36, 0x79, 0x68, 0x6e};
+    s_ppp_ccb_1.ppp_user_id = (U8 *)"1qaz2wsx"; // 0x31, 0x71, 0x61, 0x7a, 0x32, 0x77, 0x73, 0x78
+    s_ppp_ccb_1.ppp_passwd = (U8 *)"3edc4rfv5tgb6yhn"; // 0x33, 0x65, 0x64, 0x63, 0x34, 0x72, 0x66, 0x76, 0x35, 0x74, 0x67, 0x62, 0x36, 0x79, 0x68, 0x6e
+
+    build_auth_request_pap(buffer, &mulen, &s_ppp_ccb_1);
+    assert(mulen == sizeof(pkt_lcp_2));
+    assert(memcmp(buffer, pkt_lcp_2, sizeof(pkt_lcp_2)) == 0);
+}
+
+void test_build_auth_ack_pap()
+{
+    U8 buffer[80];
+    U16 mulen = 0;
+
+    PPP_INFO_t s_ppp_ccb_1 = {
+        .ppp_phase = {{
+            .timer_counter = 0,
+            .max_retransmit = 10,
+            .eth_hdr = &(struct rte_ether_hdr) {
+                .ether_type = htons(VLAN),
+            },
+            .vlan_header = &(vlan_header_t) {
+                .tci_union.tci_value = htons(0002),
+                .next_proto = htons(ETH_P_PPP_SES),
+            },
+            .pppoe_header = &(pppoe_header_t) {
+                .code = 0,
+                .ver_type = 0x11,
+                .session_id = htons(0x000a),
+                .length = htons(0x0000),
+            },
+            .ppp_payload = &(ppp_payload_t) {
+                .ppp_protocol = htons(LCP_PROTOCOL),
+            },
+            .ppp_hdr = &(ppp_header_t) {
+                .code = CONFIG_REQUEST,
+                .identifier = 0x01,
+                .length = htons(0x0000),
+            },
+        },{},},
+        .user_num = 1,
+        .vlan = 2,
+        .PPP_dst_mac = (struct rte_ether_addr){
+            .addr_bytes = {0x74, 0x4d, 0x28, 0x8d, 0x00, 0x31},
+        },
+        .session_id = htons(0x000a),
+        .cp = 0,
+        .magic_num = htonl(0x01020304),
+        .ppp_user_id = (U8 *)"asdf", // 0x61, 0x73, 0x64, 0x66
+        .ppp_passwd = (U8 *)"zxcv", // 0x7a, 0x78, 0x63, 0x76
+        .identifier = 0xfe,
+    };
+
+    char pkt_lcp_1[] = {/* mac */0x74, 0x4d, 0x28, 0x8d, 0x00, 0x31, 0x9c, 0x69, 0xb4, 
+    0x61, 0x16, 0xdd, 0x81, 0x00, /* vlan */0x00, 0x02, 0x88, 0x64, /* pppoe hdr */
+    0x11, 0x00, 0x00, 0x0a, 0x00, 0x0f, /* ppp protocol */0xc0, 0x23, /* ppp hdr*/
+    0x02, 0xfe, 0x00, 0x0d, /* Login ok */0x08, 0x4c, 0x6f, 0x67, 0x69, 0x6e, 0x20, 
+    0x6f, 0x6b};
+
+    build_auth_ack_pap(buffer, &mulen, &s_ppp_ccb_1);
+    assert(mulen == sizeof(pkt_lcp_1));
+    assert(memcmp(buffer, pkt_lcp_1, sizeof(pkt_lcp_1)) == 0);
 }

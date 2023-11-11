@@ -10,5 +10,7 @@ void test_build_terminate_request();
 void test_build_config_nak_rej();
 void test_build_terminate_ack();
 void test_build_echo_reply();
+void test_build_auth_request_pap();
+void test_build_auth_ack_pap();
 
 #endif

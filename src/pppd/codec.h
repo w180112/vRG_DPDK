@@ -24,15 +24,15 @@ void build_config_request(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb);
 void build_config_ack(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb);
 void build_config_nak_rej(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb);
 void build_terminate_ack(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb);
-extern STATUS build_code_reject(unsigned char *buffer, PPP_INFO_t *s_ppp_ccb, U16 *mulen);
+extern STATUS build_code_reject(U8 *buffer, PPP_INFO_t *s_ppp_ccb, U16 *mulen);
 void build_terminate_request(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb);
 void build_echo_reply(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb);
-extern STATUS build_auth_request_pap(unsigned char *buffer, PPP_INFO_t *s_ppp_ccb, U16 *mulen);
-extern STATUS build_auth_ack_pap(unsigned char *buffer, PPP_INFO_t *s_ppp_ccb, U16 *mulen);
+void build_auth_request_pap(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb);
+void build_auth_ack_pap(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb);
+STATUS build_auth_response_chap(U8 *buffer, PPP_INFO_t *s_ppp_ccb, U16 *mulen, ppp_chap_data_t *ppp_chap_data);
 
 STATUS check_nak_reject(U8 flag, pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp_header_t *ppp_hdr, ppp_options_t *ppp_options, U16 total_lcp_length);
 STATUS check_ipcp_nak_rej(U8 flag, pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp_header_t *ppp_hdr, ppp_options_t *ppp_options, U16 total_lcp_length);
-STATUS build_auth_response_chap(unsigned char* buffer, PPP_INFO_t *s_ppp_ccb, U16 *mulen, ppp_chap_data_t *ppp_chap_data);
 
 STATUS build_padi(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb);
 STATUS build_padr(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb);

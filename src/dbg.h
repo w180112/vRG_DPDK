@@ -15,8 +15,9 @@
 #define LOGERR		 4U
 #define LOGUNKNOWN 0U
 
-extern  char 		*PPP_state2str(U16 state);
-extern  char 		*DHCP_state2str(U16 state);
+char *PPP_state2str(U16 state);
+char *PPP_event2str(U16 event);
+char *DHCP_state2str(U16 state);
 
 /* log level, logfile fp, log msg */
 #define VRG_LOG(lvl, fp, ccb, ccb2str, ...) LOGGER(LOG ## lvl, __FILE__, __LINE__, fp, ccb, ccb2str, __VA_ARGS__)

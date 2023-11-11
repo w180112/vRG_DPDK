@@ -187,8 +187,8 @@ STATUS PPP_decode_frame(tVRG_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_head
 	else if (ppp_payload->ppp_protocol == rte_cpu_to_be_16(PAP_PROTOCOL)) {
 		if (s_ppp_ccb->phase != AUTH_PHASE)
 			return ERROR;
-		ppp_pap_ack_nak_t ppp_pap_ack_nak, *tmp_ppp_pap_ack_nak = (ppp_pap_ack_nak_t *)(tmp_ppp_hdr + 1);
-		rte_memcpy(&ppp_pap_ack_nak,tmp_ppp_pap_ack_nak,tmp_ppp_pap_ack_nak->msg_length + sizeof(U8));
+		//ppp_pap_ack_nak_t ppp_pap_ack_nak, *tmp_ppp_pap_ack_nak = (ppp_pap_ack_nak_t *)(tmp_ppp_hdr + 1);
+		//rte_memcpy(&ppp_pap_ack_nak,tmp_ppp_pap_ack_nak,tmp_ppp_pap_ack_nak->msg_length + sizeof(U8));
 		if (ppp_hdr->code == PAP_ACK) {
 			VRG_LOG(INFO, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "User %" PRIu16 " auth success.", s_ppp_ccb->user_num);
 			s_ppp_ccb->phase = IPCP_PHASE;
@@ -214,9 +214,8 @@ STATUS PPP_decode_frame(tVRG_MBX *mail, struct rte_ether_hdr *eth_hdr, vlan_head
     		tmp_s_ppp_ccb.ppp_phase[0].ppp_options = NULL;
     		tmp_s_ppp_ccb.cp = 0;
 			tmp_s_ppp_ccb.session_id = s_ppp_ccb->session_id;
-			if (build_auth_ack_pap(buffer, &tmp_s_ppp_ccb, &mulen) < 0)
-				return ERROR;
-				
+
+			build_auth_ack_pap(buffer, &mulen, &tmp_s_ppp_ccb);
 			drv_xmit(vrg_ccb, buffer, mulen);
 			VRG_LOG(INFO, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "User %" PRIu16 " recv pap request.\n", s_ppp_ccb->user_num);
 			return TRUE;
@@ -992,105 +991,104 @@ STATUS build_code_reject(__attribute__((unused)) unsigned char* buffer, __attrib
 /**
  * build_auth_request_pap
  *
- * purpose: For PAP auth, send after LCP nego complete.
- * input: 	*buffer - packet buffer,
- * 		    *s_ppp_ccb,
- * 			*mulen - packet length
- * output: 	TRUE/FALSE
- * return: 	packet buffer
+ * @brief 
+ * 		For PAP auth, send after LCP nego complete.
+ * @param buffer 
+ * 		The buffer to be processed by the codec.
+ * @param s_ppp_ccb 
+ * 		The ppp ccb.
+ * @param len 
+ * 		The length of the buffer.
+ * @return 
+ * 		void
  */
-STATUS build_auth_request_pap(unsigned char* buffer, PPP_INFO_t *s_ppp_ccb, U16 *mulen)
+void build_auth_request_pap(unsigned char* buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb)
 {
-	ppp_header_t 		ppp_pap_header;
-	U8 			peer_id_length = strlen((const char *)(s_ppp_ccb->ppp_user_id));
-	U8 			peer_passwd_length = strlen((const char *)(s_ppp_ccb->ppp_passwd));
-	struct rte_ether_hdr 	*eth_hdr = s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].eth_hdr;
-	vlan_header_t		*vlan_header = s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].vlan_header;
-	pppoe_header_t 		*pppoe_header = s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].pppoe_header;
-	ppp_payload_t 		*ppp_payload = s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].ppp_payload;
-	ppp_header_t 		*ppp_hdr = s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].ppp_hdr;
+    struct rte_ether_hdr *eth_hdr = (struct rte_ether_hdr *)buffer;
+    vlan_header_t		*vlan_header = (vlan_header_t *)(eth_hdr + 1);
+    pppoe_header_t 		*pppoe_header = (pppoe_header_t *)(vlan_header + 1);
+    ppp_payload_t 		*ppp_payload = (ppp_payload_t *)(pppoe_header + 1);
+	ppp_header_t        *ppp_pap_header = (ppp_header_t *)(ppp_payload + 1);
+	U8                  peer_id_length = strlen((const char *)(s_ppp_ccb->ppp_user_id));
+	U8                  peer_passwd_length = strlen((const char *)(s_ppp_ccb->ppp_passwd));
+    U8                  *pap_account = (U8 *)(ppp_pap_header + 1);
+    U8                  *pap_password = pap_account + peer_id_length + sizeof(U8)/* pap account length field */;
 
 	s_ppp_ccb->phase = AUTH_PHASE;
 
 	rte_ether_addr_copy(&vrg_ccb->nic_info.hsi_wan_src_mac, &eth_hdr->src_addr);
 	rte_ether_addr_copy(&s_ppp_ccb->PPP_dst_mac, &eth_hdr->dst_addr);
+    eth_hdr->ether_type = rte_cpu_to_be_16(VLAN);
 
-	ppp_payload->ppp_protocol = rte_cpu_to_be_16(PAP_PROTOCOL);
-	ppp_pap_header.code = PAP_REQUEST;
-	ppp_pap_header.identifier = ppp_hdr->identifier;
+    *vlan_header = *(s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].vlan_header);
+    *pppoe_header = *(s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].pppoe_header);
+    ppp_payload->ppp_protocol = rte_cpu_to_be_16(PAP_PROTOCOL);
 
-	ppp_pap_header.length = 2 * sizeof(U8) + peer_id_length + peer_passwd_length + sizeof(ppp_header_t);
-	pppoe_header->length = ppp_pap_header.length + sizeof(ppp_payload_t);
-	ppp_pap_header.length = rte_cpu_to_be_16(ppp_pap_header.length);
+	ppp_pap_header->code = PAP_REQUEST;
+	ppp_pap_header->identifier = s_ppp_ccb->identifier;
+
+    *(U8 *)pap_account = peer_id_length;
+    rte_memcpy(pap_account + sizeof(U8), s_ppp_ccb->ppp_user_id, peer_id_length);
+    *(U8 *)pap_password = peer_passwd_length;
+    rte_memcpy(pap_password + sizeof(U8), s_ppp_ccb->ppp_passwd, peer_passwd_length);
+
+	ppp_pap_header->length = 2 * sizeof(U8)/* for pap account length and pap password length */ 
+    + peer_id_length + peer_passwd_length + sizeof(ppp_header_t);
+	pppoe_header->length = ppp_pap_header->length + sizeof(ppp_payload_t);
+	ppp_pap_header->length = rte_cpu_to_be_16(ppp_pap_header->length);
 	pppoe_header->length = rte_cpu_to_be_16(pppoe_header->length);
 
 	*mulen = ntohs(pppoe_header->length) + sizeof(struct rte_ether_hdr) + sizeof(pppoe_header_t) + sizeof(vlan_header_t);
-
-	memset(buffer,0,MSG_BUF);
-	rte_memcpy(buffer,eth_hdr,sizeof(struct rte_ether_hdr));
- 	rte_memcpy(buffer+sizeof(struct rte_ether_hdr),vlan_header,sizeof(vlan_header_t));
-	rte_memcpy(buffer+sizeof(struct rte_ether_hdr)+sizeof(vlan_header_t),pppoe_header,sizeof(pppoe_header_t));
- 	rte_memcpy(buffer+sizeof(struct rte_ether_hdr)+sizeof(vlan_header_t)+sizeof(pppoe_header_t),ppp_payload,sizeof(ppp_payload_t));
- 	rte_memcpy(buffer+sizeof(struct rte_ether_hdr)+sizeof(vlan_header_t)+sizeof(pppoe_header_t)+sizeof(ppp_payload_t),&ppp_pap_header,sizeof(ppp_header_t));
- 	rte_memcpy(buffer+sizeof(struct rte_ether_hdr)+sizeof(vlan_header_t)+sizeof(pppoe_header_t)+sizeof(ppp_payload_t)+sizeof(ppp_header_t),&peer_id_length,sizeof(U8));
- 	rte_memcpy(buffer+sizeof(struct rte_ether_hdr)+sizeof(vlan_header_t)+sizeof(pppoe_header_t)+sizeof(ppp_payload_t)+sizeof(ppp_header_t)+sizeof(U8),s_ppp_ccb->ppp_user_id,peer_id_length);
- 	rte_memcpy(buffer+sizeof(struct rte_ether_hdr)+sizeof(vlan_header_t)+sizeof(pppoe_header_t)+sizeof(ppp_payload_t)+sizeof(ppp_header_t)+sizeof(U8)+peer_id_length,&peer_passwd_length,sizeof(U8));
- 	rte_memcpy(buffer+sizeof(struct rte_ether_hdr)+sizeof(vlan_header_t)+sizeof(pppoe_header_t)+sizeof(ppp_payload_t)+sizeof(ppp_header_t)+sizeof(U8)+peer_id_length+sizeof(U8),s_ppp_ccb->ppp_passwd,peer_passwd_length);
  	
 	VRG_LOG(DBG, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "User %" PRIu16 " pap request built.", s_ppp_ccb->user_num);
- 	return TRUE;
 }
 
 /**
  * build_auth_ack_pap
  *
- * purpose: For Spirent test center, in pap, we will receive pap request packet.
- * input: 	*buffer - packet buffer,
- * 		    *s_ppp_ccb,
- * 			*mulen - packet length
- * output: 	TRUE/FALSE
- * return: 	packet buffer
+ * @brief 
+ * 		For Spirent test center, in pap, we will receive pap request packet.
+ * @param buffer 
+ * 		The buffer to be processed by the codec.
+ * @param s_ppp_ccb 
+ * 		The ppp ccb.
+ * @param len 
+ * 		The length of the buffer.
+ * @return 
+ * 		void
  */
-STATUS build_auth_ack_pap(unsigned char *buffer, PPP_INFO_t *s_ppp_ccb, U16 *mulen)
+void build_auth_ack_pap(unsigned char *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb)
 {
-	ppp_header_t 		ppp_pap_header;
 	const char 			*login_msg = "Login ok";
-	ppp_pap_ack_nak_t 	ppp_pap_ack_nak;
-	struct rte_ether_addr tmp_mac;
-	struct rte_ether_hdr *eth_hdr = s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].eth_hdr;
-	vlan_header_t		*vlan_header = s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].vlan_header;
-	pppoe_header_t 		*pppoe_header = s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].pppoe_header;
-	ppp_payload_t 		*ppp_payload = s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].ppp_payload;
-	ppp_header_t 		*ppp_hdr = s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].ppp_hdr;
+    struct rte_ether_hdr *eth_hdr = (struct rte_ether_hdr *)buffer;
+    vlan_header_t		*vlan_header = (vlan_header_t *)(eth_hdr + 1);
+    pppoe_header_t 		*pppoe_header = (pppoe_header_t *)(vlan_header + 1);
+    ppp_payload_t 		*ppp_payload = (ppp_payload_t *)(pppoe_header + 1);
+    ppp_header_t        *ppp_pap_header = (ppp_header_t *)(ppp_payload + 1);
+    ppp_pap_ack_nak_t 	*ppp_pap_ack_nak = (ppp_pap_ack_nak_t *)(ppp_pap_header + 1);
 
-	rte_ether_addr_copy(&eth_hdr->src_addr, &tmp_mac);
-	rte_ether_addr_copy(&eth_hdr->dst_addr, &eth_hdr->src_addr);
-	rte_ether_addr_copy(&tmp_mac, &eth_hdr->dst_addr);
+    rte_ether_addr_copy(&vrg_ccb->nic_info.hsi_wan_src_mac, &eth_hdr->src_addr);
+	rte_ether_addr_copy(&s_ppp_ccb->PPP_dst_mac, &eth_hdr->dst_addr);
+    eth_hdr->ether_type = rte_cpu_to_be_16(VLAN);
 
-	ppp_payload->ppp_protocol = rte_cpu_to_be_16(PAP_PROTOCOL);
-	ppp_pap_header.code = PAP_ACK;
-	ppp_pap_header.identifier = ppp_hdr->identifier;
+    *vlan_header = *(s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].vlan_header);
+    *pppoe_header = *(s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].pppoe_header);
+    ppp_payload->ppp_protocol = rte_cpu_to_be_16(PAP_PROTOCOL);
 
-	ppp_pap_ack_nak.msg_length = strlen(login_msg);
-	ppp_pap_ack_nak.msg = (U8 *)login_msg;
+	ppp_pap_header->code = PAP_ACK;
+	ppp_pap_header->identifier = s_ppp_ccb->identifier;
 
-	ppp_pap_header.length = sizeof(ppp_header_t) + ppp_pap_ack_nak.msg_length + sizeof(ppp_pap_ack_nak.msg_length);
-	pppoe_header->length = ppp_pap_header.length + sizeof(ppp_payload_t);
-	ppp_pap_header.length = rte_cpu_to_be_16(ppp_pap_header.length);
+	ppp_pap_ack_nak->msg_length = strlen(login_msg);
+	rte_memcpy(ppp_pap_ack_nak->msg, login_msg, ppp_pap_ack_nak->msg_length);
+
+	ppp_pap_header->length = sizeof(ppp_header_t) + ppp_pap_ack_nak->msg_length + sizeof(ppp_pap_ack_nak->msg_length);
+	pppoe_header->length = ppp_pap_header->length + sizeof(ppp_payload_t);
+    *mulen = pppoe_header->length + sizeof(struct rte_ether_hdr) + sizeof(pppoe_header_t) + sizeof(vlan_header_t);
+
+	ppp_pap_header->length = rte_cpu_to_be_16(ppp_pap_header->length);
 	pppoe_header->length = rte_cpu_to_be_16(pppoe_header->length);
-
-	*mulen = ntohs(pppoe_header->length) + sizeof(struct rte_ether_hdr) + sizeof(pppoe_header_t) + sizeof(vlan_header_t);
-
-	memset(buffer,0,MSG_BUF);
-	rte_memcpy(buffer,eth_hdr,sizeof(struct rte_ether_hdr));
- 	rte_memcpy(buffer+14,vlan_header,sizeof(vlan_header_t));
-	rte_memcpy(buffer+14+sizeof(vlan_header_t),pppoe_header,sizeof(pppoe_header_t));
- 	rte_memcpy(buffer+14+sizeof(vlan_header_t)+sizeof(pppoe_header_t),ppp_payload,sizeof(ppp_payload_t));
- 	rte_memcpy(buffer+14+sizeof(vlan_header_t)+sizeof(pppoe_header_t)+sizeof(ppp_payload_t),&ppp_pap_header,sizeof(ppp_header_t));
- 	rte_memcpy(buffer+14+sizeof(vlan_header_t)+sizeof(pppoe_header_t)+sizeof(ppp_payload_t)+sizeof(ppp_header_t),&ppp_pap_ack_nak,sizeof(ppp_pap_ack_nak.msg_length)+ppp_pap_ack_nak.msg_length);
  	
 	VRG_LOG(DBG, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "User %" PRIu16 " pap ack built.", s_ppp_ccb->user_num);
- 	return TRUE;
 }
 
 /* TODO: not yet tested */

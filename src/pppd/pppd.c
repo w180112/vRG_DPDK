@@ -340,6 +340,7 @@ STATUS ppp_process(void	*mail)
 	}
 	cp = (ppp_payload.ppp_protocol == rte_cpu_to_be_16(IPCP_PROTOCOL)) ? 1 : 0;
 	ppp_ccb[session_index].cp = cp;
+	ppp_ccb[session_index].ppp_phase[cp].event = event;
 	PPP_FSM(&(ppp_ccb[session_index].ppp), &ppp_ccb[session_index], event);
 	
 	return TRUE;

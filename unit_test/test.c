@@ -39,6 +39,8 @@ int main()
     test_build_terminate_request();
     test_build_terminate_ack();
     test_build_echo_reply();
+    test_build_auth_request_pap();
+    test_build_auth_ack_pap();
     puts("ok!");
 
     puts("\nall test successfully");

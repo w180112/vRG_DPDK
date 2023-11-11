@@ -98,7 +98,7 @@ typedef struct ppp_header {
 
 typedef struct ppp_pap_ack_nak {
 	U8 msg_length;
-	U8 *msg;
+	U8 msg[0];
 }ppp_pap_ack_nak_t;
 
 typedef struct ppp_chap_data {
@@ -128,7 +128,8 @@ typedef struct pppoe_phase {
 }pppoe_phase_t;
 
 typedef struct ppp_phase {
-	U8 					state;
+	U16 				state;
+	U16 				event;
 	struct rte_ether_hdr *eth_hdr;
 	vlan_header_t		*vlan_header;
 	pppoe_header_t 		*pppoe_header;
