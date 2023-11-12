@@ -50,15 +50,15 @@ void test_build_padr() {
         .pppoe_phase = {
             .timer_counter = 0,
             .max_retransmit = 10,
-            .eth_hdr = &eth_hdr,
-            .vlan_header = &vlan_header,
-            .pppoe_header = &pppoe_header,
         },
         .user_num = 1,
         .vlan = 2,
         .PPP_dst_mac = (struct rte_ether_addr){
             .addr_bytes = {0x74, 0x4d, 0x28, 0x8d, 0x00, 0x31},
         },
+        .eth_hdr = eth_hdr,
+        .vlan_header = vlan_header,
+        .pppoe_header = pppoe_header,
     };
     U8 pppoe_header_tag[44] = {0x01, 0x03, 0x00, 0x04, 0xdb, 0xce, 0x00, 0x00,
     0x01, 0x01, 0x00, 0x00, 0x01, 0x02, 0x00, 0x08, 0x4d, 0x69, 0x6b, 0x72, 
@@ -99,9 +99,6 @@ void test_build_padt() {
         .pppoe_phase = {
             .timer_counter = 0,
             .max_retransmit = 10,
-            .eth_hdr = &eth_hdr,
-            .vlan_header = &vlan_header,
-            .pppoe_header = &pppoe_header,
         },
         .user_num = 1,
         .vlan = 2,
@@ -109,6 +106,9 @@ void test_build_padt() {
             .addr_bytes = {0x74, 0x4d, 0x28, 0x8d, 0x00, 0x31},
         },
         .session_id = htons(0x000a),
+        .eth_hdr = eth_hdr,
+        .vlan_header = vlan_header,
+        .pppoe_header = pppoe_header,
     };
     char pkt_1[] = {0x74, 0x4d, 0x28, 0x8d, 0x00, 0x31, 0x9c, 0x69, 0xb4, 0x61, 
     0x16, 0xdd, 0x81, 0x00, 0x00, 0x02, 0x88, 0x63, 0x11, 0xa7, 0x00, 0x0a, 0x00, 
