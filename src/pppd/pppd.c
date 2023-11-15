@@ -243,49 +243,24 @@ STATUS ppp_process(void	*mail)
 {
 	tVRG_MBX			*vrg_mail = (tVRG_MBX *)mail;
 	PPP_INFO_t			*ppp_ccb = vrg_ccb->ppp_ccb;
-	int 				cp, ret;
-	U16					event, session_index = 0;
-	ppp_payload_t		ppp_payload;
-	ppp_header_t		ppp_hdr;
-	ppp_options_t		*ppp_options = (ppp_options_t *)rte_malloc(NULL, 80*sizeof(U8), 0);
+	int 				ret;
+	U16					event, user_id = 0;
 
-	if (ppp_options == NULL) {
-		VRG_LOG(ERR, vrg_ccb->fp, vrg_ccb, NULL, "ppp_process failed: rte_malloc failed: %s\n", rte_strerror(rte_errno));
-		return FALSE;
-	}
-
-	#pragma GCC diagnostic push  // require GCC 4.6
-	#pragma GCC diagnostic ignored "-Wstrict-aliasing"
-	session_index = ((vlan_header_t *)(((struct rte_ether_hdr *)vrg_mail->refp) + 1))->tci_union.tci_value;
-	session_index = rte_be_to_cpu_16(session_index);
-	session_index = (session_index & 0xFFF) - vrg_ccb->base_vlan;
-	if (session_index >= vrg_ccb->user_count) {
-		VRG_LOG(DBG, vrg_ccb->fp, NULL, PPPLOGMSG, "recv not our PPPoE packet, discard.");
-		return FALSE;
-	}
-	#pragma GCC diagnostic pop   // require GCC 4.6
-	ret = PPP_decode_frame(vrg_mail, &ppp_payload, &ppp_hdr, ppp_options, &event ,&ppp_ccb[session_index], session_index);
+	ret = get_session_id(vrg_mail, &user_id);
 	if (ret == ERROR)					
 		return FALSE;
-	ppp_ccb[session_index].ppp_phase[0].ppp_options = ppp_options;
-	ppp_ccb[session_index].ppp_phase[1].ppp_options = ppp_options;
-	if (ppp_payload.ppp_protocol == rte_cpu_to_be_16(PAP_PROTOCOL) || ppp_payload.ppp_protocol == rte_cpu_to_be_16(CHAP_PROTOCOL)) {
-		if (ppp_hdr.code == PAP_NAK || ppp_hdr.code == CHAP_FAILURE) {
-			VRG_LOG(ERR, vrg_ccb->fp, &ppp_ccb[session_index], PPPLOGMSG, "User %" PRIu16 " received auth info error and start closing connection.", ppp_ccb[session_index].user_num);
-    		ppp_ccb[session_index].cp = 0;
-    		ppp_ccb[session_index].phase--;
-    		PPP_FSM(&(ppp_ccb[session_index].ppp),&ppp_ccb[session_index],E_CLOSE);
-		}
-		else if (ppp_hdr.code == PAP_ACK || ppp_hdr.code == CHAP_SUCCESS) {
-			ppp_ccb[session_index].cp = 1;
-			PPP_FSM(&(ppp_ccb[session_index].ppp),&ppp_ccb[session_index],E_OPEN);
-			return FALSE;
-		}
+
+	ret = PPP_decode_frame(vrg_mail, &event ,&ppp_ccb[user_id]);
+	if (ret == ERROR)					
+		return FALSE;
+	
+	if (check_auth_result(&ppp_ccb[user_id]) == 1) {
+		return FALSE;
 	}
-	cp = (ppp_payload.ppp_protocol == rte_cpu_to_be_16(IPCP_PROTOCOL)) ? 1 : 0;
-	ppp_ccb[session_index].cp = cp;
-	ppp_ccb[session_index].ppp_phase[cp].event = event;
-	PPP_FSM(&(ppp_ccb[session_index].ppp), &ppp_ccb[session_index], event);
+
+	ppp_ccb[user_id].ppp_phase[ppp_ccb[user_id].cp].event = event;
+	PPP_FSM(&(ppp_ccb[user_id].ppp), &ppp_ccb[user_id], event);
+	rte_free(ppp_ccb[user_id].ppp_phase[ppp_ccb[user_id].cp].ppp_options);
 	
 	return TRUE;
 }

@@ -186,23 +186,10 @@ void test_build_config_ack() {
         .ppp_phase = {{
             .timer_counter = 0,
             .max_retransmit = 10,
-            .eth_hdr = &(struct rte_ether_hdr) {
-                .ether_type = htons(VLAN),
-            },
-            .vlan_header = &(vlan_header_t) {
-                .tci_union.tci_value = htons(0002),
-                .next_proto = htons(ETH_P_PPP_SES),
-            },
-            .pppoe_header = &(pppoe_header_t) {
-                .code = 0,
-                .ver_type = 0x11,
-                .session_id = htons(0x000a),
-                .length = htons(0x0014),
-            },
-            .ppp_payload = &(ppp_payload_t) {
+            .ppp_payload = (ppp_payload_t) {
                 .ppp_protocol = htons(LCP_PROTOCOL),
             },
-            .ppp_hdr = &(ppp_header_t) {
+            .ppp_hdr = (ppp_header_t) {
                 .code = CONFIG_REQUEST,
                 .identifier = 0x01,
                 .length = htons(0x0012),
@@ -213,23 +200,10 @@ void test_build_config_ack() {
         },{
             .timer_counter = 0,
             .max_retransmit = 10,
-            .eth_hdr = &(struct rte_ether_hdr) {
-                .ether_type = htons(VLAN),
-            },
-            .vlan_header = &(vlan_header_t) {
-                .tci_union.tci_value = htons(0002),
-                .next_proto = htons(ETH_P_PPP_SES),
-            },
-            .pppoe_header = &(pppoe_header_t) {
-                .code = 0,
-                .ver_type = 0x11,
-                .session_id = htons(0x000a),
-                .length = htons(0x000c),
-            },
-            .ppp_payload = &(ppp_payload_t) {
+            .ppp_payload = (ppp_payload_t) {
                 .ppp_protocol = htons(IPCP_PROTOCOL),
             },
-            .ppp_hdr = &(ppp_header_t) {
+            .ppp_hdr = (ppp_header_t) {
                 .code = CONFIG_REQUEST,
                 .identifier = 0x01,
                 .length = htons(0x000a),
@@ -245,6 +219,19 @@ void test_build_config_ack() {
         },
         .session_id = htons(0x000a),
         .cp = 0,
+        .eth_hdr = (struct rte_ether_hdr) {
+            .ether_type = htons(VLAN),
+        },
+        .vlan_header = (vlan_header_t) {
+            .tci_union.tci_value = htons(0002),
+            .next_proto = htons(ETH_P_PPP_SES),
+        },
+        .pppoe_header = (pppoe_header_t) {
+            .code = 0,
+            .ver_type = 0x11,
+            .session_id = htons(0x000a),
+            .length = htons(0x0014),
+        },
     };
 
     char pkt_lcp[] = {/* mac */0x74, 0x4d, 0x28, 0x8d, 0x00, 0x31, 0x9c, 0x69, 0xb4, 
@@ -265,6 +252,7 @@ void test_build_config_ack() {
     memset(buffer, 0, sizeof(buffer));
     /* test IPCP */
     s_ppp_ccb_1.cp = 1;
+    s_ppp_ccb_1.pppoe_header.length = htons(0x000c);
     build_config_ack(buffer, &mulen, &s_ppp_ccb_1);
     assert(mulen == sizeof(pkt_ipcp));
     assert(memcmp(buffer, pkt_ipcp, sizeof(pkt_ipcp)) == 0);
@@ -328,23 +316,10 @@ void test_build_config_nak_rej()
         .ppp_phase = {{
             .timer_counter = 0,
             .max_retransmit = 10,
-            .eth_hdr = &(struct rte_ether_hdr) {
-                .ether_type = htons(VLAN),
-            },
-            .vlan_header = &(vlan_header_t) {
-                .tci_union.tci_value = htons(0002),
-                .next_proto = htons(ETH_P_PPP_SES),
-            },
-            .pppoe_header = &(pppoe_header_t) {
-                .code = 0,
-                .ver_type = 0x11,
-                .session_id = htons(0x000a),
-                .length = htons(0x000a),
-            },
-            .ppp_payload = &(ppp_payload_t) {
+            .ppp_payload = (ppp_payload_t) {
                 .ppp_protocol = htons(LCP_PROTOCOL),
             },
-            .ppp_hdr = &(ppp_header_t) {
+            .ppp_hdr = (ppp_header_t) {
                 .code = CONFIG_REJECT,
                 .identifier = 0x01,
                 .length = htons(0x0008),
@@ -355,23 +330,10 @@ void test_build_config_nak_rej()
         },{
             .timer_counter = 0,
             .max_retransmit = 10,
-            .eth_hdr = &(struct rte_ether_hdr) {
-                .ether_type = htons(VLAN),
-            },
-            .vlan_header = &(vlan_header_t) {
-                .tci_union.tci_value = htons(0002),
-                .next_proto = htons(ETH_P_PPP_SES),
-            },
-            .pppoe_header = &(pppoe_header_t) {
-                .code = 0,
-                .ver_type = 0x11,
-                .session_id = htons(0x000a),
-                .length = htons(0x000c),
-            },
-            .ppp_payload = &(ppp_payload_t) {
+            .ppp_payload = (ppp_payload_t) {
                 .ppp_protocol = htons(IPCP_PROTOCOL),
             },
-            .ppp_hdr = &(ppp_header_t) {
+            .ppp_hdr = (ppp_header_t) {
                 .code = CONFIG_REJECT,
                 .identifier = 0x01,
                 .length = htons(0x000a),
@@ -387,28 +349,28 @@ void test_build_config_nak_rej()
         },
         .session_id = htons(0x000a),
         .cp = 0,
+        .eth_hdr = (struct rte_ether_hdr) {
+            .ether_type = htons(VLAN),
+        },
+        .vlan_header = (vlan_header_t) {
+            .tci_union.tci_value = htons(0002),
+            .next_proto = htons(ETH_P_PPP_SES),
+        },
+        .pppoe_header = (pppoe_header_t) {
+            .code = 0,
+            .ver_type = 0x11,
+            .session_id = htons(0x000a),
+            .length = htons(0x000a),
+        },
     };
     PPP_INFO_t s_ppp_ccb_2 = {
         .ppp_phase = {{
             .timer_counter = 0,
             .max_retransmit = 10,
-            .eth_hdr = &(struct rte_ether_hdr) {
-                .ether_type = htons(VLAN),
-            },
-            .vlan_header = &(vlan_header_t) {
-                .tci_union.tci_value = htons(0002),
-                .next_proto = htons(ETH_P_PPP_SES),
-            },
-            .pppoe_header = &(pppoe_header_t) {
-                .code = 0,
-                .ver_type = 0x11,
-                .session_id = htons(0x000a),
-                .length = htons(0x000a),
-            },
-            .ppp_payload = &(ppp_payload_t) {
+            .ppp_payload = (ppp_payload_t) {
                 .ppp_protocol = htons(LCP_PROTOCOL),
             },
-            .ppp_hdr = &(ppp_header_t) {
+            .ppp_hdr = (ppp_header_t) {
                 .code = CONFIG_NAK,
                 .identifier = 0x01,
                 .length = htons(0x0008),
@@ -419,23 +381,10 @@ void test_build_config_nak_rej()
         },{
             .timer_counter = 0,
             .max_retransmit = 10,
-            .eth_hdr = &(struct rte_ether_hdr) {
-                .ether_type = htons(VLAN),
-            },
-            .vlan_header = &(vlan_header_t) {
-                .tci_union.tci_value = htons(0002),
-                .next_proto = htons(ETH_P_PPP_SES),
-            },
-            .pppoe_header = &(pppoe_header_t) {
-                .code = 0,
-                .ver_type = 0x11,
-                .session_id = htons(0x000a),
-                .length = htons(0x0010),
-            },
-            .ppp_payload = &(ppp_payload_t) {
+            .ppp_payload = (ppp_payload_t) {
                 .ppp_protocol = htons(IPCP_PROTOCOL),
             },
-            .ppp_hdr = &(ppp_header_t) {
+            .ppp_hdr = (ppp_header_t) {
                 .code = CONFIG_NAK,
                 .identifier = 0x01,
                 .length = htons(0x0010),
@@ -451,6 +400,19 @@ void test_build_config_nak_rej()
         },
         .session_id = htons(0x000a),
         .cp = 0,
+        .eth_hdr = (struct rte_ether_hdr) {
+            .ether_type = htons(VLAN),
+        },
+        .vlan_header = (vlan_header_t) {
+            .tci_union.tci_value = htons(0002),
+            .next_proto = htons(ETH_P_PPP_SES),
+        },
+        .pppoe_header = (pppoe_header_t) {
+            .code = 0,
+            .ver_type = 0x11,
+            .session_id = htons(0x000a),
+            .length = htons(0x000a),
+        },
     };
 
     char pkt_lcp_1[] = {/* mac */0x74, 0x4d, 0x28, 0x8d, 0x00, 0x31, 0x9c, 0x69, 0xb4, 
@@ -478,6 +440,7 @@ void test_build_config_nak_rej()
 
     /* test IPCP */
     s_ppp_ccb_1.cp = 1;
+    s_ppp_ccb_1.pppoe_header.length = htons(0x000c);
     memset(buffer, 0, sizeof(buffer));
     build_config_nak_rej(buffer, &mulen, &s_ppp_ccb_1);
     assert(mulen == sizeof(pkt_ipcp_1));
@@ -490,6 +453,7 @@ void test_build_config_nak_rej()
     assert(memcmp(buffer, pkt_lcp_2, sizeof(pkt_lcp_2)) == 0);    
 
     s_ppp_ccb_2.cp = 1;
+    s_ppp_ccb_2.pppoe_header.length = htons(0x0010);
     memset(buffer, 0, sizeof(buffer));
     build_config_nak_rej(buffer, &mulen, &s_ppp_ccb_2);
     assert(mulen == sizeof(pkt_ipcp_2));
@@ -505,23 +469,10 @@ void test_build_terminate_ack()
         .ppp_phase = {{
             .timer_counter = 0,
             .max_retransmit = 10,
-            .eth_hdr = &(struct rte_ether_hdr) {
-                .ether_type = htons(VLAN),
-            },
-            .vlan_header = &(vlan_header_t) {
-                .tci_union.tci_value = htons(0002),
-                .next_proto = htons(ETH_P_PPP_SES),
-            },
-            .pppoe_header = &(pppoe_header_t) {
-                .code = 0,
-                .ver_type = 0x11,
-                .session_id = htons(0x000a),
-                .length = htons(0x0014),
-            },
-            .ppp_payload = &(ppp_payload_t) {
+            .ppp_payload = (ppp_payload_t) {
                 .ppp_protocol = htons(LCP_PROTOCOL),
             },
-            .ppp_hdr = &(ppp_header_t) {
+            .ppp_hdr = (ppp_header_t) {
                 .code = TERMIN_REQUEST,
                 .identifier = 0x01,
                 .length = htons(0x0012),
@@ -534,23 +485,10 @@ void test_build_terminate_ack()
         },{
             .timer_counter = 0,
             .max_retransmit = 10,
-            .eth_hdr = &(struct rte_ether_hdr) {
-                .ether_type = htons(VLAN),
-            },
-            .vlan_header = &(vlan_header_t) {
-                .tci_union.tci_value = htons(0002),
-                .next_proto = htons(ETH_P_PPP_SES),
-            },
-            .pppoe_header = &(pppoe_header_t) {
-                .code = 0,
-                .ver_type = 0x11,
-                .session_id = htons(0x000a),
-                .length = htons(0x000c),
-            },
-            .ppp_payload = &(ppp_payload_t) {
+            .ppp_payload = (ppp_payload_t) {
                 .ppp_protocol = htons(IPCP_PROTOCOL),
             },
-            .ppp_hdr = &(ppp_header_t) {
+            .ppp_hdr = (ppp_header_t) {
                 .code = CONFIG_REQUEST,
                 .identifier = 0x01,
                 .length = htons(0x000a),
@@ -568,6 +506,19 @@ void test_build_terminate_ack()
         },
         .session_id = htons(0x000a),
         .cp = 0,
+        .eth_hdr = (struct rte_ether_hdr) {
+            .ether_type = htons(VLAN),
+        },
+        .vlan_header = (vlan_header_t) {
+            .tci_union.tci_value = htons(0002),
+            .next_proto = htons(ETH_P_PPP_SES),
+        },
+        .pppoe_header = (pppoe_header_t) {
+            .code = 0,
+            .ver_type = 0x11,
+            .session_id = htons(0x000a),
+            .length = htons(0x0014),
+        },
     };
 
     char pkt_lcp[] = {/* mac */0x74, 0x4d, 0x28, 0x8d, 0x00, 0x31, 0x9c, 0x69, 0xb4, 
@@ -601,23 +552,10 @@ void test_build_echo_reply()
         .ppp_phase = {{
             .timer_counter = 0,
             .max_retransmit = 10,
-            .eth_hdr = &(struct rte_ether_hdr) {
-                .ether_type = htons(VLAN),
-            },
-            .vlan_header = &(vlan_header_t) {
-                .tci_union.tci_value = htons(0002),
-                .next_proto = htons(ETH_P_PPP_SES),
-            },
-            .pppoe_header = &(pppoe_header_t) {
-                .code = 0,
-                .ver_type = 0x11,
-                .session_id = htons(0x000a),
-                .length = htons(0x0014),
-            },
-            .ppp_payload = &(ppp_payload_t) {
+            .ppp_payload = (ppp_payload_t) {
                 .ppp_protocol = htons(LCP_PROTOCOL),
             },
-            .ppp_hdr = &(ppp_header_t) {
+            .ppp_hdr = (ppp_header_t) {
                 .code = CONFIG_REQUEST,
                 .identifier = 0x01,
                 .length = htons(0x0008),
@@ -634,6 +572,19 @@ void test_build_echo_reply()
         .session_id = htons(0x000a),
         .cp = 0,
         .magic_num = htonl(0x01020304),
+        .eth_hdr = (struct rte_ether_hdr) {
+            .ether_type = htons(VLAN),
+        },
+        .vlan_header = (vlan_header_t) {
+            .tci_union.tci_value = htons(0002),
+            .next_proto = htons(ETH_P_PPP_SES),
+        },
+        .pppoe_header = (pppoe_header_t) {
+            .code = 0,
+            .ver_type = 0x11,
+            .session_id = htons(0x000a),
+            .length = htons(0x0014),
+        },
     };
 
     char pkt_lcp_1[] = {/* mac */0x74, 0x4d, 0x28, 0x8d, 0x00, 0x31, 0x9c, 0x69, 0xb4, 
@@ -650,7 +601,7 @@ void test_build_echo_reply()
     0x11, 0x00, 0x00, 0x0a, 0x00, 0x0e, /* ppp protocol */0xc0, 0x21, /* ppp hdr*/
     0x0a, 0x01, 0x00, 0x0c, /* magic number */0x01, 0x02, 0x03, 0x04, /* echo 
     requester's magic number */0x05, 0x06, 0x07, 0x08};
-    s_ppp_ccb_1.ppp_phase[0].ppp_hdr->length = htons(ntohs(s_ppp_ccb_1.ppp_phase[0].ppp_hdr->length) + 4);
+    s_ppp_ccb_1.ppp_phase[0].ppp_hdr.length = htons(ntohs(s_ppp_ccb_1.ppp_phase[0].ppp_hdr.length) + 4);
 
     build_echo_reply(buffer, &mulen, &s_ppp_ccb_1);
     assert(mulen == sizeof(pkt_lcp_2));
@@ -666,23 +617,10 @@ void test_build_auth_request_pap()
         .ppp_phase = {{
             .timer_counter = 0,
             .max_retransmit = 10,
-            .eth_hdr = &(struct rte_ether_hdr) {
-                .ether_type = htons(VLAN),
-            },
-            .vlan_header = &(vlan_header_t) {
-                .tci_union.tci_value = htons(0002),
-                .next_proto = htons(ETH_P_PPP_SES),
-            },
-            .pppoe_header = &(pppoe_header_t) {
-                .code = 0,
-                .ver_type = 0x11,
-                .session_id = htons(0x000a),
-                .length = htons(0x0000),
-            },
-            .ppp_payload = &(ppp_payload_t) {
+            .ppp_payload = (ppp_payload_t) {
                 .ppp_protocol = htons(LCP_PROTOCOL),
             },
-            .ppp_hdr = &(ppp_header_t) {
+            .ppp_hdr = (ppp_header_t) {
                 .code = CONFIG_REQUEST,
                 .identifier = 0x01,
                 .length = htons(0x0000),
@@ -699,6 +637,19 @@ void test_build_auth_request_pap()
         .ppp_user_id = (U8 *)"asdf", // 0x61, 0x73, 0x64, 0x66
         .ppp_passwd = (U8 *)"zxcv", // 0x7a, 0x78, 0x63, 0x76
         .identifier = 0xfe,
+        .eth_hdr = (struct rte_ether_hdr) {
+            .ether_type = htons(VLAN),
+        },
+        .vlan_header = (vlan_header_t) {
+            .tci_union.tci_value = htons(0002),
+            .next_proto = htons(ETH_P_PPP_SES),
+        },
+        .pppoe_header = (pppoe_header_t) {
+            .code = 0,
+            .ver_type = 0x11,
+            .session_id = htons(0x000a),
+            .length = htons(0x0000),
+        },
     };
 
     char pkt_lcp_1[] = {/* mac */0x74, 0x4d, 0x28, 0x8d, 0x00, 0x31, 0x9c, 0x69, 0xb4, 
@@ -734,23 +685,10 @@ void test_build_auth_ack_pap()
         .ppp_phase = {{
             .timer_counter = 0,
             .max_retransmit = 10,
-            .eth_hdr = &(struct rte_ether_hdr) {
-                .ether_type = htons(VLAN),
-            },
-            .vlan_header = &(vlan_header_t) {
-                .tci_union.tci_value = htons(0002),
-                .next_proto = htons(ETH_P_PPP_SES),
-            },
-            .pppoe_header = &(pppoe_header_t) {
-                .code = 0,
-                .ver_type = 0x11,
-                .session_id = htons(0x000a),
-                .length = htons(0x0000),
-            },
-            .ppp_payload = &(ppp_payload_t) {
+            .ppp_payload = (ppp_payload_t) {
                 .ppp_protocol = htons(LCP_PROTOCOL),
             },
-            .ppp_hdr = &(ppp_header_t) {
+            .ppp_hdr = (ppp_header_t) {
                 .code = CONFIG_REQUEST,
                 .identifier = 0x01,
                 .length = htons(0x0000),
@@ -767,6 +705,19 @@ void test_build_auth_ack_pap()
         .ppp_user_id = (U8 *)"asdf", // 0x61, 0x73, 0x64, 0x66
         .ppp_passwd = (U8 *)"zxcv", // 0x7a, 0x78, 0x63, 0x76
         .identifier = 0xfe,
+        .eth_hdr = (struct rte_ether_hdr) {
+            .ether_type = htons(VLAN),
+        },
+        .vlan_header = (vlan_header_t) {
+            .tci_union.tci_value = htons(0002),
+            .next_proto = htons(ETH_P_PPP_SES),
+        },
+        .pppoe_header = (pppoe_header_t) {
+            .code = 0,
+            .ver_type = 0x11,
+            .session_id = htons(0x000a),
+            .length = htons(0x0000),
+        },
     };
 
     char pkt_lcp_1[] = {/* mac */0x74, 0x4d, 0x28, 0x8d, 0x00, 0x31, 0x9c, 0x69, 0xb4, 

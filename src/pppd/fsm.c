@@ -638,7 +638,7 @@ STATUS PPP_FSM(struct rte_timer *ppp, PPP_INFO_t *s_ppp_ccb, U16 event)
         if (ppp_fsm_tbl[s_ppp_ccb->cp][i].state == s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].state)
             break;
 
-    VRG_LOG(DBG, vrg_ccb->fp, (U8 *)s_ppp_ccb, PPPLOGMSG, "Current state is %s, event is %s\n", PPP_state2str(ppp_fsm_tbl[s_ppp_ccb->cp][i].state), PPP_event2str(event));
+    VRG_LOG(DBG, vrg_ccb->fp, (U8 *)s_ppp_ccb, PPPLOGMSG, "Current state is %s, event is %s", PPP_state2str(ppp_fsm_tbl[s_ppp_ccb->cp][i].state), PPP_event2str(event));
 
     if (ppp_fsm_tbl[s_ppp_ccb->cp][i].state == S_INVLD) {
         VRG_LOG(ERR, vrg_ccb->fp, (U8 *)s_ppp_ccb, PPPLOGMSG, "Error! user %" PRIu16 " unknown state(%d) specified for the event(%d), current ppp fsm state is %s",
@@ -655,8 +655,8 @@ STATUS PPP_FSM(struct rte_timer *ppp, PPP_INFO_t *s_ppp_ccb, U16 event)
             break;
     
     if (ppp_fsm_tbl[s_ppp_ccb->cp][i].state != s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].state) { /* search until meet the next state */
-        VRG_LOG(INFO, vrg_ccb->fp, (U8 *)s_ppp_ccb, PPPLOGMSG, "Error! user %" PRIu16 " invalid event(%d) in state(%s)",
-            s_ppp_ccb->user_num, event, PPP_state2str(s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].state));
+        VRG_LOG(INFO, vrg_ccb->fp, (U8 *)s_ppp_ccb, PPPLOGMSG, "Error! user %" PRIu16 " invalid event(%s) in state(%s)",
+            s_ppp_ccb->user_num, PPP_event2str(event), PPP_state2str(s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].state));
   		return TRUE; /* still pass to endpoint */
     }
     
@@ -697,7 +697,7 @@ STATUS A_this_layer_up(__attribute__((unused)) struct rte_timer *tim, __attribut
 	unsigned char buffer[MSG_BUF];
     U16 mulen;
 
-	if (s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].ppp_payload->ppp_protocol == rte_cpu_to_be_16(LCP_PROTOCOL)) {
+	if (s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].ppp_payload.ppp_protocol == rte_cpu_to_be_16(LCP_PROTOCOL)) {
     	memset(buffer,0,MSG_BUF);
         rte_timer_reset(&(s_ppp_ccb->ppp_alive), ppp_interval*rte_get_timer_hz(), SINGLE, lcore.timer_thread, (rte_timer_cb_t)exit_ppp, s_ppp_ccb);
     	if (s_ppp_ccb->auth_method == PAP_PROTOCOL)
@@ -706,7 +706,7 @@ STATUS A_this_layer_up(__attribute__((unused)) struct rte_timer *tim, __attribut
         VRG_LOG(INFO, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "User %" PRIu16 " LCP connection establish successfully.", s_ppp_ccb->user_num);
         VRG_LOG(INFO, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "User %" PRIu16 " starting Authentication.", s_ppp_ccb->user_num);
     }
-    else if (s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].ppp_payload->ppp_protocol == rte_cpu_to_be_16(IPCP_PROTOCOL)) {
+    else if (s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].ppp_payload.ppp_protocol == rte_cpu_to_be_16(IPCP_PROTOCOL)) {
     	rte_atomic16_set(&s_ppp_ccb->dp_start_bool, (BIT16)1);
         s_ppp_ccb->phase = DATA_PHASE;
     	rte_timer_reset(&(s_ppp_ccb->nat),rte_get_timer_hz(),PERIODICAL,lcore.timer_thread,(rte_timer_cb_t)nat_rule_timer,s_ppp_ccb);

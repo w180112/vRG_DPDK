@@ -23,15 +23,172 @@ extern BOOL					quit_flag;
 U16 auth_method;
 static VRG_t *vrg_ccb;
 
-STATUS decode_lcp(pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp_header_t *ppp_hdr, ppp_options_t *ppp_options, U16 total_lcp_length, U16 *event, struct rte_timer *tim, PPP_INFO_t *s_ppp_ccb)
+/**
+ * check_ipcp_nak_rej
+ *
+ * purpose: check whether IPCP config request we received includes PPP options we dont want.
+ * input: 	flag - check NAK/REJ,
+ * 		    *pppoe_header, 
+ * 		    *ppp_payload, 
+ * 		    *ppp_hdr, 
+ * 		    *ppp_options, 
+ * 		    ppp_hdr_len
+ * output: 	TRUE/FALSE
+ * return: 	should send NAK/REJ or ACK
+ **/
+STATUS check_ipcp_nak_rej(U8 flag, PPP_INFO_t *s_ppp_ccb, U16 ppp_hdr_len)
 {
+    pppoe_header_t 	*pppoe_header = &(s_ppp_ccb->pppoe_header);
+    ppp_header_t 	*ppp_hdr = &(s_ppp_ccb->ppp_phase[1].ppp_hdr);
+    ppp_options_t   *ppp_options = s_ppp_ccb->ppp_phase[1].ppp_options;
+	ppp_options_t   *tmp_buf = (ppp_options_t *)rte_malloc(NULL, MSG_BUF*sizeof(char), 0);
+	ppp_options_t   *tmp_cur = tmp_buf;
+	int bool_flag = 0;
+	U16 tmp_total_length = 4;
+
+	if (tmp_buf == NULL) {
+		VRG_LOG(ERR, vrg_ccb->fp, vrg_ccb, NULL, "check_ipcp_nak_rej failed: rte_malloc failed: %s\n", rte_strerror(rte_errno));
+		return -1;
+	}
+	
+	memset(tmp_buf,0,MSG_BUF);
+	rte_memcpy(tmp_buf, ppp_options, ppp_hdr_len-sizeof(ppp_header_t));
+
+	ppp_hdr->length = sizeof(ppp_header_t);
+	for (ppp_options_t *cur=ppp_options; tmp_total_length<ppp_hdr_len; cur=(ppp_options_t *)((char *)cur + cur->length)) {
+		if (flag == CONFIG_NAK) {
+			if (cur->type == IP_ADDRESS && cur->val[0] == 0) {
+				bool_flag = 1;
+				rte_memcpy(tmp_cur,cur,cur->length);
+				ppp_hdr->length += cur->length;
+				tmp_cur = (ppp_options_t *)((char *)tmp_cur + cur->length);
+			}
+		}
+		else {
+			if (cur->type != IP_ADDRESS) {
+				bool_flag = 1;
+				rte_memcpy(tmp_cur,cur,cur->length);
+				ppp_hdr->length += cur->length;
+				tmp_cur = (ppp_options_t *)((char *)tmp_cur + cur->length);
+			}
+		}
+		tmp_total_length += cur->length;
+	}
+
+	if (bool_flag == 1) {
+		rte_memcpy(ppp_options, tmp_buf, ppp_hdr->length - sizeof(ppp_header_t));
+		pppoe_header->length = rte_cpu_to_be_16((ppp_hdr->length) + sizeof(ppp_payload_t));
+		ppp_hdr->length = rte_cpu_to_be_16(ppp_hdr->length);
+		ppp_hdr->code = flag;
+		rte_free(tmp_buf);
+
+		return 1;
+	}
+	rte_free(tmp_buf);
+	return 0;
+}
+
+/**
+ * check_lcp_nak_rej
+ *
+ * purpose: check whether LCP config request we received includes PPP options we dont want.
+ * input: 	flag - check NAK/REJ,
+ * 		    *pppoe_header, 
+ * 		    *ppp_payload, 
+ * 		    *ppp_hdr, 
+ * 		    *ppp_options, 
+ * 		    ppp_hdr_len
+ * output: 	TRUE/FALSE
+ * return: 	should send NAK/REJ or ACK
+ **/
+STATUS check_nak_reject(U8 flag, PPP_INFO_t *s_ppp_ccb, U16 ppp_hdr_len)
+{
+    pppoe_header_t 	*pppoe_header = &(s_ppp_ccb->pppoe_header);
+    ppp_header_t 	*ppp_hdr = &(s_ppp_ccb->ppp_phase[0].ppp_hdr);
+    ppp_options_t   *ppp_options = s_ppp_ccb->ppp_phase[0].ppp_options;
+	ppp_options_t 	*tmp_buf = (ppp_options_t *)rte_malloc(NULL, MSG_BUF*sizeof(char), 0);
+	ppp_options_t 	*tmp_cur = tmp_buf;
+	int 			bool_flag = 0;
+	U16 		tmp_total_length = 4;
+
+	if (tmp_buf == NULL) {
+		VRG_LOG(ERR, vrg_ccb->fp, vrg_ccb, NULL, "check_nak_reject failed: rte_malloc failed: %s\n", rte_strerror(rte_errno));
+		return -1;
+	}
+	
+	memset(tmp_buf, 0, MSG_BUF);
+	rte_memcpy(tmp_buf, ppp_options, ppp_hdr_len-sizeof(ppp_header_t));
+
+	ppp_hdr->length = sizeof(ppp_header_t);
+	for(ppp_options_t *cur=ppp_options; tmp_total_length<ppp_hdr_len; cur=(ppp_options_t *)((char *)cur + cur->length)) {
+		if (flag == CONFIG_NAK) {
+			U8 len_byte = vrg_ccb->non_vlan_mode ? 0xD4 : 0xD0;
+			if (cur->type == MRU && (cur->val[0] != 0x5 || cur->val[1] != len_byte)) {
+				bool_flag = 1;
+				VRG_LOG(WARN, vrg_ccb->fp, NULL, PPPLOGMSG, "MRU = %x%x", cur->val[0], cur->val[1]);
+				cur->val[0] = 0x5;
+				cur->val[1] = len_byte;
+				rte_memcpy(tmp_cur,cur,cur->length);
+				ppp_hdr->length += cur->length;
+				tmp_cur = (ppp_options_t *)((char *)tmp_cur + cur->length);
+			}
+			else if (cur->type == AUTH) {
+				U16 ppp_server_auth_method = cur->val[0] << 8 | cur->val[1];
+				if (ppp_server_auth_method != auth_method) {
+					/* if server wants to use pap or chap, then we just follow it */
+					if (ppp_server_auth_method == PAP_PROTOCOL)
+						auth_method = PAP_PROTOCOL;
+					else if (ppp_server_auth_method == CHAP_PROTOCOL)
+						auth_method = CHAP_PROTOCOL;
+					else {
+						bool_flag = 1;
+						/* by default, we use pap auth */
+						auth_method = PAP_PROTOCOL;
+						cur->val[1] = auth_method & 0xff;
+						cur->val[0] = (auth_method & 0xff00) >> 8;
+						rte_memcpy(tmp_cur,cur,cur->length);
+						ppp_hdr->length += cur->length;
+						tmp_cur = (ppp_options_t *)((char *)tmp_cur + cur->length);
+					}
+				}
+			}
+		}
+		else {
+			if (cur->type != MAGIC_NUM && cur->type != MRU && cur->type != AUTH) {
+				bool_flag= 1;
+				rte_memcpy(tmp_cur,cur,cur->length);
+				ppp_hdr->length += cur->length;
+				tmp_cur = (ppp_options_t *)((char *)tmp_cur + cur->length);
+			}
+		}
+		tmp_total_length += cur->length;
+	}
+
+	if (bool_flag == 1) {
+		rte_memcpy(ppp_options,tmp_buf,ppp_hdr->length - sizeof(ppp_header_t));
+		pppoe_header->length = rte_cpu_to_be_16((ppp_hdr->length) + sizeof(ppp_payload_t));
+		ppp_hdr->length = rte_cpu_to_be_16(ppp_hdr->length);
+		ppp_hdr->code = flag;
+		rte_free(tmp_buf);
+
+		return 1;
+	}
+	rte_free(tmp_buf);
+	return 0;
+}
+
+STATUS decode_lcp(U16 ppp_hdr_len, U16 *event, struct rte_timer *tim, PPP_INFO_t *s_ppp_ccb)
+{
+    ppp_header_t  *ppp_hdr = &(s_ppp_ccb->ppp_phase[0].ppp_hdr);
+    ppp_options_t *ppp_options = s_ppp_ccb->ppp_phase[0].ppp_options;
+
 	switch(ppp_hdr->code) {
 		case CONFIG_REQUEST : 
 			if (s_ppp_ccb->phase != LCP_PHASE)
     			return ERROR;
 			auth_method = s_ppp_ccb->auth_method;
 			/* we check for if the request packet contains what we want */
-			switch (check_nak_reject(CONFIG_NAK,pppoe_header,ppp_payload,ppp_hdr,ppp_options,total_lcp_length)) {
+			switch (check_nak_reject(CONFIG_NAK, s_ppp_ccb, ppp_hdr_len)) {
 				case ERROR:
 					return ERROR;
 				case 1:
@@ -40,7 +197,7 @@ STATUS decode_lcp(pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp_
 				default:
 					;
 			}
-			switch (check_nak_reject(CONFIG_REJECT,pppoe_header,ppp_payload,ppp_hdr,ppp_options,total_lcp_length)) {
+			switch (check_nak_reject(CONFIG_REJECT, s_ppp_ccb, ppp_hdr_len)) {
 				case ERROR:
 						return ERROR;
 				case 1:
@@ -51,7 +208,7 @@ STATUS decode_lcp(pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp_
 			}
 			s_ppp_ccb->auth_method = auth_method;
 			*event = E_RECV_GOOD_CONFIG_REQUEST;
-			ppp_hdr->length = rte_cpu_to_be_16(total_lcp_length);
+			ppp_hdr->length = rte_cpu_to_be_16(ppp_hdr_len);
 			return SUCCESS;
 		case CONFIG_ACK :
 			if (s_ppp_ccb->phase != LCP_PHASE)
@@ -128,15 +285,18 @@ STATUS decode_lcp(pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp_
  * decode_ipcp
  * 
  * input : pppoe_header,ppp_payload,ppp_hdr,
- * 			ppp_options,total_lcp_length,event,tim,s_ppp_ccb
+ * 			ppp_options,ppp_hdr_len,event,tim,s_ppp_ccb
  * output: event
  * return: error
  *******************************************************************/
-STATUS decode_ipcp(pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp_header_t *ppp_hdr, ppp_options_t *ppp_options, U16 total_lcp_length, U16 *event, struct rte_timer *tim, PPP_INFO_t *s_ppp_ccb)
+STATUS decode_ipcp(U16 ppp_hdr_len, U16 *event, struct rte_timer *tim, PPP_INFO_t *s_ppp_ccb)
 {
+    ppp_header_t  *ppp_hdr = &(s_ppp_ccb->ppp_phase[1].ppp_hdr);
+    ppp_options_t *ppp_options = s_ppp_ccb->ppp_phase[1].ppp_options;
+
 	switch(ppp_hdr->code) {
 		case CONFIG_REQUEST : 
-			switch (check_ipcp_nak_rej(CONFIG_NAK,pppoe_header,ppp_payload,ppp_hdr,ppp_options,total_lcp_length)) {
+			switch (check_ipcp_nak_rej(CONFIG_NAK, s_ppp_ccb, ppp_hdr_len)) {
 				case ERROR:
 					return ERROR;
 				case 1:
@@ -145,7 +305,7 @@ STATUS decode_ipcp(pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp
 				default:
 					;
 			}
-			switch (check_ipcp_nak_rej(CONFIG_REJECT,pppoe_header,ppp_payload,ppp_hdr,ppp_options,total_lcp_length)) {
+			switch (check_ipcp_nak_rej(CONFIG_REJECT, s_ppp_ccb, ppp_hdr_len)) {
 				case ERROR:
 					return ERROR;
 				case 1:
@@ -154,9 +314,9 @@ STATUS decode_ipcp(pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp
 				default:
 					;
 			}
-			rte_memcpy(&(s_ppp_ccb->hsi_ipv4_gw),ppp_options->val,sizeof(s_ppp_ccb->hsi_ipv4_gw));
+			rte_memcpy(&(s_ppp_ccb->hsi_ipv4_gw), ppp_options->val,sizeof(s_ppp_ccb->hsi_ipv4_gw));
 			*event = E_RECV_GOOD_CONFIG_REQUEST;
-			ppp_hdr->length = rte_cpu_to_be_16(total_lcp_length);
+			ppp_hdr->length = rte_cpu_to_be_16(ppp_hdr_len);
 			return SUCCESS;
 		case CONFIG_ACK :
 			if (ppp_hdr->identifier != s_ppp_ccb->identifier)
@@ -188,154 +348,6 @@ STATUS decode_ipcp(pppoe_header_t *pppoe_header, ppp_payload_t *ppp_payload, ppp
 			*event = E_RECV_UNKNOWN_CODE;
 	}
 	return SUCCESS;
-}
-
-/**
- * check_ipcp_nak_rej
- *
- * purpose: check whether IPCP config request we received includes PPP options we dont want.
- * input: 	flag - check NAK/REJ,
- * 		    *pppoe_header, 
- * 		    *ppp_payload, 
- * 		    *ppp_hdr, 
- * 		    *ppp_options, 
- * 		    total_lcp_length
- * output: 	TRUE/FALSE
- * return: 	should send NAK/REJ or ACK
- **/
-STATUS check_ipcp_nak_rej(U8 flag, pppoe_header_t *pppoe_header, __attribute__((unused)) ppp_payload_t *ppp_payload, ppp_header_t *ppp_hdr, ppp_options_t *ppp_options, U16 total_lcp_length)
-{
-	ppp_options_t *tmp_buf = (ppp_options_t *)rte_malloc(NULL, MSG_BUF*sizeof(char), 0);
-	ppp_options_t *tmp_cur = tmp_buf;
-	int bool_flag = 0;
-	U16 tmp_total_length = 4;
-
-	if (tmp_buf == NULL) {
-		VRG_LOG(ERR, vrg_ccb->fp, vrg_ccb, NULL, "check_ipcp_nak_rej failed: rte_malloc failed: %s\n", rte_strerror(rte_errno));
-		return -1;
-	}
-	
-	memset(tmp_buf,0,MSG_BUF);
-	rte_memcpy(tmp_buf, ppp_options, total_lcp_length-sizeof(ppp_header_t));
-
-	ppp_hdr->length = sizeof(ppp_header_t);
-	for (ppp_options_t *cur=ppp_options; tmp_total_length<total_lcp_length; cur=(ppp_options_t *)((char *)cur + cur->length)) {
-		if (flag == CONFIG_NAK) {
-			if (cur->type == IP_ADDRESS && cur->val[0] == 0) {
-				bool_flag = 1;
-				rte_memcpy(tmp_cur,cur,cur->length);
-				ppp_hdr->length += cur->length;
-				tmp_cur = (ppp_options_t *)((char *)tmp_cur + cur->length);
-			}
-		}
-		else {
-			if (cur->type != IP_ADDRESS) {
-				bool_flag = 1;
-				rte_memcpy(tmp_cur,cur,cur->length);
-				ppp_hdr->length += cur->length;
-				tmp_cur = (ppp_options_t *)((char *)tmp_cur + cur->length);
-			}
-		}
-		tmp_total_length += cur->length;
-	}
-
-	if (bool_flag == 1) {
-		rte_memcpy(ppp_options,tmp_buf,ppp_hdr->length - sizeof(ppp_header_t));
-		pppoe_header->length = rte_cpu_to_be_16((ppp_hdr->length) + sizeof(ppp_payload_t));
-		ppp_hdr->length = rte_cpu_to_be_16(ppp_hdr->length);
-		ppp_hdr->code = flag;
-		rte_free(tmp_buf);
-
-		return 1;
-	}
-	rte_free(tmp_buf);
-	return 0;
-}
-
-/**
- * check_lcp_nak_rej
- *
- * purpose: check whether LCP config request we received includes PPP options we dont want.
- * input: 	flag - check NAK/REJ,
- * 		    *pppoe_header, 
- * 		    *ppp_payload, 
- * 		    *ppp_hdr, 
- * 		    *ppp_options, 
- * 		    total_lcp_length
- * output: 	TRUE/FALSE
- * return: 	should send NAK/REJ or ACK
- **/
-STATUS check_nak_reject(U8 flag, pppoe_header_t *pppoe_header, __attribute__((unused)) ppp_payload_t *ppp_payload, ppp_header_t *ppp_hdr, ppp_options_t *ppp_options, U16 total_lcp_length)
-{
-	ppp_options_t 	*tmp_buf = (ppp_options_t *)rte_malloc(NULL, MSG_BUF*sizeof(char), 0);
-	ppp_options_t 	*tmp_cur = tmp_buf;
-	int 			bool_flag = 0;
-	U16 		tmp_total_length = 4;
-
-	if (tmp_buf == NULL) {
-		VRG_LOG(ERR, vrg_ccb->fp, vrg_ccb, NULL, "check_nak_reject failed: rte_malloc failed: %s\n", rte_strerror(rte_errno));
-		return -1;
-	}
-	
-	memset(tmp_buf, 0, MSG_BUF);
-	rte_memcpy(tmp_buf, ppp_options, total_lcp_length-sizeof(ppp_header_t));
-
-	ppp_hdr->length = sizeof(ppp_header_t);
-	for(ppp_options_t *cur=ppp_options; tmp_total_length<total_lcp_length; cur=(ppp_options_t *)((char *)cur + cur->length)) {
-		if (flag == CONFIG_NAK) {
-			U8 len_byte = vrg_ccb->non_vlan_mode ? 0xD4 : 0xD0;
-			if (cur->type == MRU && (cur->val[0] != 0x5 || cur->val[1] != len_byte)) {
-				bool_flag = 1;
-				VRG_LOG(WARN, vrg_ccb->fp, NULL, PPPLOGMSG, "MRU = %x%x", cur->val[0], cur->val[1]);
-				cur->val[0] = 0x5;
-				cur->val[1] = len_byte;
-				rte_memcpy(tmp_cur,cur,cur->length);
-				ppp_hdr->length += cur->length;
-				tmp_cur = (ppp_options_t *)((char *)tmp_cur + cur->length);
-			}
-			else if (cur->type == AUTH) {
-				U16 ppp_server_auth_method = cur->val[0] << 8 | cur->val[1];
-				if (ppp_server_auth_method != auth_method) {
-					/* if server wants to use pap or chap, then we just follow it */
-					if (ppp_server_auth_method == PAP_PROTOCOL)
-						auth_method = PAP_PROTOCOL;
-					else if (ppp_server_auth_method == CHAP_PROTOCOL)
-						auth_method = CHAP_PROTOCOL;
-					else {
-						bool_flag = 1;
-						/* by default, we use pap auth */
-						auth_method = PAP_PROTOCOL;
-						cur->val[1] = auth_method & 0xff;
-						cur->val[0] = (auth_method & 0xff00) >> 8;
-						rte_memcpy(tmp_cur,cur,cur->length);
-						ppp_hdr->length += cur->length;
-						tmp_cur = (ppp_options_t *)((char *)tmp_cur + cur->length);
-					}
-				}
-			}
-		}
-		else {
-			if (cur->type != MAGIC_NUM && cur->type != MRU && cur->type != AUTH) {
-				bool_flag= 1;
-				rte_memcpy(tmp_cur,cur,cur->length);
-				ppp_hdr->length += cur->length;
-				tmp_cur = (ppp_options_t *)((char *)tmp_cur + cur->length);
-			}
-		}
-		tmp_total_length += cur->length;
-	}
-
-	if (bool_flag == 1) {
-		rte_memcpy(ppp_options,tmp_buf,ppp_hdr->length - sizeof(ppp_header_t));
-		pppoe_header->length = rte_cpu_to_be_16((ppp_hdr->length) + sizeof(ppp_payload_t));
-		ppp_hdr->length = rte_cpu_to_be_16(ppp_hdr->length);
-		ppp_hdr->code = flag;
-		rte_free(tmp_buf);
-
-		return 1;
-	}
-	rte_free(tmp_buf);
-	return 0;
 }
 
 /**
@@ -642,14 +654,14 @@ void build_config_ack(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb)
 	ppp_header_t 		*ppp_hdr = (ppp_header_t *)(ppp_payload + 1);
 	ppp_options_t 		*ppp_options = (ppp_options_t *)(ppp_hdr + 1);
 	
-	*eth_hdr = *(s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].eth_hdr);
+	*eth_hdr = s_ppp_ccb->eth_hdr;
 	rte_ether_addr_copy(&vrg_ccb->nic_info.hsi_wan_src_mac, &eth_hdr->src_addr);
 	rte_ether_addr_copy(&s_ppp_ccb->PPP_dst_mac, &eth_hdr->dst_addr);
 
-	*vlan_header = *(s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].vlan_header);
-	*pppoe_header = *(s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].pppoe_header);
-	*ppp_payload = *(s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].ppp_payload);
-	*ppp_hdr = *(s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].ppp_hdr);
+	*vlan_header = s_ppp_ccb->vlan_header;
+	*pppoe_header = s_ppp_ccb->pppoe_header;
+	*ppp_payload = s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].ppp_payload;
+	*ppp_hdr = s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].ppp_hdr;
 	ppp_hdr->code = CONFIG_ACK;
 	rte_memcpy(ppp_options, s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].ppp_options, rte_cpu_to_be_16(ppp_hdr->length) - sizeof(ppp_header_t));
 
@@ -683,12 +695,12 @@ void build_config_nak_rej(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb)
 
 	rte_ether_addr_copy(&vrg_ccb->nic_info.hsi_wan_src_mac, &eth_hdr->src_addr);
 	rte_ether_addr_copy(&s_ppp_ccb->PPP_dst_mac, &eth_hdr->dst_addr);
-	eth_hdr->ether_type = s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].eth_hdr->ether_type;
+	eth_hdr->ether_type = s_ppp_ccb->eth_hdr.ether_type;
 
-	*vlan_header = *(s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].vlan_header);
-	*pppoe_header = *(s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].pppoe_header);
-	*ppp_payload = *(s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].ppp_payload);
-	*ppp_hdr = *(s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].ppp_hdr);
+	*vlan_header = s_ppp_ccb->vlan_header;
+	*pppoe_header = s_ppp_ccb->pppoe_header;
+	*ppp_payload = s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].ppp_payload;
+	*ppp_hdr = s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].ppp_hdr;
 
 	*mulen = rte_be_to_cpu_16(pppoe_header->length) + sizeof(struct rte_ether_hdr) + sizeof(pppoe_header_t) + sizeof(vlan_header_t);
 
@@ -719,16 +731,16 @@ void build_echo_reply(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb)
 	ppp_payload_t 		*ppp_payload = (ppp_payload_t *)(pppoe_header + 1);
 	ppp_header_t 		*ppp_hdr = (ppp_header_t *)(ppp_payload + 1);
 	U8 *magic_num = (U8 *)(ppp_hdr + 1);
-	U8 ppp_opt_len = rte_be_to_cpu_16(s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].ppp_hdr->length) - sizeof(ppp_header_t);
+	U8 ppp_opt_len = rte_be_to_cpu_16(s_ppp_ccb->ppp_phase[0].ppp_hdr.length) - sizeof(ppp_header_t);
 
 	rte_ether_addr_copy(&vrg_ccb->nic_info.hsi_wan_src_mac, &eth_hdr->src_addr);
 	rte_ether_addr_copy(&s_ppp_ccb->PPP_dst_mac, &eth_hdr->dst_addr);
-	eth_hdr->ether_type = s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].eth_hdr->ether_type;
+	eth_hdr->ether_type = s_ppp_ccb->eth_hdr.ether_type;
 
-	*vlan_header = *(s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].vlan_header);
-	*pppoe_header = *(s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].pppoe_header);
-	*ppp_payload = *(s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].ppp_payload);
-	*ppp_hdr = *(s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].ppp_hdr);
+	*vlan_header = s_ppp_ccb->vlan_header;
+	*pppoe_header = s_ppp_ccb->pppoe_header;
+	*ppp_payload = s_ppp_ccb->ppp_phase[0].ppp_payload;
+	*ppp_hdr = s_ppp_ccb->ppp_phase[0].ppp_hdr;
 
 	ppp_hdr->code = ECHO_REPLY;
 	ppp_hdr->length = sizeof(ppp_header_t);
@@ -742,7 +754,7 @@ void build_echo_reply(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb)
 	ppp_opt_len -= sizeof(s_ppp_ccb->magic_num);
 	if (ppp_opt_len == sizeof(U32)/* echo requester's nmagic number */) {
 		magic_num += sizeof(s_ppp_ccb->magic_num);
-		*(U32 *)magic_num = *(U32 *)s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].ppp_options;
+		*(U32 *)magic_num = *(U32 *)s_ppp_ccb->ppp_phase[0].ppp_options;
 		ppp_hdr->length += ppp_opt_len;
 		pppoe_header->length += ppp_opt_len;
 	}
@@ -776,12 +788,12 @@ void build_terminate_ack(unsigned char* buffer, U16 *mulen, PPP_INFO_t *s_ppp_cc
 
 	rte_ether_addr_copy(&vrg_ccb->nic_info.hsi_wan_src_mac, &eth_hdr->src_addr);
 	rte_ether_addr_copy(&s_ppp_ccb->PPP_dst_mac, &eth_hdr->dst_addr);
-	eth_hdr->ether_type = s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].eth_hdr->ether_type;
+	eth_hdr->ether_type = s_ppp_ccb->eth_hdr.ether_type;
 
-	*vlan_header = *(s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].vlan_header);
-	*pppoe_header = *(s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].pppoe_header);
-	*ppp_payload = *(s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].ppp_payload);
-	*ppp_hdr = *(s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].ppp_hdr);
+	*vlan_header = s_ppp_ccb->vlan_header;
+	*pppoe_header = s_ppp_ccb->pppoe_header;
+	*ppp_payload = s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].ppp_payload;
+	*ppp_hdr = s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].ppp_hdr;
 
 	ppp_hdr->code = TERMIN_ACK;
 	ppp_hdr->length = rte_cpu_to_be_16(sizeof(ppp_header_t));
@@ -889,8 +901,8 @@ void build_auth_request_pap(unsigned char* buffer, U16 *mulen, PPP_INFO_t *s_ppp
 	rte_ether_addr_copy(&s_ppp_ccb->PPP_dst_mac, &eth_hdr->dst_addr);
     eth_hdr->ether_type = rte_cpu_to_be_16(VLAN);
 
-    *vlan_header = *(s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].vlan_header);
-    *pppoe_header = *(s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].pppoe_header);
+    *vlan_header = s_ppp_ccb->vlan_header;
+    *pppoe_header = s_ppp_ccb->pppoe_header;
     ppp_payload->ppp_protocol = rte_cpu_to_be_16(PAP_PROTOCOL);
 
 	ppp_pap_header->code = PAP_REQUEST;
@@ -940,8 +952,8 @@ void build_auth_ack_pap(unsigned char *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb
 	rte_ether_addr_copy(&s_ppp_ccb->PPP_dst_mac, &eth_hdr->dst_addr);
     eth_hdr->ether_type = rte_cpu_to_be_16(VLAN);
 
-    *vlan_header = *(s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].vlan_header);
-    *pppoe_header = *(s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].pppoe_header);
+    *vlan_header = s_ppp_ccb->vlan_header;
+    *pppoe_header = s_ppp_ccb->pppoe_header;
     ppp_payload->ppp_protocol = rte_cpu_to_be_16(PAP_PROTOCOL);
 
 	ppp_pap_header->code = PAP_ACK;
@@ -987,7 +999,7 @@ void build_auth_response_chap(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb, ppp
 	MD5_CTX  context;
     
 	MD5Init(&context);
-	MD5Update(&context, &s_ppp_ccb->ppp_phase[0].ppp_hdr->identifier, 1);
+	MD5Update(&context, &s_ppp_ccb->ppp_phase[0].ppp_hdr.identifier, 1);
 	MD5Update(&context, s_ppp_ccb->ppp_passwd, strlen((const char *)s_ppp_ccb->ppp_passwd));
 	MD5Update(&context, ppp_chap_data->val, ppp_chap_data->val_size);
 	MD5Final(chap_hash, &context);
@@ -995,21 +1007,21 @@ void build_auth_response_chap(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb, ppp
 	new_ppp_chap_data.val = chap_hash;
 	new_ppp_chap_data.name = s_ppp_ccb->ppp_user_id;
 
-	rte_ether_addr_copy(&s_ppp_ccb->ppp_phase[0].eth_hdr->src_addr, &tmp_mac);
-	rte_ether_addr_copy(&s_ppp_ccb->ppp_phase[0].eth_hdr->dst_addr, &s_ppp_ccb->ppp_phase[0].eth_hdr->src_addr);
-	rte_ether_addr_copy(&tmp_mac, &s_ppp_ccb->ppp_phase[0].eth_hdr->dst_addr);
+	rte_ether_addr_copy(&s_ppp_ccb->eth_hdr.src_addr, &tmp_mac);
+	rte_ether_addr_copy(&s_ppp_ccb->eth_hdr.dst_addr, &s_ppp_ccb->eth_hdr.src_addr);
+	rte_ether_addr_copy(&tmp_mac, &s_ppp_ccb->eth_hdr.dst_addr);
 
-	*(struct rte_ether_hdr *)buf_ptr = *s_ppp_ccb->ppp_phase[0].eth_hdr;
+	*(struct rte_ether_hdr *)buf_ptr = s_ppp_ccb->eth_hdr;
 	buf_ptr += sizeof(struct rte_ether_hdr);
-	*(vlan_header_t *)buf_ptr = *s_ppp_ccb->ppp_phase[0].vlan_header;
+	*(vlan_header_t *)buf_ptr = s_ppp_ccb->vlan_header;
 	buf_ptr += sizeof(vlan_header_t);
-	*(pppoe_header_t *)buf_ptr = *s_ppp_ccb->ppp_phase[0].pppoe_header;
+	*(pppoe_header_t *)buf_ptr = s_ppp_ccb->pppoe_header;
 	buf_ptr += sizeof(pppoe_header_t);
-	*(ppp_payload_t *)buf_ptr = *s_ppp_ccb->ppp_phase[0].ppp_payload;
+	*(ppp_payload_t *)buf_ptr = s_ppp_ccb->ppp_phase[0].ppp_payload;
 	buf_ptr += sizeof(ppp_payload_t);
-	s_ppp_ccb->ppp_phase[0].ppp_hdr->code = CHAP_RESPONSE;
-	s_ppp_ccb->ppp_phase[0].ppp_hdr->length = sizeof(ppp_header_t) + 1 + 16 + strlen((const char *)new_ppp_chap_data.name);
-	*(ppp_header_t *)buf_ptr = *s_ppp_ccb->ppp_phase[0].ppp_hdr;
+	s_ppp_ccb->ppp_phase[0].ppp_hdr.code = CHAP_RESPONSE;
+	s_ppp_ccb->ppp_phase[0].ppp_hdr.length = sizeof(ppp_header_t) + 1 + 16 + strlen((const char *)new_ppp_chap_data.name);
+	*(ppp_header_t *)buf_ptr = s_ppp_ccb->ppp_phase[0].ppp_hdr;
 	buf_ptr += sizeof(ppp_header_t);
 	((ppp_chap_data_t *)buf_ptr)->val_size = new_ppp_chap_data.val_size;
 	memcpy(((ppp_chap_data_t *)buf_ptr)->val, new_ppp_chap_data.val, new_ppp_chap_data.val_size);
@@ -1057,9 +1069,51 @@ STATUS send_pkt(U8 encode_type, PPP_INFO_t *s_ppp_ccb)
 	return SUCCESS;
 }
 
+STATUS get_session_id(tVRG_MBX *vrg_mail, U16 *user_id)
+{
+	#pragma GCC diagnostic push  // require GCC 4.6
+	#pragma GCC diagnostic ignored "-Wstrict-aliasing"
+	*user_id = ((vlan_header_t *)(((struct rte_ether_hdr *)vrg_mail->refp) + 1))->tci_union.tci_value;
+	*user_id = rte_be_to_cpu_16(*user_id);
+	*user_id = (*user_id & 0xFFF) - vrg_ccb->base_vlan;
+	if (*user_id >= vrg_ccb->user_count) {
+		VRG_LOG(DBG, vrg_ccb->fp, NULL, PPPLOGMSG, "recv not our PPPoE packet, discard.");
+		return ERROR;
+	}
+	#pragma GCC diagnostic pop   // require GCC 4.6
+
+	return SUCCESS;
+}
+
+int check_auth_result(PPP_INFO_t *s_ppp_ccb)
+{
+	if (s_ppp_ccb->phase != AUTH_PHASE)
+		return 0;
+
+	U16 ppp_protocol = s_ppp_ccb->ppp_phase[0].ppp_payload.ppp_protocol;
+	U8 ppp_hdr_code = s_ppp_ccb->ppp_phase[0].ppp_hdr.code;
+	if (ppp_protocol == rte_cpu_to_be_16(PAP_PROTOCOL) || ppp_protocol == rte_cpu_to_be_16(CHAP_PROTOCOL)) {
+		if (ppp_hdr_code == PAP_NAK || ppp_hdr_code == CHAP_FAILURE) {
+			VRG_LOG(ERR, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "User %" PRIu16 " received auth info error and start closing connection.", s_ppp_ccb->user_num);
+    		s_ppp_ccb->cp = 0;
+    		PPP_FSM(&s_ppp_ccb->ppp, s_ppp_ccb, E_CLOSE);
+			return 1;
+		}
+		else if (ppp_hdr_code == PAP_ACK || ppp_hdr_code == CHAP_SUCCESS) {
+			s_ppp_ccb->cp = 1;
+			s_ppp_ccb->phase = IPCP_PHASE;
+			printf("state = %x\n", s_ppp_ccb->ppp_phase[1].state);
+			PPP_FSM(&s_ppp_ccb->ppp, s_ppp_ccb, E_OPEN);
+			return 1;
+		}
+	}
+
+	return 0;
+}
+
 /*============================ DECODE ===============================*/
 
-STATUS decode_pppoe(pppoe_header_tag_t *pppoe_header_tag, ppp_payload_t *ppp_payload, ppp_header_t *ppp_hdr, ppp_options_t *ppp_options, PPP_INFO_t *s_ppp_ccb, U16 session_index)
+STATUS decode_pppoe(pppoe_header_tag_t *pppoe_header_tag, PPP_INFO_t *s_ppp_ccb)
 {
 	U16 pppoe_header_tag_size = rte_be_to_cpu_16(pppoe_header_tag->length);
 
@@ -1083,25 +1137,9 @@ STATUS decode_pppoe(pppoe_header_tag_t *pppoe_header_tag, ppp_payload_t *ppp_pay
 		rte_timer_stop(&(s_ppp_ccb->pppoe));
 		s_ppp_ccb->session_id = s_ppp_ccb->pppoe_header.session_id;
 		s_ppp_ccb->cp = 0;
-    	for (int i=0; i<2; i++) {
-    		s_ppp_ccb->ppp_phase[i].eth_hdr = &s_ppp_ccb->eth_hdr;
-			s_ppp_ccb->ppp_phase[i].vlan_header = &s_ppp_ccb->vlan_header;
-    		s_ppp_ccb->ppp_phase[i].pppoe_header = &s_ppp_ccb->pppoe_header;
-    		s_ppp_ccb->ppp_phase[i].ppp_payload = ppp_payload;
-    		s_ppp_ccb->ppp_phase[i].ppp_hdr = ppp_hdr;
-    		s_ppp_ccb->ppp_phase[i].ppp_options = ppp_options;
-   		}
     	PPP_FSM(&(s_ppp_ccb->ppp), s_ppp_ccb, E_OPEN);
 		return SUCCESS;
 	case PADT:
-		for(session_index=0; session_index<vrg_ccb->user_count; session_index++) {
-			if (s_ppp_ccb->session_id == s_ppp_ccb->pppoe_header.session_id)
-				break;
-    	}
-    	if (session_index == vrg_ccb->user_count) {
-			VRG_LOG(WARN, vrg_ccb->fp, NULL, PPPLOGMSG, "Out of range session id in PADT");
-    		return FALSE;
-    	}
 		rte_memcpy(s_ppp_ccb->pppoe_phase.pppoe_header_tag, pppoe_header_tag, pppoe_header_tag_size);
 		s_ppp_ccb->pppoe_phase.max_retransmit = MAX_RETRAN;
 
@@ -1121,71 +1159,40 @@ STATUS decode_pppoe(pppoe_header_tag_t *pppoe_header_tag, ppp_payload_t *ppp_pay
 	}
 }
 
-/**
- * @brief ppp_decode_frame() is for decode pppoe and ppp pkts
- * 
- * @param mail 
- * @param eth_hdr 
- * @param vlan_header 
- * @param pppoe_header 
- * @param ppp_payload 
- * @param ppp_hdr 
- * @param ppp_options 
- * @param event 
- * @param s_ppp_ccb 
- * @retval TRUE for decode successfully
- * @retval FALSE for decode failed 
- */
-STATUS PPP_decode_frame(tVRG_MBX *mail, ppp_payload_t *ppp_payload, ppp_header_t *ppp_hdr, ppp_options_t *ppp_options, U16 *event, PPP_INFO_t *s_ppp_ccb, U16 session_index)
+STATUS decode_ppp(ppp_payload_t *ppp_payload, U16 *event, PPP_INFO_t *s_ppp_ccb)
 {
-    U16	mulen;
 	struct rte_timer *tim = &s_ppp_ccb->ppp;
-
-	if (mail->len > ETH_MTU) {
-	    VRG_LOG(ERR, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "error! too large frame(%d)", mail->len);
-		/* TODO: store pkt buffer to log file, not just print out */
-		PRINT_MESSAGE(mail->refp, mail->len);
-	    return ERROR;
-	}
-
-	struct rte_ether_hdr *tmp_eth_hdr = (struct rte_ether_hdr *)mail->refp;
-	vlan_header_t *tmp_vlan_header = (vlan_header_t *)(tmp_eth_hdr + 1);
-	pppoe_header_t *tmp_pppoe_header = (pppoe_header_t *)(tmp_vlan_header + 1);
-	s_ppp_ccb->eth_hdr = *tmp_eth_hdr;
-	s_ppp_ccb->vlan_header = *tmp_vlan_header;
-	s_ppp_ccb->pppoe_header = *tmp_pppoe_header;
-
-	/* we receive pppoe discovery packet and dont need to parse for ppp payload */
-	if (s_ppp_ccb->vlan_header.next_proto == rte_cpu_to_be_16(ETH_P_PPP_DIS)) {
-		if (s_ppp_ccb->pppoe_header.code == PADS)
-			s_ppp_ccb->phase = LCP_PHASE;
-		pppoe_header_tag_t *pppoe_header_tag = (pppoe_header_tag_t *)(tmp_pppoe_header + 1);
-		decode_pppoe(pppoe_header_tag, ppp_payload, ppp_hdr, ppp_options, s_ppp_ccb, session_index);
-		return ERROR;
-	}
+	ppp_header_t *ppp_hdr = (ppp_header_t *)(ppp_payload + 1);
 	
-	ppp_payload_t *tmp_ppp_payload = (ppp_payload_t *)(tmp_pppoe_header + 1);
-	ppp_header_t *tmp_ppp_hdr = (ppp_header_t *)(tmp_ppp_payload + 1);
-
-	*ppp_payload = *tmp_ppp_payload;
-	*ppp_hdr = *tmp_ppp_hdr;
-	U16 total_lcp_length = rte_be_to_cpu_16(ppp_hdr->length);
-	rte_memcpy(ppp_options, tmp_ppp_hdr+1, total_lcp_length-sizeof(ppp_header_t));
-
-	mulen = mail->len;
-
-    mulen -= 14; //DA-MAC[6] + SA-MAC[6] + ETH-TYPE[2]
+	U16 ppp_hdr_len = rte_be_to_cpu_16(ppp_hdr->length);
 
     /* check the ppp is in LCP, AUTH or NCP phase */
     if (ppp_payload->ppp_protocol == rte_cpu_to_be_16(IPCP_PROTOCOL)) {
+        s_ppp_ccb->ppp_phase[1].ppp_payload = *ppp_payload;
+	    s_ppp_ccb->ppp_phase[1].ppp_hdr = *ppp_hdr;
+        s_ppp_ccb->ppp_phase[1].ppp_options = (ppp_options_t *)rte_malloc(NULL, ppp_hdr_len-sizeof(ppp_header_t), 0);
+        if (s_ppp_ccb->ppp_phase[1].ppp_options == NULL && ppp_hdr_len != sizeof(ppp_header_t)) {
+        	VRG_LOG(ERR, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "malloc error");
+        	return ERROR;
+        }
+        rte_memcpy(s_ppp_ccb->ppp_phase[1].ppp_options, ppp_hdr+1, ppp_hdr_len-sizeof(ppp_header_t));
     	if (s_ppp_ccb->phase != IPCP_PHASE)
     		return ERROR;
-    	if (decode_ipcp(&s_ppp_ccb->pppoe_header, ppp_payload, ppp_hdr, ppp_options, total_lcp_length, event, tim, s_ppp_ccb) == ERROR){
+    	if (decode_ipcp(ppp_hdr_len, event, tim, s_ppp_ccb) == ERROR){
     		return ERROR;
     	}
+        s_ppp_ccb->cp = 1;
     }
     else if (ppp_payload->ppp_protocol == rte_cpu_to_be_16(LCP_PROTOCOL)) {
-		if (decode_lcp(&s_ppp_ccb->pppoe_header, ppp_payload, ppp_hdr, ppp_options, total_lcp_length, event, tim, s_ppp_ccb) == ERROR)
+        s_ppp_ccb->ppp_phase[0].ppp_payload = *ppp_payload;
+	    s_ppp_ccb->ppp_phase[0].ppp_hdr = *ppp_hdr;
+        s_ppp_ccb->ppp_phase[0].ppp_options = (ppp_options_t *)rte_malloc(NULL, ppp_hdr_len-sizeof(ppp_header_t), 0);
+        if (s_ppp_ccb->ppp_phase[0].ppp_options == NULL && ppp_hdr_len != sizeof(ppp_header_t)) {
+        	VRG_LOG(ERR, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "malloc error.");
+        	return ERROR;
+        }
+        rte_memcpy(s_ppp_ccb->ppp_phase[0].ppp_options, ppp_hdr+1, ppp_hdr_len-sizeof(ppp_header_t));
+		if (decode_lcp(ppp_hdr_len, event, tim, s_ppp_ccb) == ERROR)
 			return ERROR;
 	}
 
@@ -1195,8 +1202,9 @@ STATUS PPP_decode_frame(tVRG_MBX *mail, ppp_payload_t *ppp_payload, ppp_header_t
 			return ERROR;
 		// we don't care what msg pap server send to us, just check it's ack or nak
 		if (ppp_hdr->code == PAP_ACK) {
+			s_ppp_ccb->ppp_phase[0].ppp_payload = *ppp_payload;
+	    	s_ppp_ccb->ppp_phase[0].ppp_hdr = *ppp_hdr;
 			VRG_LOG(INFO, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "User %" PRIu16 " auth success.", s_ppp_ccb->user_num);
-			s_ppp_ccb->phase = IPCP_PHASE;
 			return SUCCESS;
 		}
 		else if (ppp_hdr->code == PAP_NAK) {
@@ -1211,11 +1219,11 @@ STATUS PPP_decode_frame(tVRG_MBX *mail, ppp_payload_t *ppp_payload, ppp_header_t
     		PPP_INFO_t tmp_s_ppp_ccb;
 
     		s_ppp_ccb->phase = AUTH_PHASE;
-    		tmp_s_ppp_ccb.ppp_phase[0].eth_hdr = &s_ppp_ccb->eth_hdr;
-			tmp_s_ppp_ccb.ppp_phase[0].vlan_header = &s_ppp_ccb->vlan_header;
-    		tmp_s_ppp_ccb.ppp_phase[0].pppoe_header = &s_ppp_ccb->pppoe_header;
-    		tmp_s_ppp_ccb.ppp_phase[0].ppp_payload = ppp_payload;
-    		tmp_s_ppp_ccb.ppp_phase[0].ppp_hdr = ppp_hdr;
+    		tmp_s_ppp_ccb.eth_hdr = s_ppp_ccb->eth_hdr;
+			tmp_s_ppp_ccb.vlan_header = s_ppp_ccb->vlan_header;
+    		tmp_s_ppp_ccb.pppoe_header = s_ppp_ccb->pppoe_header;
+    		tmp_s_ppp_ccb.ppp_phase[0].ppp_payload = *ppp_payload;
+    		tmp_s_ppp_ccb.ppp_phase[0].ppp_hdr = *ppp_hdr;
     		tmp_s_ppp_ccb.ppp_phase[0].ppp_options = NULL;
     		tmp_s_ppp_ccb.cp = 0;
 			tmp_s_ppp_ccb.session_id = s_ppp_ccb->session_id;
@@ -1229,18 +1237,18 @@ STATUS PPP_decode_frame(tVRG_MBX *mail, ppp_payload_t *ppp_payload, ppp_header_t
 	else if (ppp_payload->ppp_protocol == rte_cpu_to_be_16(CHAP_PROTOCOL)) {
 		if (s_ppp_ccb->phase != AUTH_PHASE)
 			return ERROR;
-		ppp_chap_data_t *ppp_chap_data = (ppp_chap_data_t *)(tmp_ppp_hdr + 1);
+		ppp_chap_data_t *ppp_chap_data = (ppp_chap_data_t *)(ppp_hdr + 1);
 		if (ppp_hdr->code == CHAP_CHALLANGE) {
 			U8 buffer[MSG_BUF];
     		U16 mulen;
     		PPP_INFO_t tmp_s_ppp_ccb;
 
     		s_ppp_ccb->phase = AUTH_PHASE;
-    		tmp_s_ppp_ccb.ppp_phase[0].eth_hdr = &s_ppp_ccb->eth_hdr;
-			tmp_s_ppp_ccb.ppp_phase[0].vlan_header = &s_ppp_ccb->vlan_header;
-    		tmp_s_ppp_ccb.ppp_phase[0].pppoe_header = &s_ppp_ccb->pppoe_header;
-    		tmp_s_ppp_ccb.ppp_phase[0].ppp_payload = ppp_payload;
-    		tmp_s_ppp_ccb.ppp_phase[0].ppp_hdr = ppp_hdr;
+    		tmp_s_ppp_ccb.eth_hdr = s_ppp_ccb->eth_hdr;
+			tmp_s_ppp_ccb.vlan_header = s_ppp_ccb->vlan_header;
+    		tmp_s_ppp_ccb.pppoe_header = s_ppp_ccb->pppoe_header;
+    		tmp_s_ppp_ccb.ppp_phase[0].ppp_payload = *ppp_payload;
+    		tmp_s_ppp_ccb.ppp_phase[0].ppp_hdr = *ppp_hdr;
     		tmp_s_ppp_ccb.ppp_phase[0].ppp_options = NULL;
     		tmp_s_ppp_ccb.cp = 0;
 			tmp_s_ppp_ccb.session_id = s_ppp_ccb->session_id;
@@ -1265,6 +1273,56 @@ STATUS PPP_decode_frame(tVRG_MBX *mail, ppp_payload_t *ppp_payload, ppp_header_t
 		VRG_LOG(WARN, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "User %" PRIu16 " recv unknown PPP protocol.", s_ppp_ccb->user_num);
 		return ERROR;
 	}
+
+    return SUCCESS;
+}
+
+/**
+ * @brief ppp_decode_frame() is for decode pppoe and ppp pkts
+ * 
+ * @param mail 
+ * @param eth_hdr 
+ * @param vlan_header 
+ * @param pppoe_header 
+ * @param ppp_payload 
+ * @param ppp_hdr 
+ * @param ppp_options 
+ * @param event 
+ * @param s_ppp_ccb 
+ * @retval TRUE for decode successfully
+ * @retval FALSE for decode failed 
+ */
+STATUS PPP_decode_frame(tVRG_MBX *mail, U16 *event, PPP_INFO_t *s_ppp_ccb)
+{
+    if (mail->len > ETH_JUMBO) {
+	    VRG_LOG(ERR, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "error! too large frame(%d)", mail->len);
+		/* TODO: store pkt buffer to log file, not just print out */
+		PRINT_MESSAGE(mail->refp, mail->len);
+	    return ERROR;
+	}
+
+	struct rte_ether_hdr *eth_hdr = (struct rte_ether_hdr *)mail->refp;
+	vlan_header_t *vlan_header = (vlan_header_t *)(eth_hdr + 1);
+	pppoe_header_t *pppoe_header = (pppoe_header_t *)(vlan_header + 1);
+	s_ppp_ccb->eth_hdr = *eth_hdr;
+	s_ppp_ccb->vlan_header = *vlan_header;
+	s_ppp_ccb->pppoe_header = *pppoe_header;
+
+	/* we receive pppoe discovery packet and dont need to parse for ppp payload */
+	if (s_ppp_ccb->vlan_header.next_proto == rte_cpu_to_be_16(ETH_P_PPP_DIS)) {
+		if (s_ppp_ccb->pppoe_header.code == PADS)
+			s_ppp_ccb->phase = LCP_PHASE;
+		pppoe_header_tag_t *pppoe_header_tag = (pppoe_header_tag_t *)(pppoe_header + 1);
+		decode_pppoe(pppoe_header_tag, s_ppp_ccb);
+		return ERROR;
+	}
+	
+	/* we receive pppoe session packet and need to parse for ppp payload */
+    if (s_ppp_ccb->vlan_header.next_proto == rte_cpu_to_be_16(ETH_P_PPP_SES)) {
+        ppp_payload_t *ppp_payload = (ppp_payload_t *)(pppoe_header + 1);
+        if (decode_ppp(ppp_payload, event, s_ppp_ccb) == ERROR)
+            return ERROR;
+    }
 
 	return SUCCESS;
 }

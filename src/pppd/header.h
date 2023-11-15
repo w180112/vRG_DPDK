@@ -93,7 +93,7 @@ typedef struct pppoe_header_tag {
 typedef struct ppp_header {
 	U8 code;
 	U8 identifier;
-	U16 length; // host byte order
+	U16 length; // network order, including ppp options length
 }__rte_packed ppp_header_t;
 
 typedef struct ppp_pap_ack_nak {
@@ -127,11 +127,8 @@ typedef struct pppoe_phase {
 typedef struct ppp_phase {
 	U16 				state;
 	U16 				event;
-	struct rte_ether_hdr *eth_hdr;
-	vlan_header_t		*vlan_header;
-	pppoe_header_t 		*pppoe_header;
-	ppp_payload_t 		*ppp_payload;
-	ppp_header_t 		*ppp_hdr;
+	ppp_payload_t 		ppp_payload;
+	ppp_header_t 		ppp_hdr;
 	ppp_options_t 		*ppp_options;
 	U8 					max_retransmit;
 	U8					timer_counter;
