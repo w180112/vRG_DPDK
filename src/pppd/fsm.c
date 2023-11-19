@@ -21,7 +21,6 @@
 #include "nat.h"
 #include "fsm.h"
 
-extern struct lcore_map 	lcore;
 static VRG_t *vrg_ccb;
 
 STATUS 			PPP_FSM(struct rte_timer *ppp, PPP_INFO_t *s_ppp_ccb, U16 event);
@@ -699,7 +698,7 @@ STATUS A_this_layer_up(__attribute__((unused)) struct rte_timer *tim, __attribut
 
 	if (s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].ppp_payload.ppp_protocol == rte_cpu_to_be_16(LCP_PROTOCOL)) {
     	memset(buffer,0,MSG_BUF);
-        rte_timer_reset(&(s_ppp_ccb->ppp_alive), ppp_interval*rte_get_timer_hz(), SINGLE, lcore.timer_thread, (rte_timer_cb_t)exit_ppp, s_ppp_ccb);
+        rte_timer_reset(&(s_ppp_ccb->ppp_alive), ppp_interval*rte_get_timer_hz(), SINGLE, vrg_ccb->lcore.timer_thread, (rte_timer_cb_t)exit_ppp, s_ppp_ccb);
     	if (s_ppp_ccb->auth_method == PAP_PROTOCOL)
             build_auth_request_pap(buffer, &mulen, s_ppp_ccb);
         drv_xmit(vrg_ccb, buffer, mulen);
@@ -709,7 +708,7 @@ STATUS A_this_layer_up(__attribute__((unused)) struct rte_timer *tim, __attribut
     else if (s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].ppp_payload.ppp_protocol == rte_cpu_to_be_16(IPCP_PROTOCOL)) {
     	rte_atomic16_set(&s_ppp_ccb->dp_start_bool, (BIT16)1);
         s_ppp_ccb->phase = DATA_PHASE;
-    	rte_timer_reset(&(s_ppp_ccb->nat),rte_get_timer_hz(),PERIODICAL,lcore.timer_thread,(rte_timer_cb_t)nat_rule_timer,s_ppp_ccb);
+    	rte_timer_reset(&(s_ppp_ccb->nat), rte_get_timer_hz(), PERIODICAL, vrg_ccb->lcore.timer_thread, (rte_timer_cb_t)nat_rule_timer, s_ppp_ccb);
         VRG_LOG(INFO, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "User %" PRIu16 " IPCP connection establish successfully.", s_ppp_ccb->user_num);
         if (unlikely(vrg_ccb->non_vlan_mode == TRUE))
             VRG_LOG(INFO, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "Now user %" PRIu16 " can start to send data via pppoe session id 0x%x.", s_ppp_ccb->user_num, rte_cpu_to_be_16(s_ppp_ccb->session_id));
@@ -757,7 +756,7 @@ STATUS A_init_restart_config(__attribute__((unused)) struct rte_timer *tim, __at
     VRG_LOG(INFO, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "User %" PRIu16 " init config req timer start.\n", s_ppp_ccb->user_num);
     rte_timer_stop(tim);
     s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].timer_counter = 9;
-	rte_timer_reset(tim,3*rte_get_timer_hz(),PERIODICAL,lcore.timer_thread,(rte_timer_cb_t)A_send_config_request,s_ppp_ccb);
+	rte_timer_reset(tim, 3*rte_get_timer_hz(), PERIODICAL, vrg_ccb->lcore.timer_thread,(rte_timer_cb_t)A_send_config_request, s_ppp_ccb);
 
     return TRUE;
 }
@@ -767,7 +766,7 @@ STATUS A_init_restart_termin(__attribute__((unused)) struct rte_timer *tim, __at
     VRG_LOG(DBG, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "User %" PRIu16 " init termin req timer start.\n", s_ppp_ccb->user_num);
     rte_timer_stop(tim);
     s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].timer_counter = 9;
-	rte_timer_reset(tim,3*rte_get_timer_hz(),PERIODICAL,lcore.timer_thread,(rte_timer_cb_t)A_send_terminate_request,s_ppp_ccb);
+	rte_timer_reset(tim, 3*rte_get_timer_hz(), PERIODICAL, vrg_ccb->lcore.timer_thread, (rte_timer_cb_t)A_send_terminate_request, s_ppp_ccb);
 
     return TRUE;
 }
@@ -914,7 +913,7 @@ STATUS A_padr_timer_func(__attribute__((unused)) struct rte_timer *tim, __attrib
     return send_pkt(ENCODE_PADR, s_ppp_ccb);
 }
 
-void fsm_init(VRG_t *ccb)
+void fsm_init(void *ccb)
 {
-    vrg_ccb = ccb;
+    vrg_ccb = (VRG_t *)ccb;
 }

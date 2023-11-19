@@ -19,8 +19,8 @@ void init_ccb()
         },
     };
     ccb->loglvl = -1;
-    codec_init(ccb);
-    dbg_init(ccb);
+    codec_init((void *)ccb);
+    dbg_init((void *)ccb);
 }
 
 int main()

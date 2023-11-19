@@ -16,7 +16,7 @@
 
 #define TIMER_RESOLUTION_CYCLES 20000000ULL /* around 10ms at 2 Ghz */
 
-__attribute__((noreturn)) int timer_loop(__attribute__((unused)) void *arg)
+__rte_noreturn int timer_loop(__rte_unused void *arg)
 {
 	uint64_t prev_tsc = 0, cur_tsc, diff_tsc;
 

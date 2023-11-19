@@ -3,12 +3,9 @@
 #include <rte_byteorder.h>
 #include <rte_ether.h>
 #include <rte_ip.h>
-#include <rte_malloc.h>
 #include <sys/mman.h>
 #include "../vrg.h"
 #include "dhcp_fsm.h"
-
-extern struct lcore_map 	lcore;
 
 extern STATUS dhcp_fsm(dhcp_ccb_t *dhcp_ccb, U16 event);
 void release_lan_user(dhcp_ccb_t *dhcp_ccb);
@@ -16,9 +13,9 @@ void release_lan_user(dhcp_ccb_t *dhcp_ccb);
 struct rte_ether_addr zero_mac;
 static VRG_t *vrg_ccb;
 
-STATUS dhcp_init(VRG_t *ccb)
+STATUS dhcp_init(void *ccb)
 {
-    vrg_ccb = ccb;
+    vrg_ccb = (VRG_t *)ccb;
     vrg_ccb->dhcp_ccb = mmap(NULL, sizeof(dhcp_ccb_t)*vrg_ccb->user_count, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0);
 	if (vrg_ccb->dhcp_ccb == MAP_FAILED) { 
 		perror("map mem");
@@ -80,7 +77,7 @@ int dhcpd(struct rte_mbuf *single_pkt, struct rte_ether_hdr *eth_hdr, vlan_heade
     }
     /* If no more packet from the host, clear all information in dhcp_ccb */
     rte_timer_stop(&dhcp_ccb[user_index].lan_user_info[lan_user_index].timer);
-	rte_timer_reset(&dhcp_ccb[user_index].lan_user_info[lan_user_index].timer, LEASE_TIMEOUT * 2 * rte_get_timer_hz(), SINGLE, lcore.timer_thread, (rte_timer_cb_t)release_lan_user, &dhcp_ccb[user_index]);
+	rte_timer_reset(&dhcp_ccb[user_index].lan_user_info[lan_user_index].timer, LEASE_TIMEOUT * 2 * rte_get_timer_hz(), SINGLE, vrg_ccb->lcore.timer_thread, (rte_timer_cb_t)release_lan_user, &dhcp_ccb[user_index]);
 
     event = dhcp_decode(&dhcp_ccb[user_index], eth_hdr, vlan_header, ip_hdr, udp_hdr);
     if (event < 0) {

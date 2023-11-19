@@ -1,6 +1,5 @@
 #include <rte_timer.h>
 #include <rte_ether.h>
-#include <rte_malloc.h>
 #include <rte_memcpy.h>
 #include <rte_byteorder.h>
 #include <rte_errno.h>
@@ -9,6 +8,7 @@
 #include "../dbg.h"
 #include "../vrg.h"
 #include "../dp.h"
+#include "../utils.h"
 #include "codec.h"
 
 extern STATUS PPP_FSM(struct rte_timer *ppp, PPP_INFO_t *s_ppp_ccb, U16 event);
@@ -16,7 +16,6 @@ extern STATUS PPP_FSM(struct rte_timer *ppp, PPP_INFO_t *s_ppp_ccb, U16 event);
 extern struct rte_ring 		*rte_ring, *gateway_q, *uplink_q, *downlink_q;
 extern struct rte_ether_addr wan_mac;
 extern struct cmdline 		*cl;
-extern struct lcore_map 	lcore;
 extern FILE					*fp;
 extern BOOL					quit_flag;
 
@@ -41,13 +40,13 @@ STATUS check_ipcp_nak_rej(U8 flag, PPP_INFO_t *s_ppp_ccb, U16 ppp_hdr_len)
     pppoe_header_t 	*pppoe_header = &(s_ppp_ccb->pppoe_header);
     ppp_header_t 	*ppp_hdr = &(s_ppp_ccb->ppp_phase[1].ppp_hdr);
     ppp_options_t   *ppp_options = s_ppp_ccb->ppp_phase[1].ppp_options;
-	ppp_options_t   *tmp_buf = (ppp_options_t *)rte_malloc(NULL, MSG_BUF*sizeof(char), 0);
+	ppp_options_t   *tmp_buf = vrg_malloc(ppp_options_t, MSG_BUF*sizeof(char), 0);
 	ppp_options_t   *tmp_cur = tmp_buf;
 	int bool_flag = 0;
 	U16 tmp_total_length = 4;
 
 	if (tmp_buf == NULL) {
-		VRG_LOG(ERR, vrg_ccb->fp, vrg_ccb, NULL, "check_ipcp_nak_rej failed: rte_malloc failed: %s\n", rte_strerror(rte_errno));
+		VRG_LOG(ERR, vrg_ccb->fp, vrg_ccb, NULL, "check_ipcp_nak_rej failed: vrg_malloc failed: %s\n", rte_strerror(rte_errno));
 		return -1;
 	}
 	
@@ -80,11 +79,11 @@ STATUS check_ipcp_nak_rej(U8 flag, PPP_INFO_t *s_ppp_ccb, U16 ppp_hdr_len)
 		pppoe_header->length = rte_cpu_to_be_16((ppp_hdr->length) + sizeof(ppp_payload_t));
 		ppp_hdr->length = rte_cpu_to_be_16(ppp_hdr->length);
 		ppp_hdr->code = flag;
-		rte_free(tmp_buf);
+		vrg_mfree(tmp_buf);
 
 		return 1;
 	}
-	rte_free(tmp_buf);
+	vrg_mfree(tmp_buf);
 	return 0;
 }
 
@@ -106,13 +105,13 @@ STATUS check_nak_reject(U8 flag, PPP_INFO_t *s_ppp_ccb, U16 ppp_hdr_len)
     pppoe_header_t 	*pppoe_header = &(s_ppp_ccb->pppoe_header);
     ppp_header_t 	*ppp_hdr = &(s_ppp_ccb->ppp_phase[0].ppp_hdr);
     ppp_options_t   *ppp_options = s_ppp_ccb->ppp_phase[0].ppp_options;
-	ppp_options_t 	*tmp_buf = (ppp_options_t *)rte_malloc(NULL, MSG_BUF*sizeof(char), 0);
+	ppp_options_t 	*tmp_buf = vrg_malloc(ppp_options_t, MSG_BUF*sizeof(char), 0);
 	ppp_options_t 	*tmp_cur = tmp_buf;
 	int 			bool_flag = 0;
 	U16 		tmp_total_length = 4;
 
 	if (tmp_buf == NULL) {
-		VRG_LOG(ERR, vrg_ccb->fp, vrg_ccb, NULL, "check_nak_reject failed: rte_malloc failed: %s\n", rte_strerror(rte_errno));
+		VRG_LOG(ERR, vrg_ccb->fp, vrg_ccb, NULL, "check_nak_reject failed: vrg_malloc failed: %s\n", rte_strerror(rte_errno));
 		return -1;
 	}
 	
@@ -169,11 +168,11 @@ STATUS check_nak_reject(U8 flag, PPP_INFO_t *s_ppp_ccb, U16 ppp_hdr_len)
 		pppoe_header->length = rte_cpu_to_be_16((ppp_hdr->length) + sizeof(ppp_payload_t));
 		ppp_hdr->length = rte_cpu_to_be_16(ppp_hdr->length);
 		ppp_hdr->code = flag;
-		rte_free(tmp_buf);
+		vrg_mfree(tmp_buf);
 
 		return 1;
 	}
-	rte_free(tmp_buf);
+	vrg_mfree(tmp_buf);
 	return 0;
 }
 
@@ -266,7 +265,7 @@ STATUS decode_lcp(U16 ppp_hdr_len, U16 *event, struct rte_timer *tim, PPP_INFO_t
 			if (s_ppp_ccb->phase < LCP_PHASE)
 				return ERROR;
 			rte_timer_stop(&(s_ppp_ccb->ppp_alive));
-			rte_timer_reset(&(s_ppp_ccb->ppp_alive), ppp_interval*rte_get_timer_hz(), SINGLE, lcore.timer_thread, (rte_timer_cb_t)exit_ppp, s_ppp_ccb);
+			rte_timer_reset(&(s_ppp_ccb->ppp_alive), ppp_interval*rte_get_timer_hz(), SINGLE, vrg_ccb->lcore.timer_thread, (rte_timer_cb_t)exit_ppp, s_ppp_ccb);
 			*event = E_RECV_ECHO_REPLY_REQUEST_DISCARD_REQUEST;
 			return SUCCESS;
 		case ECHO_REPLY:
@@ -1131,7 +1130,7 @@ STATUS decode_pppoe(pppoe_header_tag_t *pppoe_header_tag, PPP_INFO_t *s_ppp_ccb)
 			exit_ppp(&(s_ppp_ccb->pppoe), s_ppp_ccb);
 			return ERROR;
 		}
-		rte_timer_reset(&(s_ppp_ccb->pppoe), rte_get_timer_hz(), PERIODICAL, lcore.timer_thread, (rte_timer_cb_t)A_padr_timer_func, s_ppp_ccb);
+		rte_timer_reset(&(s_ppp_ccb->pppoe), rte_get_timer_hz(), PERIODICAL, vrg_ccb->lcore.timer_thread, (rte_timer_cb_t)A_padr_timer_func, s_ppp_ccb);
 		return SUCCESS;
 	case PADS:
 		rte_timer_stop(&(s_ppp_ccb->pppoe));
@@ -1170,9 +1169,9 @@ STATUS decode_ppp(ppp_payload_t *ppp_payload, U16 *event, PPP_INFO_t *s_ppp_ccb)
     if (ppp_payload->ppp_protocol == rte_cpu_to_be_16(IPCP_PROTOCOL)) {
         s_ppp_ccb->ppp_phase[1].ppp_payload = *ppp_payload;
 	    s_ppp_ccb->ppp_phase[1].ppp_hdr = *ppp_hdr;
-        s_ppp_ccb->ppp_phase[1].ppp_options = (ppp_options_t *)rte_malloc(NULL, ppp_hdr_len-sizeof(ppp_header_t), 0);
+        s_ppp_ccb->ppp_phase[1].ppp_options = vrg_malloc(ppp_options_t, ppp_hdr_len-sizeof(ppp_header_t), 0);
         if (s_ppp_ccb->ppp_phase[1].ppp_options == NULL && ppp_hdr_len != sizeof(ppp_header_t)) {
-        	VRG_LOG(ERR, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "malloc error");
+        	VRG_LOG(ERR, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "vrg_malloc error");
         	return ERROR;
         }
         rte_memcpy(s_ppp_ccb->ppp_phase[1].ppp_options, ppp_hdr+1, ppp_hdr_len-sizeof(ppp_header_t));
@@ -1186,9 +1185,9 @@ STATUS decode_ppp(ppp_payload_t *ppp_payload, U16 *event, PPP_INFO_t *s_ppp_ccb)
     else if (ppp_payload->ppp_protocol == rte_cpu_to_be_16(LCP_PROTOCOL)) {
         s_ppp_ccb->ppp_phase[0].ppp_payload = *ppp_payload;
 	    s_ppp_ccb->ppp_phase[0].ppp_hdr = *ppp_hdr;
-        s_ppp_ccb->ppp_phase[0].ppp_options = (ppp_options_t *)rte_malloc(NULL, ppp_hdr_len-sizeof(ppp_header_t), 0);
+        s_ppp_ccb->ppp_phase[0].ppp_options = vrg_malloc(ppp_options_t, ppp_hdr_len-sizeof(ppp_header_t), 0);
         if (s_ppp_ccb->ppp_phase[0].ppp_options == NULL && ppp_hdr_len != sizeof(ppp_header_t)) {
-        	VRG_LOG(ERR, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "malloc error.");
+        	VRG_LOG(ERR, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "vrg_malloc error.");
         	return ERROR;
         }
         rte_memcpy(s_ppp_ccb->ppp_phase[0].ppp_options, ppp_hdr+1, ppp_hdr_len-sizeof(ppp_header_t));
@@ -1280,17 +1279,11 @@ STATUS decode_ppp(ppp_payload_t *ppp_payload, U16 *event, PPP_INFO_t *s_ppp_ccb)
 /**
  * @brief ppp_decode_frame() is for decode pppoe and ppp pkts
  * 
- * @param mail 
- * @param eth_hdr 
- * @param vlan_header 
- * @param pppoe_header 
- * @param ppp_payload 
- * @param ppp_hdr 
- * @param ppp_options 
+ * @param mail
  * @param event 
  * @param s_ppp_ccb 
- * @retval TRUE for decode successfully
- * @retval FALSE for decode failed 
+ * @retval SUCCESS for decode successfully
+ * @retval ERROR for decode failed 
  */
 STATUS PPP_decode_frame(tVRG_MBX *mail, U16 *event, PPP_INFO_t *s_ppp_ccb)
 {
@@ -1327,7 +1320,7 @@ STATUS PPP_decode_frame(tVRG_MBX *mail, U16 *event, PPP_INFO_t *s_ppp_ccb)
 	return SUCCESS;
 }
 
-void codec_init(VRG_t *ccb)
+void codec_init(void *ccb)
 {
-	vrg_ccb = ccb;
+	vrg_ccb = (VRG_t *)ccb;
 }

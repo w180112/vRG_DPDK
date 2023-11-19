@@ -5,6 +5,6 @@
 #include "vrg.h"
 
 extern cmdline_parse_ctx_t ctx[];
-STATUS init_cli(VRG_t *vrg_ccb);
+STATUS init_cli(void *vrg_ccb);
 
 #endif

@@ -56,16 +56,9 @@ typedef enum {
 	E_UNKNOWN, // for log usage, not for fsm
 } PPP_EVENT_TYPE;
 
-typedef enum {
-	MT_ppp_link,
-	MT_ppp_crt,
-	MT_ppp_tmr, 
-	MT_ppp_peer,
-} PPP_MAIL_TYPE;
-
 STATUS A_padi_timer_func(__attribute__((unused)) struct rte_timer *tim, __attribute__((unused)) PPP_INFO_t *s_ppp_ccb);
 STATUS A_padr_timer_func(__attribute__((unused)) struct rte_timer *tim, __attribute__((unused)) PPP_INFO_t *s_ppp_ccb);
-void fsm_init(VRG_t *ccb);
+void fsm_init(void *ccb);
 
 /*======================= external ==========================*/
 #ifdef __cplusplus

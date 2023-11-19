@@ -68,12 +68,11 @@ typedef struct {
 
 extern U32	ppp_interval;
 
-void 		PPP_int(void);
 void 		exit_ppp(__attribute__((unused)) struct rte_timer *tim, PPP_INFO_t *ppp_ccb);
 STATUS 		ppp_process(void *mail);
 STATUS 		ppp_connect(PPP_INFO_t *ppp_ccb, U16 user_id);
 STATUS 		ppp_disconnect(PPP_INFO_t *ppp_ccb, U16 user_id);
-STATUS 		pppdInit(void *ccb);
+STATUS 		pppd_init(void *ccb);
 void 		PPP_bye(PPP_INFO_t *ppp_ccb);
 
 #endif

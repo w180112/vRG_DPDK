@@ -15,7 +15,7 @@
 #include "pppd.h"
 #include "fsm.h"
 
-void codec_init(VRG_t *ccb);
+void codec_init(void *ccb);
 
 STATUS PPP_decode_frame(tVRG_MBX *mail, U16 *event, PPP_INFO_t *s_ppp_ccb);
 

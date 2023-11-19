@@ -2,7 +2,6 @@
 #include <inttypes.h>
 #include <rte_eal.h>
 #include <rte_ethdev.h>
-#include <rte_malloc.h>
 #include <rte_cycles.h>
 #include <rte_lcore.h>
 #include <rte_mbuf.h>
@@ -27,6 +26,7 @@
 #include "dbg.h"
 #include "dp.h"
 #include "trace.h"
+#include "utils.h"
 
 #define RX_RING_SIZE 128
 
@@ -57,8 +57,6 @@ static struct rte_eth_conf port_conf_default = {
 	.intr_conf = {
         .lsc = 1, /**< link status interrupt feature enabled */ },
 };
-extern STATUS 		PPP_FSM(struct rte_timer *ppp, PPP_INFO_t *s_ppp_ccb, U16 event);
-int 				control_plane_dequeue(tVRG_MBX **mail);
 static int			lsi_event_callback(U16 port_id, enum rte_eth_event_type type, void *param);
 
 int PORT_INIT(VRG_t *vrg_ccb, U16 port)
@@ -127,7 +125,7 @@ int wan_recvd(void *arg)
 	struct rte_mbuf 	*pkt[BURST_SIZE];
 	U16 				ori_port_id, nb_rx;
 	ppp_payload_t 		*ppp_payload;
-	tVRG_MBX 			*mail = rte_malloc(NULL, sizeof(tVRG_MBX)*32, 65536);
+	tVRG_MBX 			*mail = vrg_malloc(tVRG_MBX, sizeof(tVRG_MBX)*32, 65536);
 	int 				i;
 	U32 				icmp_new_cksum;
 	char 				*cur;
@@ -135,7 +133,7 @@ int wan_recvd(void *arg)
 	VRG_t 				*vrg_ccb = (VRG_t *)arg;
 
 	if (mail == NULL) {
-		VRG_LOG(ERR, vrg_ccb->fp, NULL, NULL, "wan_recvd failed: rte_malloc failed: %s\n", rte_strerror(rte_errno));
+		VRG_LOG(ERR, vrg_ccb->fp, NULL, NULL, "wan_recvd failed: vrg_malloc failed: %s\n", rte_strerror(rte_errno));
 		return -1;
 	}
 	
@@ -366,19 +364,6 @@ int downlink(void *arg)
 			rte_eth_tx_burst(0, down_port_q, pkt, total_tx);
 	}
 	return 0;
-}
-
-int control_plane_dequeue(tVRG_MBX **mail)
-{
-	U16 burst_size;
-
-	for(;;) {
-		burst_size = rte_ring_dequeue_burst(rte_ring,(void **)mail,BURST_SIZE,NULL);
-		if (likely(burst_size == 0))
-			continue;
-		break;
-	}
-	return burst_size;
 }
 
 int uplink(void *arg)
@@ -770,10 +755,10 @@ void drv_xmit(VRG_t *vrg_ccb, U8 *mu, U16 mulen)
 static int lsi_event_callback(U16 port_id, enum rte_eth_event_type type, void *param)
 {
 	struct rte_eth_link link;
-	tVRG_MBX			*mail = (tVRG_MBX *)rte_malloc(NULL, sizeof(tVRG_MBX), 2048);
+	tVRG_MBX			*mail = vrg_malloc(tVRG_MBX, sizeof(tVRG_MBX), 2048);
 
 	if (mail == NULL) {
-		VRG_LOG(ERR, NULL, NULL, NULL, "lsi_event_callback failed: rte_malloc failed: %s\n", rte_strerror(rte_errno));
+		VRG_LOG(ERR, NULL, NULL, NULL, "lsi_event_callback failed: vrg_malloc failed: %s\n", rte_strerror(rte_errno));
 		return -1;
 	}
 

@@ -16,6 +16,5 @@ int downlink(void *arg);
 int gateway(void *arg);
 int lan_recvd(void *arg);
 int PORT_INIT(VRG_t *vrg_ccb, U16 port);
-extern int control_plane_dequeue(tVRG_MBX **mail);
 
 #endif

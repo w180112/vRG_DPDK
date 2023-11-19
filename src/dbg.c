@@ -213,7 +213,7 @@ void LOGGER(U8 level, char *filename, int line_num, FILE *log_fp, void *ccb, voi
     }
 }
 
-void dbg_init(VRG_t *ccb)
+void dbg_init(void *ccb)
 {
-	vrg_ccb = ccb;
+	vrg_ccb = (VRG_t *)ccb;
 }

@@ -16,7 +16,6 @@
 #include <rte_memory.h>
 #include <rte_eal.h>
 #include <rte_atomic.h>
-#include <rte_malloc.h>
 #include <rte_branch_prediction.h>
 #include <rte_launch.h>
 #include <rte_per_lcore.h>
@@ -38,6 +37,7 @@
 #include "dhcpd/dhcp_codec.h"
 #include "init.h"
 #include "vrg.h"
+#include "utils.h"
 
 extern struct rte_ring *rte_ring;
 typedef struct cli_to_main_msg {
@@ -176,9 +176,9 @@ static void cmd_quit_parsed(__attribute__((unused)) void *parsed_result,
 			    __attribute__((unused)) struct cmdline *cl,
 			    __attribute__((unused)) void *data)
 {
-	tVRG_MBX *mail = (tVRG_MBX *)rte_malloc(NULL, sizeof(tVRG_MBX), 0);
+    tVRG_MBX *mail = vrg_malloc(tVRG_MBX, sizeof(tVRG_MBX), 0);
 	if (mail == NULL) {
-		cmdline_printf(cl, "cmd_quit_parsed failed: rte_malloc failed: %s\n", rte_strerror(rte_errno));
+		cmdline_printf(cl, "cmd_quit_parsed failed: vrg_malloc failed: %s\n", rte_strerror(rte_errno));
 		return;
 	}
 	cli_to_main_msg_t *msg = (cli_to_main_msg_t *)mail->refp;
@@ -248,9 +248,9 @@ static void cmd_connect_parsed( void *parsed_result,
 			    __attribute__((unused)) void *data)
 {
 	struct cmd_connect_result *res = parsed_result;
-	tVRG_MBX *mail = (tVRG_MBX *)rte_malloc(NULL, sizeof(tVRG_MBX), 0);
+	tVRG_MBX *mail = vrg_malloc(tVRG_MBX, sizeof(tVRG_MBX), 0);
 	if (mail == NULL) {
-		cmdline_printf(cl, "cmd_connect_parsed failed: rte_malloc failed: %s\n", rte_strerror(rte_errno));
+		cmdline_printf(cl, "cmd_connect_parsed failed: vrg_malloc failed: %s\n", rte_strerror(rte_errno));
 		return;
 	}
 	cli_to_main_msg_t *msg = (cli_to_main_msg_t *)mail->refp;
@@ -266,14 +266,14 @@ static void cmd_connect_parsed( void *parsed_result,
 		msg->user_id = strtoul(res->user_id, NULL, 10);
 		if (msg->user_id <= 0) {
 			printf("Wrong user id\nvRG> ");
-			rte_free(mail);
+			vrg_mfree(mail);
 			return;
 		}
 	}
 	
 	if (msg->user_id > vrg_ccb->user_count) {
 		printf("Too large user id\nvRG> ");
-		rte_free(mail);
+		vrg_mfree(mail);
 		return;
 	}
 
@@ -312,9 +312,9 @@ static void cmd_dhcp_parsed( void *parsed_result,
 			    __attribute__((unused)) void *data)
 {
 	struct cmd_dhcp_result *res = parsed_result;
-	tVRG_MBX *mail = (tVRG_MBX *)rte_malloc(NULL, sizeof(tVRG_MBX), 0);
+	tVRG_MBX *mail = vrg_malloc(tVRG_MBX, sizeof(tVRG_MBX), 0);
 	if (mail == NULL) {
-		cmdline_printf(cl, "cmd_dhcp_parsed failed: rte_malloc failed: %s\n", rte_strerror(rte_errno));
+		cmdline_printf(cl, "cmd_dhcp_parsed failed: vrg_malloc failed: %s\n", rte_strerror(rte_errno));
 		return;
 	}
 	cli_to_main_msg_t *msg = (cli_to_main_msg_t *)mail->refp;
@@ -325,7 +325,7 @@ static void cmd_dhcp_parsed( void *parsed_result,
 		msg->type = CLI_DHCP_STOP;
 	else {
 		printf("Wrong dhcp cmd\nvRG> ");
-		rte_free(mail);
+		vrg_mfree(mail);
 		return;
 	}
     
@@ -335,14 +335,14 @@ static void cmd_dhcp_parsed( void *parsed_result,
 		msg->user_id = strtoul(res->user_id, NULL, 10);
 		if (msg->user_id <= 0) {
 			printf("Wrong user id\nvRG> ");
-			rte_free(mail);
+			vrg_mfree(mail);
 			return;
 		}
 	}
 	
 	if (msg->user_id > vrg_ccb->user_count) {
 		printf("Too large user id\nvRG> ");
-		rte_free(mail);
+		vrg_mfree(mail);
 		return;
 	}
 
@@ -382,9 +382,9 @@ cmdline_parse_ctx_t ctx[] = {
 	NULL,
 };
 
-STATUS init_cli(VRG_t *ccb)
+STATUS init_cli(void *ccb)
 {
-	vrg_ccb = ccb;
+	vrg_ccb = (VRG_t *)ccb;
 	vrg_ccb->cl = cmdline_stdin_new(ctx, "vRG> ");
 	if (vrg_ccb->cl == NULL)
 		return ERROR;

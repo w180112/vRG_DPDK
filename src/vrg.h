@@ -8,6 +8,7 @@
 #include "dhcpd/dhcp_codec.h"
 #include "protocol.h"
 #include "pppd/pppd.h"
+#include "utils.h"
 
 #define LINK_DOWN           0x0
 #define LINK_UP             0x1
@@ -36,6 +37,7 @@ typedef struct {
     U16                     base_vlan;      /* started vlan id */
     volatile BOOL	        quit_flag;      /* vRG quit flag */
 	U32						lan_ip;         /* vRG LAN side ip */
+    struct lcore_map 		lcore;          /* lcore map */
     FILE 					*fp;
     struct cmdline 			*cl;
     struct nic_info         nic_info;
@@ -43,16 +45,6 @@ typedef struct {
     dhcp_ccb_t              *dhcp_ccb;      /* dhcp control block */
     struct rte_timer 	    link;           /* for physical link checking timer */
 }__rte_cache_aligned VRG_t;
-
-struct lcore_map {
-	U8 ctrl_thread;
-	U8 wan_thread;
-	U8 down_thread;
-	U8 lan_thread;
-	U8 up_thread;
-	U8 gateway_thread;
-	U8 timer_thread;
-};
 
 /**
  * @brief msg between IF driver and daemon
@@ -64,5 +56,6 @@ typedef struct {
 } tVRG_MBX;
 
 int vrg_start(int argc, char **argv);
+void vrg_interrupt();
 
 #endif

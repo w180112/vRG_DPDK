@@ -6,39 +6,36 @@
   Designed by THE on Jan 14, 2019
 /\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\*/
 
-#include        		<common.h>
-#include 				<rte_eal.h>
-#include 				<rte_ethdev.h>
-#include 				<rte_cycles.h>
-#include 				<rte_lcore.h>
-#include 				<rte_timer.h>
-#include				<rte_malloc.h>
-#include 				<rte_ether.h>
-#include 				<cmdline_rdline.h>
-#include 				<cmdline_parse.h>
-#include 				<cmdline_parse_string.h>
-#include 				<cmdline_socket.h>
-#include 				<cmdline.h>
-
-#include				<rte_memcpy.h>
-#include 				<rte_flow.h>
-#include				<rte_atomic.h>
-#include				<rte_pdump.h>
-#include 				<rte_trace.h>
-#include 				<sys/mman.h>
-#include 				"pppd.h"
-#include				"fsm.h"
-#include 				"../dp.h"
-#include 				"../dbg.h"
-#include				"../cmds.h"
-#include				"../init.h"
-#include				"../dp_flow.h"
-#include 				"../dhcpd/dhcpd.h"
-#include				"../vrg.h"
+#include <common.h>
+#include <rte_eal.h>
+#include <rte_ethdev.h>
+#include <rte_cycles.h>
+#include <rte_timer.h>
+#include <rte_ether.h>
+#include <cmdline_rdline.h>
+#include <cmdline_parse.h>
+#include <cmdline_parse_string.h>
+#include <cmdline_socket.h>
+#include <cmdline.h>
+#include <rte_memcpy.h>
+#include <rte_flow.h>
+#include <rte_atomic.h>
+#include <rte_pdump.h>
+#include <rte_trace.h>
+#include <sys/mman.h>
+#include "pppd.h"
+#include "fsm.h"
+#include "../dp.h"
+#include "../dbg.h"
+#include "../cmds.h"
+#include "../init.h"
+#include "../dp_flow.h"
+#include "../dhcpd/dhcpd.h"
+#include "../vrg.h"
+#include "../utils.h"
 
 U32						ppp_interval;
 static VRG_t			*vrg_ccb;
-extern struct lcore_map lcore;
 
 extern STATUS			PPP_FSM(struct rte_timer *ppp, PPP_INFO_t *ppp_ccb, U16 event);
 
@@ -105,29 +102,13 @@ void PPP_bye(PPP_INFO_t *s_ppp_ccb)
     }
 }
 
-/*---------------------------------------------------------
- * ppp_int : signal handler for INTR-C only
- *--------------------------------------------------------*/
-void PPP_int()
-{
-    VRG_LOG(INFO, vrg_ccb->fp, NULL, NULL, "vRG system interupt!");
-    rte_ring_free(rte_ring);
-	rte_ring_free(uplink_q);
-	rte_ring_free(downlink_q);
-	rte_ring_free(gateway_q);
-    fclose(vrg_ccb->fp);
-	cmdline_stdin_exit(vrg_ccb->cl);
-	VRG_LOG(INFO, vrg_ccb->fp, NULL, NULL, "bye!");
-	exit(0);
-}
-
 /**
  * @brief pppd init function
  * @return int 
  */
-STATUS pppdInit(void *ccb)
+STATUS pppd_init(void *ccb)
 {	
-	vrg_ccb = (void *)ccb;
+	vrg_ccb = (VRG_t *)ccb;
 
 	vrg_ccb->ppp_ccb = mmap(NULL, sizeof(PPP_INFO_t)*vrg_ccb->user_count, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0);
 	if (vrg_ccb->ppp_ccb == MAP_FAILED) { 
@@ -173,9 +154,9 @@ STATUS pppdInit(void *ccb)
 		rte_atomic16_init(&ppp_ccb[i].ppp_bool);
 		ppp_ccb[i].ppp_user_id = (unsigned char *)"asdf";
 		ppp_ccb[i].ppp_passwd = (unsigned char *)"zxcv";
-		ppp_ccb[i].pppoe_phase.pppoe_header_tag = rte_malloc(NULL, RTE_CACHE_LINE_SIZE, RTE_CACHE_LINE_SIZE);
+		ppp_ccb[i].pppoe_phase.pppoe_header_tag = vrg_malloc(pppoe_header_tag_t, RTE_CACHE_LINE_SIZE, RTE_CACHE_LINE_SIZE);
 		if (ppp_ccb[i].pppoe_phase.pppoe_header_tag == NULL) {
-			VRG_LOG(ERR, vrg_ccb->fp, NULL, PPPLOGMSG, "rte_malloc failed: %s", rte_strerror(errno));
+			VRG_LOG(ERR, vrg_ccb->fp, NULL, PPPLOGMSG, "vrg_malloc failed: %s", rte_strerror(errno));
 			return ERROR;
 		}
 	}
@@ -198,7 +179,7 @@ STATUS ppp_connect(PPP_INFO_t *ppp_ccb, U16 user_id)
 		PPP_bye(ppp_ccb);
 	/* set ppp starting boolean flag to TRUE */
 	rte_atomic16_set(&ppp_ccb->ppp_bool, 1);
-	rte_timer_reset(&ppp_ccb->pppoe, rte_get_timer_hz(), PERIODICAL, lcore.timer_thread, (rte_timer_cb_t)A_padi_timer_func, ppp_ccb);
+	rte_timer_reset(&ppp_ccb->pppoe, rte_get_timer_hz(), PERIODICAL, vrg_ccb->lcore.timer_thread, (rte_timer_cb_t)A_padi_timer_func, ppp_ccb);
 
 	return SUCCESS;
 }
@@ -236,8 +217,8 @@ void exit_ppp(__attribute__((unused)) struct rte_timer *tim, PPP_INFO_t *ppp_ccb
  * @brief PPPoE / PPP protocol processing
  * 
  * @param mail 
- * @retval TURE if process successfully
- * @retval FALSE if process failed
+ * @retval SUCCESS if process successfully
+ * @retval ERROR if process failed
  */
 STATUS ppp_process(void	*mail)
 {
@@ -247,20 +228,20 @@ STATUS ppp_process(void	*mail)
 	U16					event, user_id = 0;
 
 	ret = get_session_id(vrg_mail, &user_id);
-	if (ret == ERROR)					
-		return FALSE;
+	if (ret == ERROR)
+		return ERROR;
 
 	ret = PPP_decode_frame(vrg_mail, &event ,&ppp_ccb[user_id]);
 	if (ret == ERROR)					
-		return FALSE;
+		return ERROR;
 	
 	if (check_auth_result(&ppp_ccb[user_id]) == 1) {
-		return FALSE;
+		return ERROR;
 	}
 
 	ppp_ccb[user_id].ppp_phase[ppp_ccb[user_id].cp].event = event;
 	PPP_FSM(&(ppp_ccb[user_id].ppp), &ppp_ccb[user_id], event);
-	rte_free(ppp_ccb[user_id].ppp_phase[ppp_ccb[user_id].cp].ppp_options);
+	vrg_mfree(ppp_ccb[user_id].ppp_phase[ppp_ccb[user_id].cp].ppp_options);
 	
-	return TRUE;
+	return SUCCESS;
 }

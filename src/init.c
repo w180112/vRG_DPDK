@@ -15,14 +15,9 @@
 #define MBUF_CACHE_SIZE 512
 #define RING_SIZE 		16384
 
-static int init_mem(VRG_t *vrg_ccb);
-static int init_ring(void);
-int init_port(VRG_t *vrg_ccb);
-
 struct rte_ring    *rte_ring, *gateway_q, *uplink_q, *downlink_q;
 struct rte_mempool *direct_pool[PORT_AMOUNT];
 struct rte_mempool *indirect_pool[PORT_AMOUNT];
-extern U16 			user_count;
 
 extern int rte_ethtool_get_drvinfo(U16 port_id, struct ethtool_drvinfo *drv_info);
 
@@ -35,30 +30,6 @@ struct nic_info vendor[] = {
 	{ "net_i40e_vf", I40EVF },
 	{ "", 0 }
 };
-
-int sys_init(VRG_t *vrg_ccb)
-{
-    int ret;
-
-    ret = init_mem(vrg_ccb);
-    if (ret)
-        return ret;
-    ret = init_ring();
-    if (ret)
-		return ret;
-		
-	signal(SIGINT,(__sighandler_t)PPP_int);
-
-	/* init RTE timer library */
-	rte_timer_subsystem_init();
-
-	ret = init_port(vrg_ccb);
-	if (ret != 0)
-		return ret;
-
-    rte_timer_init(&vrg_ccb->link);
-    return 0;
-}
 
 static int init_mem(VRG_t *vrg_ccb)
 {
@@ -146,4 +117,28 @@ int init_port(VRG_t *vrg_ccb)
 		}
 	}
 	return 0;
+}
+
+int sys_init(VRG_t *vrg_ccb)
+{
+    int ret;
+
+    ret = init_mem(vrg_ccb);
+    if (ret)
+        return ret;
+    ret = init_ring();
+    if (ret)
+		return ret;
+		
+	signal(SIGINT, (__sighandler_t)vrg_interrupt);
+
+	/* init RTE timer library */
+	rte_timer_subsystem_init();
+
+	ret = init_port(vrg_ccb);
+	if (ret != 0)
+		return ret;
+
+    rte_timer_init(&vrg_ccb->link);
+    return 0;
 }
