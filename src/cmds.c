@@ -188,7 +188,7 @@ static void cmd_quit_parsed(__attribute__((unused)) void *parsed_result,
 	mail->type = IPC_EV_TYPE_CLI;
 	mail->len = 1;
 	//enqueue cli quit event to main thread
-	rte_ring_enqueue_burst(rte_ring,(void **)&mail,1,NULL);
+	vrg_ring_enqueue(rte_ring, (void **)&mail, 1);
 }
 
 cmdline_parse_token_string_t cmd_quit_quit =
@@ -280,7 +280,7 @@ static void cmd_connect_parsed( void *parsed_result,
 	mail->type = IPC_EV_TYPE_CLI;
 	mail->len = sizeof(cli_to_main_msg_t);
 	//enqueue cli quit event to main thread
-	rte_ring_enqueue_burst(rte_ring,(void **)&mail,1,NULL);
+	vrg_ring_enqueue(rte_ring, (void **)&mail, 1);
 }
 
 cmdline_parse_token_string_t cmd_connect_connect =
@@ -349,7 +349,7 @@ static void cmd_dhcp_parsed( void *parsed_result,
 	mail->type = IPC_EV_TYPE_CLI;
 	mail->len = sizeof(cli_to_main_msg_t);
 	//enqueue cli quit event to main thread
-	rte_ring_enqueue_burst(rte_ring,(void **)&mail,1,NULL);
+	vrg_ring_enqueue(rte_ring, (void **)&mail, 1);
 }
 
 cmdline_parse_token_string_t cmd_dhcp_dhcp =

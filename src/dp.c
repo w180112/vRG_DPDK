@@ -204,7 +204,7 @@ int wan_recvd(void *arg)
 					(mail + cp_recv_prod)->len = single_pkt->data_len;
 					//enqueue eth_hdr single_pkt->data_len
 					cur = (char *)(mail + cp_recv_prod);
-					rte_ring_enqueue_burst(rte_ring,(void **)&cur,1,NULL);
+					vrg_ring_enqueue(rte_ring, (void **)&cur, 1);
 					cp_recv_prod++;
 					if (cp_recv_prod >= 32)
 						cp_recv_prod = 0;
@@ -259,7 +259,7 @@ int wan_recvd(void *arg)
 					break;
 				case PROTO_TYPE_UDP:
 				case PROTO_TYPE_TCP:
-					rte_ring_enqueue_burst(downlink_q,(void **)&single_pkt,1,NULL);
+					vrg_ring_enqueue(downlink_q, (void **)&single_pkt, 1);
 					break;
 				default:
 					rte_pktmbuf_free(single_pkt);
@@ -480,7 +480,7 @@ int lan_recvd(void *arg)
 			}
 			if (unlikely(vlan_header->next_proto == rte_cpu_to_be_16(FRAME_TYPE_ARP))) { 
 				/* We only reply arp request to us */
-				rte_ring_enqueue_burst(gateway_q, (void **)&single_pkt, 1, NULL);
+				vrg_ring_enqueue(gateway_q, (void **)&single_pkt, 1);
 				continue;
 			}
 			else if (unlikely(vlan_header->next_proto == rte_cpu_to_be_16(ETH_P_PPP_DIS) || (vlan_header->next_proto == rte_cpu_to_be_16(ETH_P_PPP_SES)))) {
@@ -494,7 +494,7 @@ int lan_recvd(void *arg)
 			else if (likely(vlan_header->next_proto == rte_cpu_to_be_16(FRAME_TYPE_IP))) {
 				ip_hdr = (struct rte_ipv4_hdr *)(rte_pktmbuf_mtod(single_pkt, unsigned char *) + sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t));
 				if (unlikely(((ip_hdr->dst_addr << 8) ^ (vrg_ccb->lan_ip << 8)) == 0)) {
-					rte_ring_enqueue_burst(gateway_q, (void **)&single_pkt, 1, NULL);
+					vrg_ring_enqueue(gateway_q, (void **)&single_pkt, 1);
 					continue;
 				}
 				single_pkt->l2_len = sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t) + sizeof(pppoe_header_t) + sizeof(ppp_payload_t);
@@ -568,7 +568,7 @@ int lan_recvd(void *arg)
 						rte_pktmbuf_free(single_pkt);
 						continue;
 					}
-					rte_ring_enqueue_burst(uplink_q, (void **)&single_pkt, 1, NULL);
+					vrg_ring_enqueue(uplink_q, (void **)&single_pkt, 1);
 				}
 				else if (ip_hdr->next_proto_id == PROTO_TYPE_UDP) {
 					if (unlikely(RTE_IS_IPV4_MCAST(rte_be_to_cpu_32(ip_hdr->dst_addr)))) {
@@ -577,7 +577,7 @@ int lan_recvd(void *arg)
 					}
 					struct rte_udp_hdr *udp_hdr = (struct rte_udp_hdr *)(ip_hdr + 1);
 					if (unlikely(udp_hdr->dst_port == rte_be_to_cpu_16(67))) {
-						rte_ring_enqueue_burst(gateway_q, (void **)&single_pkt, 1, NULL);
+						vrg_ring_enqueue(gateway_q, (void **)&single_pkt, 1);
 						continue;
 					}
 					if (unlikely(!rte_is_same_ether_addr(&eth_hdr->dst_addr, &vrg_ccb->nic_info.hsi_lan_mac))) {
@@ -590,7 +590,7 @@ int lan_recvd(void *arg)
 						rte_pktmbuf_free(single_pkt);
 						continue;
 					}
-					rte_ring_enqueue_burst(uplink_q, (void **)&single_pkt, 1, NULL);
+					vrg_ring_enqueue(uplink_q, (void **)&single_pkt, 1);
 				}
 				else {
 					VRG_LOG(DBG, vrg_ccb->fp, NULL, NULL, "unknown L4 packet with protocol id %x recv on LAN port queue", ip_hdr->next_proto_id);
@@ -782,7 +782,7 @@ static int lsi_event_callback(U16 port_id, enum rte_eth_event_type type, void *p
 	mail->type = IPC_EV_TYPE_REG;
 	mail->len = 1;
 	//enqueue down event to main thread
-	rte_ring_enqueue_burst(rte_ring,(void **)&mail,1,NULL);
+	vrg_ring_enqueue(rte_ring, (void **)&mail, 1);
 
 	return 0;
 }

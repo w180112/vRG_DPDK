@@ -47,12 +47,12 @@ void link_disconnnect(struct rte_timer *tim, VRG_t *vrg_ccb)
  ***************************************************************/
 int vrg_loop(VRG_t *vrg_ccb)
 {
-	tVRG_MBX			*mail[BURST_SIZE];
+	tVRG_MBX			*mail[RING_BURST_SIZE];
 	U16					burst_size;
 	U16					recv_type;
 
 	for(;;) {
-		burst_size = control_plane_dequeue((void **)mail);
+		burst_size = vrg_ring_dequeue(rte_ring, (void **)mail);
 		/* update the ring queue index between hsi_recvd() */
 		rte_atomic16_add(&cp_recv_cums,burst_size);
 		if (rte_atomic16_read(&cp_recv_cums) > 32)
@@ -168,6 +168,12 @@ int control_plane(VRG_t *vrg_ccb)
 	return 0;
 }
 
+int northbound(VRG_t *vrg_ccb)
+{
+	while(1); // place holder
+	return 0;
+}
+
 int vrg_start(int argc, char **argv)
 {	
 	int ret = rte_eal_init(argc, argv);
@@ -260,6 +266,7 @@ int vrg_start(int argc, char **argv)
 	rte_eal_remote_launch((lcore_function_t *)uplink, (void *)&vrg_ccb, vrg_ccb.lcore.up_thread);
 	rte_eal_remote_launch((lcore_function_t *)gateway, (void *)&vrg_ccb, vrg_ccb.lcore.gateway_thread);
 	rte_eal_remote_launch((lcore_function_t *)timer_loop, (void *)&vrg_ccb, vrg_ccb.lcore.timer_thread);
+	rte_eal_remote_launch((lcore_function_t *)northbound, (void *)&vrg_ccb, vrg_ccb.lcore.northbound_thread);
 
 	cmdline_printf(vrg_ccb.cl, "vRG> type ? or help to show all available commands\n");
 	cmdline_interact(vrg_ccb.cl);

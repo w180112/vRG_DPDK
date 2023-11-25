@@ -1,6 +1,10 @@
 #ifndef _VRG_H_
 #define _VRG_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <rte_common.h>
 #include <rte_atomic.h>
 #include <rte_ether.h>
@@ -46,16 +50,11 @@ typedef struct {
     struct rte_timer 	    link;           /* for physical link checking timer */
 }__rte_cache_aligned VRG_t;
 
-/**
- * @brief msg between IF driver and daemon
- */
-typedef struct {
-	U16  			type;
-	U8          	refp[ETH_JUMBO];
-	int	        	len;
-} tVRG_MBX;
-
 int vrg_start(int argc, char **argv);
 void vrg_interrupt();
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
