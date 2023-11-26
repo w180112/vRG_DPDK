@@ -9,6 +9,11 @@
 
 #include "vrg.h"
 
-extern STATUS parse_config(const char *config_path, VRG_t *vrg_ccb);
+struct vrg_config {
+    char unix_sock_path[256];
+    char log_path[256];
+};
+
+STATUS parse_config(const char *config_path, VRG_t *vrg_ccb, struct vrg_config *vrg_cfg);
 
 #endif

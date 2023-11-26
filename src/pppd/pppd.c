@@ -34,10 +34,10 @@
 #include "../vrg.h"
 #include "../utils.h"
 
-U32						ppp_interval;
-static VRG_t			*vrg_ccb;
+U32	            ppp_interval;
+static VRG_t    *vrg_ccb;
 
-extern STATUS			PPP_FSM(struct rte_timer *ppp, PPP_INFO_t *ppp_ccb, U16 event);
+extern STATUS   PPP_FSM(struct rte_timer *ppp, PPP_INFO_t *ppp_ccb, U16 event);
 
 /**
  * @brief pppoe connection closing processing function

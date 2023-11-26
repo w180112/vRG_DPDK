@@ -28,6 +28,7 @@
 #include "config.h"
 #include "timer.h"
 #include "utils.h"
+#include "unix.h"
 
 #define 				BURST_SIZE 		32
 
@@ -164,13 +165,15 @@ int vrg_loop(VRG_t *vrg_ccb)
 int control_plane(VRG_t *vrg_ccb)
 {
 	if (vrg_loop(vrg_ccb) == ERROR)
-		return ERROR;
+		return -1;
 	return 0;
 }
 
 int northbound(VRG_t *vrg_ccb)
 {
-	while(1); // place holder
+	if (init_unix_sock(vrg_ccb) == ERROR)
+		return -1;
+
 	return 0;
 }
 
@@ -180,10 +183,6 @@ int vrg_start(int argc, char **argv)
 	if (ret < 0)
 		rte_exit(EXIT_FAILURE, "rte initlize fail.\n");
 
-	vrg_ccb.fp = fopen("./vrg.log","w+");
-	if (vrg_ccb.fp)
-        rte_openlog_stream(vrg_ccb.fp);
-	dbg_init((void *)&vrg_ccb);
 	if (rte_lcore_count() < 8)
 		rte_exit(EXIT_FAILURE, "We need at least 8 cores.\n");
 	if (rte_eth_dev_count_avail() < 2)
@@ -196,8 +195,10 @@ int vrg_start(int argc, char **argv)
 	if (rte_eth_dev_socket_id(1) > 0 && rte_eth_dev_socket_id(1) != (int)rte_lcore_to_socket_id(vrg_ccb.lcore.wan_thread))
 		printf("WARNING, WAN port is on remote NUMA node to polling thread.\n\tPerformance will not be optimal.\n");
 
+	dbg_init((void *)&vrg_ccb);
 	/* Read network config */
-	if (parse_config("./config.cfg", &vrg_ccb) != SUCCESS) {
+	struct vrg_config vrg_cfg;
+	if (parse_config("/etc/vrg/config.cfg", &vrg_ccb, &vrg_cfg) != SUCCESS) {
 		printf("parse config file error\n");
 		return -1;
 	}
@@ -206,6 +207,10 @@ int vrg_start(int argc, char **argv)
 		vrg_ccb.user_count = 1;
     	vrg_ccb.base_vlan = 2;
 	}
+	vrg_ccb.unix_sock_path = vrg_cfg.unix_sock_path;
+	vrg_ccb.fp = fopen(vrg_cfg.log_path, "w+");
+	if (vrg_ccb.fp)
+        rte_openlog_stream(vrg_ccb.fp);
 
 	if (vrg_ccb.user_count < 1 || vrg_ccb.base_vlan < 2)
 		rte_exit(EXIT_FAILURE, "vRG system configuration failed.\n");

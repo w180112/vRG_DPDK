@@ -34,3 +34,7 @@ popd
 pushd $path
 make && make install
 popd
+mkdir -p /var/log/vrg
+mkdir -p /var/run/vrg
+mkdir -p /etc/vrg
+cp config.cfg /etc/vrg/config.cfg

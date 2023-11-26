@@ -42,7 +42,8 @@ typedef struct {
     volatile BOOL	        quit_flag;      /* vRG quit flag */
 	U32						lan_ip;         /* vRG LAN side ip */
     struct lcore_map 		lcore;          /* lcore map */
-    FILE 					*fp;
+    char                    *unix_sock_path;/* vRG unix socket file path */
+    FILE 					*fp;            /* vRG log file pointer */
     struct cmdline 			*cl;
     struct nic_info         nic_info;
     PPP_INFO_t              *ppp_ccb;       /* pppoe control block */

@@ -2,16 +2,17 @@
 #include <libconfig.h>
 #include "vrg.h"
 #include "dbg.h"
+#include "config.h"
 
-STATUS parse_config(const char *config_path, VRG_t *vrg_ccb) 
+STATUS parse_config(const char *config_path, VRG_t *vrg_ccb, struct vrg_config *vrg_cfg) 
 {
     config_t cfg;
     int user_count, base_vlan, non_vlan_mode;
-    const char *loglvl, *default_gateway;
+    const char *loglvl, *default_gateway, *unix_sock_path, *log_path;
 
     config_init(&cfg);
     if (!config_read_file(&cfg, config_path)) {
-        VRG_LOG(INFO, vrg_ccb->fp, NULL, NULL, "read config file %s content error: %s:%d - %s", 
+        fprintf(stderr, "read config file %s content error: %s:%d - %s\n", 
                 config_path, config_error_file(&cfg), config_error_line(&cfg), config_error_text(&cfg));
         config_destroy(&cfg);
         return ERROR;
@@ -26,10 +27,17 @@ STATUS parse_config(const char *config_path, VRG_t *vrg_ccb)
         loglvl = "DBG";
     vrg_ccb->loglvl = logstr2lvl(loglvl);
     if (vrg_ccb->loglvl == 0) {
-        VRG_LOG(INFO, vrg_ccb->fp, NULL, NULL, "log level error");
+        fprintf(stderr, "log level error\n");
         config_destroy(&cfg);
         return ERROR;
     }
+    if (config_lookup_string(&cfg, "LogPath", &log_path) == CONFIG_FALSE) {
+        log_path = "/var/log/vrg/vrg.log";
+        printf("log path not found, use default path: %s\n", log_path);
+    }
+    strncpy(vrg_cfg->log_path, log_path, sizeof(vrg_cfg->log_path) - 1);
+    vrg_cfg->log_path[sizeof(vrg_cfg->log_path) - 1] = '\0';
+
     if (config_lookup_int(&cfg, "NonVlanMode", &non_vlan_mode) == CONFIG_FALSE)
         non_vlan_mode = 0;
     vrg_ccb->non_vlan_mode = non_vlan_mode;
@@ -37,6 +45,11 @@ STATUS parse_config(const char *config_path, VRG_t *vrg_ccb)
     if (config_lookup_string(&cfg, "DefaultGateway", &default_gateway) == CONFIG_FALSE)
         default_gateway = "192.168.2.1";
     vrg_ccb->lan_ip = rte_cpu_to_be_32(inet_addr(default_gateway));
+
+    if (config_lookup_string(&cfg, "DefaultUnixSocket", &unix_sock_path) == CONFIG_FALSE)
+        unix_sock_path = "/var/run/vrg/vrg.sock";
+    strncpy(vrg_cfg->unix_sock_path, unix_sock_path, sizeof(vrg_cfg->unix_sock_path) - 1);
+    vrg_cfg->unix_sock_path[sizeof(vrg_cfg->unix_sock_path) - 1] = '\0';
     
     config_destroy(&cfg);
 

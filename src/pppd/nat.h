@@ -1,3 +1,6 @@
+#ifndef _NAT_H_
+#define _NAT_H_
+
 #include <stdint.h>
 #include <inttypes.h>
 #include <rte_eal.h>
@@ -19,9 +22,6 @@
 #include <rte_atomic.h>
 #include <rte_memcpy.h>
 #include "pppd.h"
-
-#ifndef _NAT_H_
-#define _NAT_H_
 
 void nat_rule_timer(__attribute__((unused)) struct rte_timer *tim, PPP_INFO_t *s_ppp_ccb);
 
