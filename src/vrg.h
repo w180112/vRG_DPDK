@@ -43,6 +43,7 @@ typedef struct {
 	U32						lan_ip;         /* vRG LAN side ip */
     struct lcore_map 		lcore;          /* lcore map */
     char                    *unix_sock_path;/* vRG unix socket file path */
+    int                     unix_sock_fd;   /* vRG unix socket file descriptor */
     FILE 					*fp;            /* vRG log file pointer */
     struct cmdline 			*cl;
     struct nic_info         nic_info;

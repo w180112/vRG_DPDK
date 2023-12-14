@@ -12,11 +12,6 @@
 #include <rte_cycles.h>
 #include <rte_timer.h>
 #include <rte_ether.h>
-#include <cmdline_rdline.h>
-#include <cmdline_parse.h>
-#include <cmdline_parse_string.h>
-#include <cmdline_socket.h>
-#include <cmdline.h>
 #include <rte_memcpy.h>
 #include <rte_flow.h>
 #include <rte_atomic.h>
@@ -27,7 +22,6 @@
 #include "fsm.h"
 #include "../dp.h"
 #include "../dbg.h"
-#include "../cmds.h"
 #include "../init.h"
 #include "../dp_flow.h"
 #include "../dhcpd/dhcpd.h"
@@ -61,7 +55,7 @@ void PPP_bye(PPP_INFO_t *s_ppp_ccb)
 					rte_ring_free(downlink_q);
 					rte_ring_free(gateway_q);
             		fclose(vrg_ccb->fp);
-					cmdline_stdin_exit(vrg_ccb->cl);
+					close(vrg_ccb->unix_sock_fd);
 					munmap(vrg_ccb->ppp_ccb, sizeof(PPP_INFO_t)*vrg_ccb->user_count);
 					munmap(vrg_ccb->dhcp_ccb, sizeof(dhcp_ccb_t)*vrg_ccb->user_count);
 					//rte_mempool_put_bulk(vrg_ccb.ppp_ccb_mp, (void *const *)&vrg_ccb.ppp_ccb, user_count);

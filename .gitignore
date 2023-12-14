@@ -7,3 +7,6 @@ build
 **/vrg_northbound
 **/.libs
 unit_test/unit-tester
+**/vrg_cli
+**/libvrg_northbound.a
+**/*.pb.*

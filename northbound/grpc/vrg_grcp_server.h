@@ -5,7 +5,7 @@
 extern "C" {
 #endif
 
-int vrg_grpc_server_run(void *arg);
+void vrg_grpc_server_run(void *arg);
 
 #ifdef __cplusplus
 }

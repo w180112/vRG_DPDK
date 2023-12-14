@@ -21,14 +21,14 @@
 #include "pppd/fsm.h"
 #include "dp.h"
 #include "dbg.h"
-#include "cmds.h"
 #include "init.h"
 #include "dp_flow.h"
 #include "dhcpd/dhcpd.h"
 #include "config.h"
 #include "timer.h"
 #include "utils.h"
-#include "unix.h"
+
+#include "../northbound/grpc/vrg_grcp_server.h"
 
 #define 				BURST_SIZE 		32
 
@@ -39,6 +39,87 @@ void link_disconnnect(struct rte_timer *tim, VRG_t *vrg_ccb)
 {
     for(int i=0; i<vrg_ccb->user_count; i++)
         exit_ppp(tim, &vrg_ccb->ppp_ccb[i]);
+}
+
+STATUS process_northbound(VRG_t *vrg_ccb, U8 msg_type, U8 user_id)
+{
+	if (user_id > vrg_ccb->user_count) {
+		VRG_LOG(ERR, vrg_ccb->fp, NULL, NULL, "Error! User %u is not exist", user_id);
+		return ERROR;
+	}
+
+	switch (msg_type) {
+		case CLI_DISCONNECT:
+			if (user_id == 0) {
+				for(int j=0; j<vrg_ccb->user_count; j++) {
+					if (ppp_disconnect(&(vrg_ccb->ppp_ccb[j]), j+1) != SUCCESS)
+						continue;
+				}
+			}
+			else
+				ppp_disconnect(&(vrg_ccb->ppp_ccb[user_id-1]), user_id);
+			break;
+		case CLI_CONNECT:
+			if (user_id == 0) {
+				for(int j=0; j<vrg_ccb->user_count; j++) {
+					if (ppp_connect(&(vrg_ccb->ppp_ccb[j]), j+1) == SUCCESS)
+						vrg_ccb->cur_user++;
+				}
+			}
+			else {
+				if (ppp_connect(&(vrg_ccb->ppp_ccb[user_id-1]), user_id) == SUCCESS)
+					vrg_ccb->cur_user++;
+			}
+			break;	
+		case CLI_DHCP_START:
+			if (user_id == 0) {
+				for(int j=0; j<vrg_ccb->user_count; j++) {
+					if (rte_atomic16_read(&vrg_ccb->dhcp_ccb[j].dhcp_bool) == 1) {
+						VRG_LOG(ERR, vrg_ccb->fp, &(vrg_ccb->dhcp_ccb[j]), DHCPLOGMSG, "Error! User %u dhcp server is already on", j);
+						continue;
+					}
+					rte_atomic16_set(&vrg_ccb->dhcp_ccb[j].dhcp_bool, 1);
+				}
+			}
+			else {
+				if (rte_atomic16_read(&vrg_ccb->dhcp_ccb[user_id-1].dhcp_bool) == 1) {
+					VRG_LOG(ERR, vrg_ccb->fp, &(vrg_ccb->dhcp_ccb[user_id-1]), DHCPLOGMSG, "Error! User %u dhcp server is already on", user_id);
+					break;
+				}
+				rte_atomic16_set(&vrg_ccb->dhcp_ccb[user_id-1].dhcp_bool, 1);
+			}
+			break;
+		case CLI_DHCP_STOP:
+			if (user_id == 0) {
+				for(int j=0; j<vrg_ccb->user_count; j++) {
+					if (rte_atomic16_read(&vrg_ccb->dhcp_ccb[j].dhcp_bool) == 0) {
+						VRG_LOG(ERR, vrg_ccb->fp, &(vrg_ccb->dhcp_ccb[j]), DHCPLOGMSG, "Error! User %u dhcp server is already off", j);
+						continue;
+					}
+					rte_atomic16_set(&vrg_ccb->dhcp_ccb[j].dhcp_bool, 0);
+				}
+			}
+			else {
+				if (rte_atomic16_read(&vrg_ccb->dhcp_ccb[user_id-1].dhcp_bool) == 0) {
+					VRG_LOG(ERR, vrg_ccb->fp, &(vrg_ccb->dhcp_ccb[user_id-1]), DHCPLOGMSG, "Error! User %u dhcp server is already off", user_id);
+					break;
+				}
+				rte_atomic16_set(&vrg_ccb->dhcp_ccb[user_id-1].dhcp_bool, 0);
+			}
+			break;				
+		case CLI_QUIT:
+			vrg_ccb->quit_flag = TRUE;
+			for(int j=0; j<vrg_ccb->user_count; j++) {
+				if (vrg_ccb->ppp_ccb[j].phase == END_PHASE)
+					vrg_ccb->cur_user++;
+ 				PPP_bye(&(vrg_ccb->ppp_ccb[j]));
+			}
+			break;
+		default:
+			;
+	}
+
+	return SUCCESS;
 }
 
 /***************************************************************
@@ -71,76 +152,7 @@ int vrg_loop(VRG_t *vrg_ccb)
 			case IPC_EV_TYPE_CLI:
 				/* mail[i]->refp[0] means cli command, mail[i]->refp[1] means user id */
 				U8 user_id = mail[i]->refp[1]; //user_id = 0 means all users
-				switch (mail[i]->refp[0]) {
-					case CLI_DISCONNECT:
-						if (user_id == 0) {
-							for(int j=0; j<vrg_ccb->user_count; j++) {
-								if (ppp_disconnect(&(vrg_ccb->ppp_ccb[j]), j+1) != SUCCESS)
-									continue;
-							}
-						}
-						else
-							ppp_disconnect(&(vrg_ccb->ppp_ccb[user_id-1]), user_id);
-						break;
-					case CLI_CONNECT:
-						if (user_id == 0) {
-							for(int j=0; j<vrg_ccb->user_count; j++) {
-								if (ppp_connect(&(vrg_ccb->ppp_ccb[j]), j+1) == SUCCESS)
-									vrg_ccb->cur_user++;
-							}
-						}
-						else {
-							if (ppp_connect(&(vrg_ccb->ppp_ccb[user_id-1]), user_id) == SUCCESS)
-								vrg_ccb->cur_user++;
-						}
-						break;	
-					case CLI_DHCP_START:
-						if (user_id == 0) {
-							for(int j=0; j<vrg_ccb->user_count; j++) {
-								if (rte_atomic16_read(&vrg_ccb->dhcp_ccb[j].dhcp_bool) == 1) {
-									VRG_LOG(ERR, vrg_ccb->fp, &(vrg_ccb->dhcp_ccb[j]), DHCPLOGMSG, "Error! User %u dhcp server is already on", j);
-									continue;
-								}
-								rte_atomic16_set(&vrg_ccb->dhcp_ccb[j].dhcp_bool, 1);
-							}
-						}
-						else {
-							if (rte_atomic16_read(&vrg_ccb->dhcp_ccb[user_id-1].dhcp_bool) == 1) {
-								VRG_LOG(ERR, vrg_ccb->fp, &(vrg_ccb->dhcp_ccb[user_id-1]), DHCPLOGMSG, "Error! User %u dhcp server is already on", user_id);
-								break;
-							}
-							rte_atomic16_set(&vrg_ccb->dhcp_ccb[user_id-1].dhcp_bool, 1);
-						}
-						break;
-					case CLI_DHCP_STOP:
-						if (user_id == 0) {
-							for(int j=0; j<vrg_ccb->user_count; j++) {
-								if (rte_atomic16_read(&vrg_ccb->dhcp_ccb[j].dhcp_bool) == 0) {
-									VRG_LOG(ERR, vrg_ccb->fp, &(vrg_ccb->dhcp_ccb[j]), DHCPLOGMSG, "Error! User %u dhcp server is already off", j);
-									continue;
-								}
-								rte_atomic16_set(&vrg_ccb->dhcp_ccb[j].dhcp_bool, 0);
-							}
-						}
-						else {
-							if (rte_atomic16_read(&vrg_ccb->dhcp_ccb[user_id-1].dhcp_bool) == 0) {
-								VRG_LOG(ERR, vrg_ccb->fp, &(vrg_ccb->dhcp_ccb[user_id-1]), DHCPLOGMSG, "Error! User %u dhcp server is already off", user_id);
-								break;
-							}
-							rte_atomic16_set(&vrg_ccb->dhcp_ccb[user_id-1].dhcp_bool, 0);
-						}
-						break;				
-					case CLI_QUIT:
-						vrg_ccb->quit_flag = TRUE;
-						for(int j=0; j<vrg_ccb->user_count; j++) {
-							if (vrg_ccb->ppp_ccb[j].phase == END_PHASE)
-								vrg_ccb->cur_user++;
- 							PPP_bye(&(vrg_ccb->ppp_ccb[j]));
-						}
-						break;
-					default:
-						;
-				}
+				process_northbound(vrg_ccb, mail[i]->refp[0], user_id);
 				rte_atomic16_dec(&cp_recv_cums);
 				vrg_mfree(mail[i]);
 				break;
@@ -171,8 +183,7 @@ int control_plane(VRG_t *vrg_ccb)
 
 int northbound(VRG_t *vrg_ccb)
 {
-	if (init_unix_sock(vrg_ccb) == ERROR)
-		return -1;
+	vrg_grpc_server_run(vrg_ccb);
 
 	return 0;
 }
@@ -228,22 +239,17 @@ int vrg_start(int argc, char **argv)
 		//rte_exit(EXIT_FAILURE, "vRG system malloc from hugepage failed.\n");
 	/* init users and ports info */
 
-	if (init_cli((void *)&vrg_ccb) == ERROR) {
-		VRG_LOG(ERR, vrg_ccb.fp, NULL, NULL, "Cannot create cmdline instance");
-		goto err;
-	}
-
 	ret = sys_init(&vrg_ccb);
 	if (ret) {
 		VRG_LOG(ERR, vrg_ccb.fp, NULL, NULL, "System initiation failed: %s", rte_strerror(ret));
-		goto rm_cli;
+		goto err;
 	}
 
 	rte_atomic16_init(&cp_recv_cums);
 
 	if (pppd_init((void *)&vrg_ccb) == ERROR) {
 		VRG_LOG(ERR, vrg_ccb.fp, NULL, NULL, "PPP initiation failed");
-		goto rm_cli;
+		goto err;
 	}
 	codec_init((void *)&vrg_ccb);
 	dhcp_init((void *)&vrg_ccb);
@@ -271,16 +277,11 @@ int vrg_start(int argc, char **argv)
 	rte_eal_remote_launch((lcore_function_t *)uplink, (void *)&vrg_ccb, vrg_ccb.lcore.up_thread);
 	rte_eal_remote_launch((lcore_function_t *)gateway, (void *)&vrg_ccb, vrg_ccb.lcore.gateway_thread);
 	rte_eal_remote_launch((lcore_function_t *)timer_loop, (void *)&vrg_ccb, vrg_ccb.lcore.timer_thread);
-	rte_eal_remote_launch((lcore_function_t *)northbound, (void *)&vrg_ccb, vrg_ccb.lcore.northbound_thread);
 
-	cmdline_printf(vrg_ccb.cl, "vRG> type ? or help to show all available commands\n");
-	cmdline_interact(vrg_ccb.cl);
-
+	northbound(&vrg_ccb);
 	rte_eal_mp_wait_lcore();
     return 0;
 
-rm_cli:
-	cmdline_stdin_exit(vrg_ccb.cl);
 err:
 	return -1;
 }

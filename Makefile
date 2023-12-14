@@ -6,14 +6,20 @@
 # Set variable
 ######################################	
 CC = gcc
-INCLUDE = 
+INCLUDE = -Inorthbound/grpc
 CFLAGS = $(INCLUDE) -Wall -g $(shell pkg-config --cflags libdpdk) -O3 -DALLOW_EXPERIMENTAL_API -D_TEST_MODE #-Wextra -fsanitize=address
 
-LDFLAGS = $(shell pkg-config --static --libs libdpdk) -lutils -lconfig
+LDFLAGS = $(shell pkg-config --static --libs libdpdk) -lutils -lconfig -Wl,--start-group -lstdc++ -lgrpc -lgrpc++ -lgrpc_unsecure -lgrpc++_unsecure -lgpr -laddress_sorting -pthread -lprotobuf -lpthread -Wl,--end-group
 
 TARGET = vrg
 SRC = $(wildcard src/*.c) $(wildcard src/pppd/*.c) $(wildcard src/dhcpd/*.c)
 OBJ = $(SRC:.c=.o)
+
+GRPCDIR = northbound/grpc
+GRPC_SRC = $(wildcard $(GRPCDIR)/*.cpp)
+PB_SRC = $(wildcard $(GRPCDIR)/*.cc)
+GRPC_OBJ = $(GRPC_SRC:.cpp=.o)
+PB_OBJ = $(PB_SRC:.cc=.o)
 
 TESTDIR = unit_test
 TESTBIN = unit-tester
@@ -29,7 +35,10 @@ all: $(TARGET)
 # 	Must use \tab key after new line
 ######################################
 $(TARGET): $(OBJ)
-	$(CC) $(CFLAGS) $(OBJ) -o $(TARGET) $(LDFLAGS)
+	${MAKE} -C $(GRPCDIR)
+	protoc --grpc_out=. --plugin=protoc-gen-grpc=`which grpc_cpp_plugin` $(GRPCDIR)/vrg_cli.proto 
+	protoc --cpp_out=. $(GRPCDIR)/vrg_cli.proto
+	$(CC) $(CFLAGS) $(OBJ) $(GRPC_OBJ) $(PB_OBJ) -o $(TARGET) $(LDFLAGS)
 
 install:
 	cp $(TARGET) /usr/local/bin/$(TARGET)
@@ -44,6 +53,7 @@ test: $(TARGET)
 clean:
 	rm -rf $(OBJ) $(TARGET) .libs
 	$(MAKE) -C $(TESTDIR) -f Makefile $@
+	$(MAKE) -C $(GRPCDIR) -f Makefile $@
 
 uninstall:
 	rm -f /usr/local/bin/$(TARGET)
