@@ -28,7 +28,7 @@
 #include "timer.h"
 #include "utils.h"
 
-#include "../northbound/grpc/vrg_grcp_server.h"
+#include "../northbound/grpc/vrg_grpc_server.h"
 
 #define 				BURST_SIZE 		32
 

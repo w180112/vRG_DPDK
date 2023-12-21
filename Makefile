@@ -16,7 +16,7 @@ SRC = $(wildcard src/*.c) $(wildcard src/pppd/*.c) $(wildcard src/dhcpd/*.c)
 OBJ = $(SRC:.c=.o)
 
 GRPCDIR = northbound/grpc
-GRPC_SRC = $(wildcard $(GRPCDIR)/*.cpp)
+GRPC_SRC = $(filter-out $(GRPCDIR)/*client.cpp, $(wildcard $(GRPCDIR)/*.cpp))
 PB_SRC = $(wildcard $(GRPCDIR)/*.cc)
 GRPC_OBJ = $(GRPC_SRC:.cpp=.o)
 PB_OBJ = $(PB_SRC:.cc=.o)
@@ -36,8 +36,6 @@ all: $(TARGET)
 ######################################
 $(TARGET): $(OBJ)
 	${MAKE} -C $(GRPCDIR)
-	protoc --grpc_out=. --plugin=protoc-gen-grpc=`which grpc_cpp_plugin` $(GRPCDIR)/vrg_cli.proto 
-	protoc --cpp_out=. $(GRPCDIR)/vrg_cli.proto
 	$(CC) $(CFLAGS) $(OBJ) $(GRPC_OBJ) $(PB_OBJ) -o $(TARGET) $(LDFLAGS)
 
 install:

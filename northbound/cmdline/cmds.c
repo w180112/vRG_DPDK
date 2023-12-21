@@ -36,7 +36,7 @@
 #include <vrg.h>
 #include <utils.h>
 
-#include "sock.h"
+#include "../grpc/vrg_grpc_client.h"
 
 extern struct rte_ring *rte_ring;
 typedef struct cli_to_main_msg {
@@ -359,11 +359,7 @@ cmdline_parse_ctx_t ctx[] = {
 
 int main(int argc, char **argv)
 {
-	if (rte_eal_init(argc, argv) < 0)
-		rte_panic("Cannot init EAL\n");
-
-	if (init_unix_sock_client() == ERROR)
-		return -1;
+	vrg_grpc_client_connect("unix:///var/run/vrg/vrg.sock");
 
 	struct cmdline *cl = cmdline_stdin_new(ctx, "vRG> ");
 	if (cl == NULL)
