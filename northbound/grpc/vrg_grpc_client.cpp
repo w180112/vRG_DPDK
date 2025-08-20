@@ -22,12 +22,13 @@ class VRGCliClient {
     std::unique_ptr<VrgService::Stub> stub_;
 };
 
-VRGCliClient vrg_client(VRGCliClient(std::shared_ptr<Channel>(nullptr)));
+std::unique_ptr<VRGCliClient> vrg_client;
 
 void vrg_grpc_client_connect(char *server_address) {
     std::cout << "grpc client connecting to " << server_address << std::endl;
-    vrg_client = grpc::CreateChannel(server_address, grpc::InsecureChannelCredentials());
-    
+    auto channel = grpc::CreateChannel(server_address, grpc::InsecureChannelCredentials());
+    vrg_client = std::make_unique<VRGCliClient>(channel);
+
     return;
 }
 
@@ -37,7 +38,7 @@ void vrg_grpc_hsi_connect(U8 user_id) {
     HsiReply reply;
     request.set_user_id(user_id);
     ClientContext context;
-    Status status = vrg_client.stub_->ConnectHsi(&context, request, &reply);
+    Status status = vrg_client->stub_->ConnectHsi(&context, request, &reply);
     if (status.ok()) {
         std::cout << "grpc client hsi connect ok" << std::endl;
     } else {
@@ -52,7 +53,7 @@ void vrg_grpc_hsi_disconnect(U8 user_id) {
     HsiReply reply;
     request.set_user_id(user_id);
     ClientContext context;
-    Status status = vrg_client.stub_->DisconnectHsi(&context, request, &reply);
+    Status status = vrg_client->stub_->DisconnectHsi(&context, request, &reply);
     if (status.ok()) {
         std::cout << "grpc client hsi disconnect ok" << std::endl;
     } else {
