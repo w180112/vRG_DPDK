@@ -28,6 +28,7 @@ void vrg_grpc_client_connect(char *server_address) {
     std::cout << "grpc client connecting to " << server_address << std::endl;
     auto channel = grpc::CreateChannel(server_address, grpc::InsecureChannelCredentials());
     vrg_client = std::make_unique<VRGCliClient>(channel);
+    std::cout << "grpc client connected to " << server_address << std::endl;
 
     return;
 }

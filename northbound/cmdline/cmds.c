@@ -36,6 +36,8 @@
 #include <vrg.h>
 #include <utils.h>
 
+#include <grpc/grpc.h>
+
 #include "../grpc/vrg_grpc_client.h"
 
 extern struct rte_ring *rte_ring;
@@ -247,27 +249,22 @@ static void cmd_connect_parsed( void *parsed_result,
 			    __attribute__((unused)) void *data)
 {
 	struct cmd_connect_result *res = parsed_result;
-	tVRG_MBX mail;
-	cli_to_main_msg_t *msg = (cli_to_main_msg_t *)mail.refp;
-
-	if (strcmp(res->connect, "connect") == 0)
-		msg->type = CLI_CONNECT;
-	else 
-		msg->type = CLI_DISCONNECT;
+	U8 user_id;
     
 	if (strcmp(res->user_id, "all") == 0)
-		msg->user_id = 0;
+		user_id = 0;
 	else {
-		msg->user_id = strtoul(res->user_id, NULL, 10);
-		if (msg->user_id <= 0) {
+		user_id = strtoul(res->user_id, NULL, 10);
+		if (user_id <= 0) {
 			cmdline_printf(cl, "Wrong user id\n");
 			return;
 		}
 	}
 
-	mail.type = IPC_EV_TYPE_CLI;
-	mail.len = sizeof(cli_to_main_msg_t);
-	send_msg(&mail, sizeof(tVRG_MBX));
+	if (strcmp(res->connect, "connect") == 0)
+		vrg_grpc_hsi_connect(user_id);
+	else 
+		vrg_grpc_hsi_disconnect(user_id);
 }
 
 cmdline_parse_token_string_t cmd_connect_connect =
@@ -298,6 +295,7 @@ static void cmd_dhcp_parsed( void *parsed_result,
 			    __attribute__((unused)) struct cmdline *cl,
 			    __attribute__((unused)) void *data)
 {
+#if 0
 	struct cmd_dhcp_result *res = parsed_result;
 	tVRG_MBX mail;
 
@@ -325,6 +323,7 @@ static void cmd_dhcp_parsed( void *parsed_result,
 	mail.type = IPC_EV_TYPE_CLI;
 	mail.len = sizeof(cli_to_main_msg_t);
 	send_msg(&mail, sizeof(tVRG_MBX));
+#endif
 }
 
 cmdline_parse_token_string_t cmd_dhcp_dhcp =
@@ -359,6 +358,7 @@ cmdline_parse_ctx_t ctx[] = {
 
 int main(int argc, char **argv)
 {
+	grpc_init();
 	vrg_grpc_client_connect("unix:///var/run/vrg/vrg.sock");
 
 	struct cmdline *cl = cmdline_stdin_new(ctx, "vRG> ");
@@ -369,5 +369,6 @@ int main(int argc, char **argv)
 	cmdline_interact(cl);
 
 	cmdline_stdin_exit(cl);
+	grpc_shutdown();
 	return 0;
 }
