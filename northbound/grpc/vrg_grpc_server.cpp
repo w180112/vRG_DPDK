@@ -24,6 +24,7 @@ void vrg_grpc_server_run(void *arg) {
     std::cout << "grpc server listening on " << server_address << std::endl;
 
     std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
+    std::cout << "grpc server listening on " << server_address << std::endl;
     server->Wait();
     return;
 }

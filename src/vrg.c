@@ -17,6 +17,7 @@
 #include <rte_pdump.h>
 #include <rte_trace.h>
 #include <sys/mman.h>
+#include <grpc/grpc.h>
 #include "vrg.h"
 #include "pppd/fsm.h"
 #include "dp.h"
@@ -183,6 +184,7 @@ int control_plane(VRG_t *vrg_ccb)
 
 int northbound(VRG_t *vrg_ccb)
 {
+	unlink(vrg_ccb->unix_sock_path);
 	vrg_grpc_server_run(vrg_ccb);
 
 	return 0;
@@ -190,6 +192,7 @@ int northbound(VRG_t *vrg_ccb)
 
 int vrg_start(int argc, char **argv)
 {	
+	grpc_init();
 	int ret = rte_eal_init(argc, argv);
 	if (ret < 0)
 		rte_exit(EXIT_FAILURE, "rte initlize fail.\n");
@@ -297,7 +300,7 @@ void vrg_interrupt()
 	rte_ring_free(downlink_q);
 	rte_ring_free(gateway_q);
     fclose(vrg_ccb.fp);
-	cmdline_stdin_exit(vrg_ccb.cl);
 	VRG_LOG(INFO, vrg_ccb.fp, NULL, NULL, "bye!");
+	grpc_shutdown();
 	exit(0);
 }
