@@ -63,6 +63,36 @@ void vrg_grpc_hsi_disconnect(U8 user_id) {
     return;
 }
 
+void vrg_grpc_dhcp_server_start(U8 user_id) {
+    std::cout << "grpc client dhcp server start" << std::endl;
+    DhcpServerRequest request;
+    DhcpServerReply reply;
+    request.set_user_id(user_id);
+    ClientContext context;
+    Status status = vrg_client->stub_->DhcpServerStart(&context, request, &reply);
+    if (status.ok()) {
+        std::cout << "grpc client dhcp server start ok" << std::endl;
+    } else {
+        std::cout << "grpc client dhcp server start failed" << std::endl;
+    }
+    return;
+}
+
+void vrg_grpc_dhcp_server_stop(U8 user_id) {
+    std::cout << "grpc client dhcp server stop" << std::endl;
+    DhcpServerRequest request;
+    DhcpServerReply reply;
+    request.set_user_id(user_id);
+    ClientContext context;
+    Status status = vrg_client->stub_->DhcpServerStop(&context, request, &reply);
+    if (status.ok()) {
+        std::cout << "grpc client dhcp server stop ok" << std::endl;
+    } else {
+        std::cout << "grpc client dhcp server stop failed" << std::endl;
+    }
+    return;
+}
+
 #ifdef __cplusplus
 }
 #endif

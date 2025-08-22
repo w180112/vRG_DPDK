@@ -250,10 +250,10 @@ static void cmd_connect_parsed( void *parsed_result,
 {
 	struct cmd_connect_result *res = parsed_result;
 	U8 user_id;
-    
-	if (strcmp(res->user_id, "all") == 0)
+
+	if (strcmp(res->user_id, "all") == 0) {
 		user_id = 0;
-	else {
+	} else {
 		user_id = strtoul(res->user_id, NULL, 10);
 		if (user_id <= 0) {
 			cmdline_printf(cl, "Wrong user id\n");
@@ -295,35 +295,27 @@ static void cmd_dhcp_parsed( void *parsed_result,
 			    __attribute__((unused)) struct cmdline *cl,
 			    __attribute__((unused)) void *data)
 {
-#if 0
 	struct cmd_dhcp_result *res = parsed_result;
-	tVRG_MBX mail;
-
-	cli_to_main_msg_t *msg = (cli_to_main_msg_t *)mail.refp;
-
-	if (strcmp(res->cmd, "start") == 0)
-		msg->type = CLI_DHCP_START;
-	else if (strcmp(res->cmd, "stop") == 0)
-		msg->type = CLI_DHCP_STOP;
-	else {
-		cmdline_printf(cl, "Wrong dhcp cmd\n");
-		return;
-	}
-    
-	if (strcmp(res->user_id, "all") == 0)
-		msg->user_id = 0;
-	else {
-		msg->user_id = strtoul(res->user_id, NULL, 10);
-		if (msg->user_id <= 0) {
+	U8 user_id;
+	
+	if (strcmp(res->user_id, "all") == 0) {
+		user_id = 0;
+	} else {
+		user_id = strtoul(res->user_id, NULL, 10);
+		if (user_id <= 0) {
 			cmdline_printf(cl, "Wrong user id\n");
 			return;
 		}
 	}
 
-	mail.type = IPC_EV_TYPE_CLI;
-	mail.len = sizeof(cli_to_main_msg_t);
-	send_msg(&mail, sizeof(tVRG_MBX));
-#endif
+	if (strcmp(res->cmd, "start") == 0) {
+		vrg_grpc_dhcp_server_start(user_id);
+	} else if (strcmp(res->cmd, "stop") == 0) {
+		vrg_grpc_dhcp_server_stop(user_id);
+	} else {
+		cmdline_printf(cl, "Wrong dhcp cmd\n");
+		return;
+	}
 }
 
 cmdline_parse_token_string_t cmd_dhcp_dhcp =

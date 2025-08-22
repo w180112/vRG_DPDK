@@ -47,3 +47,29 @@ grpc::Status VRGCLIServiceImpl::DisconnectHsi(::grpc::ServerContext* context, co
     vrg_ring_enqueue(rte_ring, (void **)&mail, 1);
     return grpc::Status::OK;
 }
+
+grpc::Status VRGCLIServiceImpl::DhcpServerStart(::grpc::ServerContext* context, const ::vrgcliservice::DhcpServerRequest* request, ::vrgcliservice::DhcpServerReply* response)
+{
+    cout << "DhcpServerStart called" << endl;
+    tVRG_MBX *mail = (tVRG_MBX *)malloc(sizeof(tVRG_MBX));
+    cli_to_main_msg_t *msg = (cli_to_main_msg_t *)mail->refp;
+    mail->type = IPC_EV_TYPE_CLI;
+	mail->len = sizeof(cli_to_main_msg_t);
+    msg->user_id = request->user_id();
+    msg->type = CLI_DHCP_START;
+    vrg_ring_enqueue(rte_ring, (void **)&mail, 1);
+    return grpc::Status::OK;
+}
+
+grpc::Status VRGCLIServiceImpl::DhcpServerStop(::grpc::ServerContext* context, const ::vrgcliservice::DhcpServerRequest* request, ::vrgcliservice::DhcpServerReply* response)
+{
+    cout << "DhcpServerStop called" << endl;
+    tVRG_MBX *mail = (tVRG_MBX *)malloc(sizeof(tVRG_MBX));
+    cli_to_main_msg_t *msg = (cli_to_main_msg_t *)mail->refp;
+    mail->type = IPC_EV_TYPE_CLI;
+	mail->len = sizeof(cli_to_main_msg_t);
+    msg->user_id = request->user_id();
+    msg->type = CLI_DHCP_STOP;
+    vrg_ring_enqueue(rte_ring, (void **)&mail, 1);
+    return grpc::Status::OK;
+}
