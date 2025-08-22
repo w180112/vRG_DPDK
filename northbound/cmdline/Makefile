@@ -16,7 +16,7 @@ SRC = $(wildcard *.c)
 OBJ = $(SRC:.c=.o)
 
 GRPCDIR = ../grpc
-GRPC_SRC = $(wildcard $(GRPCDIR)/*.cpp)
+GRPC_SRC = $(GRPCDIR)/vrg_grpc_client.cpp
 PB_SRC = $(wildcard $(GRPCDIR)/*.cc)
 GRPC_OBJ = $(GRPC_SRC:.cpp=.o)
 PB_OBJ = $(PB_SRC:.cc=.o)
