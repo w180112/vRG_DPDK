@@ -20,20 +20,30 @@ typedef struct cli_to_main_msg {
 using namespace std;
 using namespace vrgcliservice;
 
+extern struct rte_ring *rte_ring;
+
 grpc::Status VRGCLIServiceImpl::ConnectHsi(::grpc::ServerContext* context, const ::vrgcliservice::HsiRequest* request, ::vrgcliservice::HsiReply* response)
 {
     cout << "ConnectHsi called" << endl;
-    tVRG_MBX mail;
-    cli_to_main_msg_t *msg = (cli_to_main_msg_t *)mail.refp;
-    mail.type = IPC_EV_TYPE_CLI;
-	mail.len = sizeof(cli_to_main_msg_t);
+    tVRG_MBX *mail = (tVRG_MBX *)malloc(sizeof(tVRG_MBX));
+    cli_to_main_msg_t *msg = (cli_to_main_msg_t *)mail->refp;
+    mail->type = IPC_EV_TYPE_CLI;
+	mail->len = sizeof(cli_to_main_msg_t);
     msg->user_id = request->user_id();
-    msg->type = IPC_EV_TYPE_CLI;
+    msg->type = CLI_CONNECT;
+    vrg_ring_enqueue(rte_ring, (void **)&mail, 1);
     return grpc::Status::OK;
 }
 
 grpc::Status VRGCLIServiceImpl::DisconnectHsi(::grpc::ServerContext* context, const ::vrgcliservice::HsiRequest* request, ::vrgcliservice::HsiReply* response)
 {
     cout << "DisconnectHsi called" << endl;
+    tVRG_MBX *mail = (tVRG_MBX *)malloc(sizeof(tVRG_MBX));
+    cli_to_main_msg_t *msg = (cli_to_main_msg_t *)mail->refp;
+    mail->type = IPC_EV_TYPE_CLI;
+	mail->len = sizeof(cli_to_main_msg_t);
+    msg->user_id = request->user_id();
+    msg->type = CLI_DISCONNECT;
+    vrg_ring_enqueue(rte_ring, (void **)&mail, 1);
     return grpc::Status::OK;
 }
