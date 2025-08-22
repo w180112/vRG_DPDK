@@ -26,6 +26,8 @@ service VrgService {
   //rpc ConnectHsi(HsiRequest) returns(google.protobuf.Empty) {}
   rpc ConnectHsi(HsiRequest) returns(HsiReply) {}
   rpc DisconnectHsi(HsiRequest) returns(HsiReply) {}
+  rpc DhcpServerStart(DhcpServerRequest) returns(DhcpServerReply) {}
+  rpc DhcpServerStop(DhcpServerRequest) returns(DhcpServerReply) {}
 }
 
 message HsiRequest {
@@ -33,5 +35,13 @@ message HsiRequest {
 }
 
 message HsiReply { 
+  string status = 1;
+}
+
+message DhcpServerRequest {
+  uint32 user_id = 1;
+}
+
+message DhcpServerReply { 
   string status = 1;
 }
