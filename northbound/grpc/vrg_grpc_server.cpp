@@ -19,9 +19,8 @@ void vrg_grpc_server_run(void *arg) {
     grpc::EnableDefaultHealthCheckService(true);
     std::shared_ptr<grpc::ServerCredentials> ptr = grpc::InsecureServerCredentials();
     builder.AddListeningPort(server_address, ptr);
-    VRGCLIServiceImpl vrg_service;
+    VRGCLIServiceImpl vrg_service(vrg_ccb);
     builder.RegisterService(&vrg_service);
-    std::cout << "grpc server listening on " << server_address << std::endl;
 
     std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
     std::cout << "grpc server listening on " << server_address << std::endl;

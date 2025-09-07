@@ -43,22 +43,27 @@ void vrg_grpc_hsi_connect(U8 user_id) {
     if (status.ok()) {
         std::cout << "grpc client hsi connect ok" << std::endl;
     } else {
-        std::cout << "grpc client hsi connect failed" << std::endl;
+        std::cout << "grpc client hsi connect failed: " << std::endl;
+        std::cout << "  Error code: " << status.error_code() << std::endl;
+        std::cout << "  Error message: " << status.error_message() << std::endl;
     }
     return;
 }
 
-void vrg_grpc_hsi_disconnect(U8 user_id) {
+void vrg_grpc_hsi_disconnect(U8 user_id, bool force) {
     std::cout << "grpc client hsi disconnect" << std::endl;
     HsiRequest request;
     HsiReply reply;
     request.set_user_id(user_id);
+    request.set_force(force);
     ClientContext context;
     Status status = vrg_client->stub_->DisconnectHsi(&context, request, &reply);
     if (status.ok()) {
         std::cout << "grpc client hsi disconnect ok" << std::endl;
     } else {
-        std::cout << "grpc client hsi disconnect failed" << std::endl;
+        std::cout << "grpc client hsi disconnect failed: " << std::endl;
+        std::cout << "  Error code: " << status.error_code() << std::endl;
+        std::cout << "  Error message: " << status.error_message() << std::endl;
     }
     return;
 }
@@ -73,7 +78,9 @@ void vrg_grpc_dhcp_server_start(U8 user_id) {
     if (status.ok()) {
         std::cout << "grpc client dhcp server start ok" << std::endl;
     } else {
-        std::cout << "grpc client dhcp server start failed" << std::endl;
+        std::cout << "grpc client dhcp server start failed: " << std::endl;
+        std::cout << "  Error code: " << status.error_code() << std::endl;
+        std::cout << "  Error message: " << status.error_message() << std::endl;
     }
     return;
 }
@@ -88,7 +95,9 @@ void vrg_grpc_dhcp_server_stop(U8 user_id) {
     if (status.ok()) {
         std::cout << "grpc client dhcp server stop ok" << std::endl;
     } else {
-        std::cout << "grpc client dhcp server stop failed" << std::endl;
+        std::cout << "grpc client dhcp server stop failed: " << std::endl;
+        std::cout << "  Error code: " << status.error_code() << std::endl;
+        std::cout << "  Error message: " << status.error_message() << std::endl;
     }
     return;
 }

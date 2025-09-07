@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <common.h>
 #include <rte_eal.h>
 #include <rte_ethdev.h>
@@ -17,6 +18,7 @@
 #include <rte_pdump.h>
 #include <rte_trace.h>
 #include <sys/mman.h>
+#include <pthread.h>
 #include <grpc/grpc.h>
 #include "vrg.h"
 #include "pppd/fsm.h"
@@ -42,6 +44,17 @@ void link_disconnnect(struct rte_timer *tim, VRG_t *vrg_ccb)
         exit_ppp(tim, &vrg_ccb->ppp_ccb[i]);
 }
 
+void vrg_force_terminate_hsi(VRG_t *vrg_ccb)
+{
+	/* force terminate hsi does not mean quit vRG */
+	//vrg_ccb->quit_flag = TRUE;
+	for(int j=0; j<vrg_ccb->user_count; j++) {
+		if (vrg_ccb->ppp_ccb[j].phase == END_PHASE)
+			vrg_ccb->cur_user++;
+ 		PPP_bye(&(vrg_ccb->ppp_ccb[j]));
+	}
+}
+
 STATUS process_northbound(VRG_t *vrg_ccb, U8 msg_type, U8 user_id)
 {
 	if (user_id > vrg_ccb->user_count) {
@@ -50,6 +63,7 @@ STATUS process_northbound(VRG_t *vrg_ccb, U8 msg_type, U8 user_id)
 	}
 
 	switch (msg_type) {
+		#if 0
 		case CLI_DISCONNECT:
 			if (user_id == 0) {
 				for(int j=0; j<vrg_ccb->user_count; j++) {
@@ -107,7 +121,8 @@ STATUS process_northbound(VRG_t *vrg_ccb, U8 msg_type, U8 user_id)
 				}
 				rte_atomic16_set(&vrg_ccb->dhcp_ccb[user_id-1].dhcp_bool, 0);
 			}
-			break;				
+			break;
+		#endif		
 		case CLI_QUIT:
 			vrg_ccb->quit_flag = TRUE;
 			for(int j=0; j<vrg_ccb->user_count; j++) {
@@ -121,6 +136,51 @@ STATUS process_northbound(VRG_t *vrg_ccb, U8 msg_type, U8 user_id)
 	}
 
 	return SUCCESS;
+}
+
+void *vrg_loop_check_feature(void *arg)
+{
+	VRG_t *vrg_ccb = (VRG_t *)arg;
+
+	for(;;) {
+		for(int i=0; i<vrg_ccb->user_count; i++) {
+			if (vrg_ccb->vrg_switch[i].is_hsi_enable == VRG_SUBMODULE_IS_ENABLED) {
+				VRG_LOG(INFO, vrg_ccb->fp, NULL, NULL, "User %d pppoe is spawning\n", i+1);
+				if (ppp_connect(&(vrg_ccb->ppp_ccb[i]), i+1) == SUCCESS)
+					vrg_ccb->cur_user++;
+                vrg_ccb->vrg_switch[i].is_hsi_enable = VRG_SUBMODULE_IS_SPAWNING;
+			} else if (vrg_ccb->vrg_switch[i].is_hsi_enable == VRG_SUBMODULE_IS_DISABLED) {
+				VRG_LOG(INFO, vrg_ccb->fp, NULL, NULL, "User %d pppoe is terminating\n", i+1);
+				if (ppp_disconnect(&(vrg_ccb->ppp_ccb[i]), i+1) == SUCCESS)
+					vrg_ccb->cur_user++;
+                vrg_ccb->vrg_switch[i].is_hsi_enable = VRG_SUBMODULE_IS_TERMINATING;
+			} else if (vrg_ccb->vrg_switch[i].is_hsi_enable == VRG_SUBMODULE_IS_FORCE_DISABLED) {
+				VRG_LOG(INFO, vrg_ccb->fp, NULL, NULL, "User %d pppoe is force terminating\n", i+1);
+				vrg_force_terminate_hsi(vrg_ccb);
+				vrg_ccb->vrg_switch[i].is_hsi_enable = VRG_SUBMODULE_IS_TERMINATING;
+			}
+
+			if (vrg_ccb->vrg_switch[i].is_dhcp_server_enable == VRG_SUBMODULE_IS_ENABLED) {
+				VRG_LOG(INFO, vrg_ccb->fp, NULL, NULL, "User %d dhcp server is spawning\n", i+1);
+				if (rte_atomic16_read(&vrg_ccb->dhcp_ccb[i].dhcp_bool) == 1) {
+					VRG_LOG(ERR, vrg_ccb->fp, &(vrg_ccb->dhcp_ccb[i]), DHCPLOGMSG, "Error! User %u dhcp server is already on", i+1);
+					break;
+				}
+				rte_atomic16_set(&vrg_ccb->dhcp_ccb[i].dhcp_bool, 1);
+                vrg_ccb->vrg_switch[i].is_dhcp_server_enable = VRG_SUBMODULE_IS_SPAWNING;
+			} else if (vrg_ccb->vrg_switch[i].is_dhcp_server_enable == VRG_SUBMODULE_IS_DISABLED) {
+				VRG_LOG(INFO, vrg_ccb->fp, NULL, NULL, "User %d dhcp server is terminating\n", i+1);
+				if (rte_atomic16_read(&vrg_ccb->dhcp_ccb[i].dhcp_bool) == 0) {
+					VRG_LOG(ERR, vrg_ccb->fp, &(vrg_ccb->dhcp_ccb[i]), DHCPLOGMSG, "Error! User %u dhcp server is already off", i+1);
+					break;
+				}
+				rte_atomic16_set(&vrg_ccb->dhcp_ccb[i].dhcp_bool, 0);
+                vrg_ccb->vrg_switch[i].is_dhcp_server_enable = VRG_SUBMODULE_IS_TERMINATING;
+			}
+		}
+	}
+
+	pthread_exit(NULL);
 }
 
 /***************************************************************
@@ -151,11 +211,6 @@ int vrg_loop(VRG_t *vrg_ccb)
                     continue;
 				break;
 			case IPC_EV_TYPE_CLI:
-				/* mail[i]->refp[0] means cli command, mail[i]->refp[1] means user id */
-				U8 user_id = mail[i]->refp[1]; //user_id = 0 means all users
-				process_northbound(vrg_ccb, mail[i]->refp[0], user_id);
-				rte_atomic16_dec(&cp_recv_cums);
-				vrg_mfree(mail[i]);
 				break;
 			case IPC_EV_TYPE_REG:
                 if ((U16)(mail[i]->refp[1]) == 1) {
@@ -180,6 +235,44 @@ int control_plane(VRG_t *vrg_ccb)
 	if (vrg_loop(vrg_ccb) == ERROR)
 		return -1;
 	return 0;
+}
+
+int vrg_submodule_checker(VRG_t *vrg_ccb)
+{
+    pthread_t thread_id;
+    pthread_attr_t thread_attr;
+    int ret;
+
+    ret = pthread_attr_init(&thread_attr);
+    if (ret != 0) {
+        VRG_LOG(ERR, vrg_ccb->fp, NULL, NULL, "Error: pthread_attr_init failed: %s\n", strerror(ret));
+        return -1;
+    }
+
+    cpu_set_t cpuset;
+    CPU_ZERO(&cpuset);
+    CPU_SET(0, &cpuset);
+
+    ret = pthread_attr_setaffinity_np(&thread_attr, sizeof(cpu_set_t), &cpuset);
+    if (ret != 0)
+        VRG_LOG(WARN, vrg_ccb->fp, NULL, NULL, "pthread_attr_setaffinity_np failed: %s\n", strerror(ret));
+
+    ret = pthread_create(&thread_id, &thread_attr, vrg_loop_check_feature, (void *)vrg_ccb);
+    if (ret != 0) {
+        VRG_LOG(ERR, vrg_ccb->fp, NULL, NULL, "pthread_create failed: %s\n", strerror(ret));
+        pthread_attr_destroy(&thread_attr);
+        return -1;
+    }
+    ret = pthread_setname_np(thread_id, "vrg_check");
+    if (ret != 0) {
+        VRG_LOG(WARN, vrg_ccb->fp, NULL, NULL, "pthread_setname_np failed: %s\n", strerror(ret));
+    } else {
+        VRG_LOG(INFO, vrg_ccb->fp, NULL, NULL, "Successfully named the thread 'vrg_check'\n");
+    }
+
+    pthread_attr_destroy(&thread_attr);
+
+    return 0;
 }
 
 int northbound(VRG_t *vrg_ccb)
@@ -280,6 +373,11 @@ int vrg_start(int argc, char **argv)
 	rte_eal_remote_launch((lcore_function_t *)uplink, (void *)&vrg_ccb, vrg_ccb.lcore.up_thread);
 	rte_eal_remote_launch((lcore_function_t *)gateway, (void *)&vrg_ccb, vrg_ccb.lcore.gateway_thread);
 	rte_eal_remote_launch((lcore_function_t *)timer_loop, (void *)&vrg_ccb, vrg_ccb.lcore.timer_thread);
+
+	if (vrg_submodule_checker(&vrg_ccb) == -1) {
+		VRG_LOG(ERR, vrg_ccb.fp, NULL, NULL, "vRG submodule check thread create failed");
+		goto err;
+	}
 
 	northbound(&vrg_ccb);
 	rte_eal_mp_wait_lcore();

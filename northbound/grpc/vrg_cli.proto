@@ -32,6 +32,7 @@ service VrgService {
 
 message HsiRequest {
   uint32 user_id = 1;
+  bool force = 2;
 }
 
 message HsiReply { 

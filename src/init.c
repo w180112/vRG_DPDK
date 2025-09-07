@@ -116,6 +116,17 @@ int init_port(VRG_t *vrg_ccb)
 			return -1;
 		}
 	}
+
+	vrg_ccb->vrg_switch = vrg_malloc(vrg_feature_switch_t, sizeof(vrg_feature_switch_t), 0);
+	if (vrg_ccb->vrg_switch == NULL) {
+		VRG_LOG(ERR, vrg_ccb->fp, NULL, NULL, "Cannot allocate memory for vrg_switch");
+		return -1;
+	}
+	for(int i=0; i<vrg_ccb->user_count; i++) {
+		vrg_ccb->vrg_switch[i].is_hsi_enable = VRG_SUBMODULE_IS_TERMINATED;
+		vrg_ccb->vrg_switch[i].is_dhcp_server_enable = VRG_SUBMODULE_IS_TERMINATED;
+	}
+
 	return 0;
 }
 

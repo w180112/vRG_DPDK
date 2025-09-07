@@ -25,6 +25,19 @@ enum {
     CLI_DHCP_STOP,
 };
 
+#define VRG_SUBMODULE_IS_ENABLED 1 << 0
+#define VRG_SUBMODULE_IS_DISABLED 1 << 1
+#define VRG_SUBMODULE_IS_FORCE_DISABLED 1 << 2
+#define VRG_SUBMODULE_IS_SPAWNING 1 << 3
+#define VRG_SUBMODULE_IS_TERMINATING 1 << 4
+#define VRG_SUBMODULE_IS_SPAWNED 1 << 5
+#define VRG_SUBMODULE_IS_TERMINATED 1 << 6
+
+typedef struct {
+    U8	is_hsi_enable;	/* hsi switch from northbound */
+    U8	is_dhcp_server_enable;	/* dhcp server switch from northbound */
+}vrg_feature_switch_t;
+
 struct nic_info {
     char vendor_name[16];
     U16 vendor_id;
@@ -49,6 +62,7 @@ typedef struct {
     struct nic_info         nic_info;
     PPP_INFO_t              *ppp_ccb;       /* pppoe control block */
     dhcp_ccb_t              *dhcp_ccb;      /* dhcp control block */
+    vrg_feature_switch_t    *vrg_switch;
     struct rte_timer 	    link;           /* for physical link checking timer */
 }__rte_cache_aligned VRG_t;
 

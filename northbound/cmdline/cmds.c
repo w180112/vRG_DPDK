@@ -17,7 +17,6 @@
 #include <rte_launch.h>
 #include <rte_per_lcore.h>
 #include <rte_lcore.h>
-#include <rte_ring.h>
 #include <rte_debug.h>
 #include <rte_mempool.h>
 #include <rte_string_fns.h>
@@ -40,11 +39,7 @@
 
 #include "../grpc/vrg_grpc_client.h"
 
-extern struct rte_ring *rte_ring;
-typedef struct cli_to_main_msg {
-	U8 type;
-	U8 user_id;
-}cli_to_main_msg_t;
+#define PARSE_DELIMITER	" \f\n\r\t\v"
 
 /**********************************************************/
 
@@ -218,10 +213,10 @@ static void cmd_help_parsed(__attribute__((unused)) void *parsed_result,
 	cmdline_printf(cl,"usage: \n"
 		 			  "info is to show all pppoe users' info\n"
 					  "help to show usage commands\n"
-					  "disconnect <user id | all> to disconnect session(s)\n"
+					  "disconnect <user id | all> [force] to disconnect session(s)\n"
 					  "connect <user id | all> to connect session(s)\n"
 					  "dhcp-server <start | stop> <user id | all> to start/stop dhcp server function\n"
-					  "quit/exit to quit vRG system\n");
+					  "quit/exit to quit vRG CLI\n");
 }
 
 cmdline_parse_token_string_t cmd_help_help =
@@ -241,7 +236,7 @@ cmdline_parse_inst_t cmd_help = {
 
 struct cmd_connect_result {
 	cmdline_fixed_string_t connect;
-	cmdline_fixed_string_t user_id;
+	cmdline_multi_string_t user_id_opt;
 };
 
 static void cmd_connect_parsed( void *parsed_result,
@@ -249,36 +244,54 @@ static void cmd_connect_parsed( void *parsed_result,
 			    __attribute__((unused)) void *data)
 {
 	struct cmd_connect_result *res = parsed_result;
+	char *user_id_opt = res->user_id_opt;
 	U8 user_id;
 
-	if (strcmp(res->user_id, "all") == 0) {
+	char *user_id_str = strtok_r(user_id_opt, PARSE_DELIMITER, &user_id_opt);
+	if (user_id_str == NULL) {
+		cmdline_printf(cl, "user id input error\n");
+		return;
+	}
+
+	if (strcmp(user_id_str, "all") == 0) {
 		user_id = 0;
 	} else {
-		user_id = strtoul(res->user_id, NULL, 10);
+		user_id = strtoul(user_id_str, NULL, 10);
 		if (user_id <= 0) {
 			cmdline_printf(cl, "Wrong user id\n");
 			return;
 		}
 	}
 
-	if (strcmp(res->connect, "connect") == 0)
+	if (strcmp(res->connect, "connect") == 0) {
 		vrg_grpc_hsi_connect(user_id);
-	else 
-		vrg_grpc_hsi_disconnect(user_id);
+	} else {
+		char *is_force = strtok_r(user_id_opt, PARSE_DELIMITER, &user_id_opt);
+		if (is_force == NULL) {
+			vrg_grpc_hsi_disconnect(user_id, false);
+			return;
+		}
+		if (strcmp(is_force, "force") != 0) {
+			cmdline_printf(cl, "Wrong disconnect option\n");
+			return;
+		}
+		vrg_grpc_hsi_disconnect(user_id, true);
+	}
 }
 
 cmdline_parse_token_string_t cmd_connect_connect =
 	TOKEN_STRING_INITIALIZER(struct cmd_connect_result, connect, "connect#disconnect");
-cmdline_parse_token_string_t cmd_connect_user_id =
-	TOKEN_STRING_INITIALIZER(struct cmd_connect_result, user_id, NULL);
+cmdline_parse_token_string_t cmd_connect_user_id_opt =
+	TOKEN_STRING_INITIALIZER(struct cmd_connect_result, user_id_opt, TOKEN_STRING_MULTI);
 
 cmdline_parse_inst_t cmd_connect = {
 	.f = cmd_connect_parsed,  /* function to call */
 	.data = NULL,      /* 2nd arg of func */
-	.help_str = "start/stop pppoe connection",
+	.help_str = "start/stop pppoe connection, "
+			"connect|disconnect <user id | all> [force]",
 	.tokens = {        /* token list, NULL terminated */
 		(void *)&cmd_connect_connect,
-		(void *)&cmd_connect_user_id,
+		(void *)&cmd_connect_user_id_opt,
 		NULL,
 	},
 };

@@ -17,7 +17,6 @@ extern struct rte_ring 		*rte_ring, *gateway_q, *uplink_q, *downlink_q;
 extern struct rte_ether_addr wan_mac;
 extern struct cmdline 		*cl;
 extern FILE					*fp;
-extern BOOL					quit_flag;
 
 U16 auth_method;
 static VRG_t *vrg_ccb;

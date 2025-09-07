@@ -9,7 +9,7 @@ extern "C" {
 
 void vrg_grpc_client_connect(char *server_address);
 void vrg_grpc_hsi_connect(U8 user_id);
-void vrg_grpc_hsi_disconnect(U8 user_id);
+void vrg_grpc_hsi_disconnect(U8 user_id, bool force);
 void vrg_grpc_dhcp_server_start(U8 user_id);
 void vrg_grpc_dhcp_server_stop(U8 user_id);
 

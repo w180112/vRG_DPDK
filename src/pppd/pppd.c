@@ -64,7 +64,7 @@ void PPP_bye(PPP_INFO_t *s_ppp_ccb)
 					/*uninitialize packet capture framework */
 					rte_pdump_uninit();
 					#endif
-					rte_trace_save();
+					//rte_trace_save();
 					puts("Bye!");
 					exit(0);
 				}
@@ -205,6 +205,7 @@ void exit_ppp(__attribute__((unused)) struct rte_timer *tim, PPP_INFO_t *ppp_ccb
 	ppp_ccb->ppp_phase[0].state = S_INIT;
 	ppp_ccb->ppp_phase[1].state = S_INIT;
 	ppp_ccb->pppoe_phase.active = FALSE;
+	vrg_ccb->vrg_switch[ppp_ccb->user_num-1].is_hsi_enable = VRG_SUBMODULE_IS_TERMINATED;
 }
 
 /**
