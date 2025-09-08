@@ -99,7 +99,6 @@ For hugepages, NIC binding and other system configuration, please refer to Intel
 
 1. Add unit tests
 2. Add show command in CLI
-3. Add gRPC interface
-4. Split ccb for each CPU core
-5. Support DDP
-6. Add LCP exception
+3. Split ccb for each CPU core
+4. Support DDP
+5. Add LCP exception

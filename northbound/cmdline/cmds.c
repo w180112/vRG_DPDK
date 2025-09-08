@@ -366,11 +366,10 @@ int main(int argc, char **argv)
 	grpc_init();
 	vrg_grpc_client_connect("unix:///var/run/vrg/vrg.sock");
 
-	struct cmdline *cl = cmdline_stdin_new(ctx, "vRG> ");
+	struct cmdline *cl = cmdline_stdin_new(ctx, "vRG>");
 	if (cl == NULL)
 		return -1;
 
-	cmdline_printf(cl, "vRG> type ? or help to show all available commands\n");
 	cmdline_interact(cl);
 
 	cmdline_stdin_exit(cl);
