@@ -31,7 +31,7 @@ all: $(TARGET)
 # Compile & Link
 # 	Must use \tab key after new line
 ######################################
-$(TARGET): $(OBJ)
+$(TARGET): $(OBJ) $(GRPC_OBJ) $(PB_OBJ)
 	$(CC) $(CFLAGS) $(OBJ) $(GRPC_OBJ) $(PB_OBJ) -o $(TARGET) $(LDFLAGS)
 
 ######################################

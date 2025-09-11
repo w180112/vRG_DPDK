@@ -45,30 +45,25 @@
 
 struct cmd_info_result {
 	cmdline_fixed_string_t info_token;
+	cmdline_fixed_string_t subsystem;
 };
 
-static void cmd_info_parsed(__attribute__((unused)) void *parsed_result,
+static void cmd_info_parsed(void *parsed_result,
 		struct cmdline *cl,
 		__attribute__((unused)) void *data)
 {
 	char buf[64];
-	struct rte_eth_stats ethdev_stat;
-	struct rte_eth_dev_info dev_info;
-	U8 lan_port_id = 0, wan_port_id = 1;
+	struct cmd_info_result *res = parsed_result;
 
-	memset(&dev_info, 0, sizeof(dev_info));
-	if (rte_eth_dev_info_get(lan_port_id, &dev_info) != 0) {
-		cmdline_printf(cl, "get device info failed\n");
-		return;
-	}
-	cmdline_printf(cl, "LAN port driver name is %s\n", dev_info.driver_name);
-	memset(&dev_info, 0, sizeof(dev_info));
-	if (rte_eth_dev_info_get(wan_port_id, &dev_info) != 0) {
-		cmdline_printf(cl, "get device info failed\n");
-		return;
-	}
-	cmdline_printf(cl, "WAN port driver name is %s\n", dev_info.driver_name);
-	
+	if (strncmp(res->subsystem, "hsi", 3) == 0)
+		vrg_grpc_get_hsi_info();
+	else if (strncmp(res->subsystem, "dhcp", 4) == 0)
+		vrg_grpc_get_dhcp_info();
+	else if (strncmp(res->subsystem, "system", 6) == 0)
+		vrg_grpc_get_system_info();
+
+	return;
+	struct rte_eth_stats ethdev_stat;
 	rte_eth_stats_get(0, &ethdev_stat);
 	cmdline_printf(cl, "LAN port total rx %" PRIu64 " pkts, tx %" PRIu64 " pkts. ", ethdev_stat.ipackets, ethdev_stat.opackets);
 	cmdline_printf(cl, "Rx %" PRIu64 " bytes, tx %" PRIu64 " bytes. ", ethdev_stat.ibytes, ethdev_stat.obytes);
@@ -77,8 +72,6 @@ static void cmd_info_parsed(__attribute__((unused)) void *parsed_result,
 	cmdline_printf(cl, "WAN port total rx %" PRIu64 " pkts, tx %" PRIu64 " pkts. ", ethdev_stat.ipackets, ethdev_stat.opackets);
 	cmdline_printf(cl, "Rx %" PRIu64 " bytes, tx %" PRIu64 " bytes. ", ethdev_stat.ibytes, ethdev_stat.obytes);
 	cmdline_printf(cl, "Rx drops %" PRIu64 " pkts.\n", ethdev_stat.imissed);
-	//cmdline_printf(cl, "WAN mac addr is %x:%x:%x:%x:%x:%x\n", vrg_ccb->nic_info.hsi_wan_src_mac.addr_bytes[0], vrg_ccb->nic_info.hsi_wan_src_mac.addr_bytes[1], vrg_ccb->nic_info.hsi_wan_src_mac.addr_bytes[2], vrg_ccb->nic_info.hsi_wan_src_mac.addr_bytes[3], vrg_ccb->nic_info.hsi_wan_src_mac.addr_bytes[4], vrg_ccb->nic_info.hsi_wan_src_mac.addr_bytes[5]);
-	//cmdline_printf(cl, "LAN mac addr is %x:%x:%x:%x:%x:%x\n", vrg_ccb->nic_info.hsi_lan_mac.addr_bytes[0], vrg_ccb->nic_info.hsi_lan_mac.addr_bytes[1], vrg_ccb->nic_info.hsi_lan_mac.addr_bytes[2], vrg_ccb->nic_info.hsi_lan_mac.addr_bytes[3], vrg_ccb->nic_info.hsi_lan_mac.addr_bytes[4], vrg_ccb->nic_info.hsi_lan_mac.addr_bytes[5]);
 #if 0
 	dhcp_ccb_t *dhcp_ccb = vrg_ccb->dhcp_ccb;
 	for(int i=0; i<vrg_ccb->user_count; i++) {
@@ -129,14 +122,17 @@ static void cmd_info_parsed(__attribute__((unused)) void *parsed_result,
 }
 
 cmdline_parse_token_string_t cmd_info_info_token =
-	TOKEN_STRING_INITIALIZER(struct cmd_info_result, info_token, "info");
+	TOKEN_STRING_INITIALIZER(struct cmd_info_result, info_token, "show");
+cmdline_parse_token_string_t cmd_show_subsystem =
+	TOKEN_STRING_INITIALIZER(struct cmd_info_result, subsystem, "hsi#dhcp#system");
 
 cmdline_parse_inst_t cmd_info = {
 	.f = cmd_info_parsed,  /* function to call */
 	.data = NULL,      /* 2nd arg of func */
-	.help_str = "show user info",
+	.help_str = "show user info, show <hsi|dhcp|system>",
 	.tokens = {        /* token list, NULL terminated */
 			(void *)&cmd_info_info_token,
+			(void *)&cmd_show_subsystem,
 			NULL,
 	},
 };
@@ -211,7 +207,7 @@ static void cmd_help_parsed(__attribute__((unused)) void *parsed_result,
 			    __attribute__((unused)) void *data)
 {
 	cmdline_printf(cl,"usage: \n"
-		 			  "info is to show all pppoe users' info\n"
+					  "show <hsi|dhcp|system> to show information\n"
 					  "help to show usage commands\n"
 					  "disconnect <user id | all> [force] to disconnect session(s)\n"
 					  "connect <user id | all> to connect session(s)\n"
@@ -239,7 +235,7 @@ struct cmd_connect_result {
 	cmdline_multi_string_t user_id_opt;
 };
 
-static void cmd_connect_parsed( void *parsed_result,
+static void cmd_connect_parsed(void *parsed_result,
 			    __attribute__((unused)) struct cmdline *cl,
 			    __attribute__((unused)) void *data)
 {
@@ -304,7 +300,7 @@ struct cmd_dhcp_result {
 	cmdline_fixed_string_t user_id;
 };
 
-static void cmd_dhcp_parsed( void *parsed_result,
+static void cmd_dhcp_parsed(void *parsed_result,
 			    __attribute__((unused)) struct cmdline *cl,
 			    __attribute__((unused)) void *data)
 {

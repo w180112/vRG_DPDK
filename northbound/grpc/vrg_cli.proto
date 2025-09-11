@@ -18,7 +18,7 @@ option java_multiple_files = true;
 option java_package = "io.grpc.vrgcliservice";
 option java_outer_classname = "VrgCliProto";
 
-//import "google/protobuf/empty.proto";
+import "google/protobuf/empty.proto";
 
 package vrgcliservice;
 
@@ -28,6 +28,7 @@ service VrgService {
   rpc DisconnectHsi(HsiRequest) returns(HsiReply) {}
   rpc DhcpServerStart(DhcpServerRequest) returns(DhcpServerReply) {}
   rpc DhcpServerStop(DhcpServerRequest) returns(DhcpServerReply) {}
+  rpc GetVrgSystemInfo(google.protobuf.Empty) returns(VrgSystemInfo) {}
 }
 
 message HsiRequest {
@@ -45,4 +46,34 @@ message DhcpServerRequest {
 
 message DhcpServerReply { 
   string status = 1;
+}
+
+message VrgBaseInfo {
+  string vrg_version = 1;
+  string build_date = 2;
+  string dpdk_version = 3;
+  string dpdk_eal_args = 4;
+  uint32 num_users = 5;
+}
+
+message NicDriverInfo {
+  string driver_name = 1;
+  string pci_addr = 2;
+  bytes mac_addr = 3;
+}
+
+message Statistics{
+  uint64 rx_packets = 1;
+  uint64 tx_packets = 2;
+  uint64 rx_bytes = 3;
+  uint64 tx_bytes = 4;
+  uint64 rx_errors = 5;
+  uint64 tx_errors = 6;
+  uint64 rx_dropped = 7;
+}
+
+message VrgSystemInfo {
+  VrgBaseInfo base_info = 1;
+  repeated NicDriverInfo nics = 2;
+  Statistics stats = 3;
 }

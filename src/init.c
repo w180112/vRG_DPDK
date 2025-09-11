@@ -127,6 +127,9 @@ int init_port(VRG_t *vrg_ccb)
 		vrg_ccb->vrg_switch[i].is_dhcp_server_enable = VRG_SUBMODULE_IS_TERMINATED;
 	}
 
+	vrg_ccb->version = VRG_VERSION;
+	vrg_ccb->build_date = __DATE__" "__TIME__;
+
 	return 0;
 }
 

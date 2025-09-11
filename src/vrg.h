@@ -17,6 +17,8 @@ extern "C" {
 #define LINK_DOWN           0x0
 #define LINK_UP             0x1
 
+#define VRG_VERSION "v0.0.1"
+
 enum {
     CLI_QUIT = 0,
     CLI_DISCONNECT,
@@ -49,6 +51,9 @@ struct nic_info {
 typedef struct {
     U8 				        cur_user;       /* pppoe alive user count */
     U8 				        loglvl;         /* vRG loglvl */
+    char                    *version;       /* vRG version */
+    char                    *build_date;    /* build date */
+    char                    *eal_args;     /* DPDK EAL args */
     BOOL 			        non_vlan_mode;  /* non vlan or vlan mode */
     U16 				    user_count;     /* total vRG subscriptor */
     U16                     base_vlan;      /* started vlan id */

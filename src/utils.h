@@ -106,5 +106,6 @@ struct lcore_map {
 };
 
 void get_all_lcore_id(struct lcore_map *lcore);
+char *make_eal_args_string(int argc, const char **argv);
 
 #endif

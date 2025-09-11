@@ -6,6 +6,9 @@ extern "C"
 {
 #endif
 
+#include <rte_eal.h>
+#include <rte_version.h>
+#include <rte_ethdev.h>
 #include "../../src/vrg.h"
 
 #ifdef __cplusplus
@@ -159,6 +162,56 @@ grpc::Status VRGCLIServiceImpl::DhcpServerStop(::grpc::ServerContext* context, c
         }
         vrg_ccb->vrg_switch[ccb_id].is_dhcp_server_enable = VRG_SUBMODULE_IS_DISABLED;
     }
+
+    return grpc::Status::OK;
+}
+
+int getNicInfo(NicDriverInfo *nic_info, uint8_t port_id) {
+    struct rte_eth_dev_info dev_info = {0};
+    if (rte_eth_dev_info_get(port_id, &dev_info) != 0) {
+		std::string err = "get device info failed";
+		return -1;
+	}
+    nic_info->set_driver_name(std::string(dev_info.driver_name));
+    char buf[RTE_ETH_NAME_MAX_LEN];
+    if (rte_eth_dev_get_name_by_port(port_id, buf) != 0) {
+        std::string err = "get device pci addr failed";
+        return -1;
+    }
+    nic_info->set_pci_addr(std::string(buf));
+
+    return 0;
+}
+
+grpc::Status VRGCLIServiceImpl::GetVrgSystemInfo(::grpc::ServerContext* context, const ::google::protobuf::Empty* request, ::vrgcliservice::VrgSystemInfo* response)
+{
+    uint8_t lan_port_id = 0, wan_port_id = 1;
+
+    cout << "GetVrgSystemInfo called" << endl;
+    VrgBaseInfo* base_info = response->mutable_base_info();
+    base_info->set_vrg_version(std::string(vrg_ccb->version));
+    base_info->set_build_date(std::string(vrg_ccb->build_date));
+    base_info->set_dpdk_version(std::string(rte_version()));
+    base_info->set_dpdk_eal_args(std::string(vrg_ccb->eal_args));
+    base_info->set_num_users(vrg_ccb->user_count);
+
+    NicDriverInfo *lan_nic_info = response->add_nics();
+    if (getNicInfo(lan_nic_info, lan_port_id) != 0) {
+        std::string err = "get lan device info failed";
+        return grpc::Status(grpc::StatusCode::INTERNAL, err);
+    }
+    // mac addr
+    lan_nic_info->set_mac_addr(std::string(
+        reinterpret_cast<const char*>(vrg_ccb->nic_info.hsi_lan_mac.addr_bytes), 6));
+
+    NicDriverInfo *wan_nic_info = response->add_nics();
+    if (getNicInfo(wan_nic_info, wan_port_id) != 0) {
+        std::string err = "get wan device info failed";
+        return grpc::Status(grpc::StatusCode::INTERNAL, err);
+    }
+    // mac addr
+    wan_nic_info->set_mac_addr(std::string(
+        reinterpret_cast<const char*>(vrg_ccb->nic_info.hsi_wan_src_mac.addr_bytes), 6));
 
     return grpc::Status::OK;
 }

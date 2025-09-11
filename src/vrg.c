@@ -286,6 +286,7 @@ int northbound(VRG_t *vrg_ccb)
 int vrg_start(int argc, char **argv)
 {	
 	grpc_init();
+	vrg_ccb.eal_args = make_eal_args_string(argc, (const char **)argv);
 	int ret = rte_eal_init(argc, argv);
 	if (ret < 0)
 		rte_exit(EXIT_FAILURE, "rte initlize fail.\n");
@@ -381,6 +382,9 @@ int vrg_start(int argc, char **argv)
 
 	northbound(&vrg_ccb);
 	rte_eal_mp_wait_lcore();
+
+	free(vrg_ccb.eal_args);
+
     return 0;
 
 err:
