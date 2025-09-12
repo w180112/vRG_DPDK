@@ -183,6 +183,23 @@ int getNicInfo(NicDriverInfo *nic_info, uint8_t port_id) {
     return 0;
 }
 
+int getNicStats(Statistics *stats, uint8_t port_id) {
+    struct rte_eth_stats eth_stats = {0};
+    if (rte_eth_stats_get(port_id, &eth_stats) != 0) {
+        std::string err = "get device stats failed";
+        return -1;
+    }
+    stats->set_rx_packets(eth_stats.ipackets);
+    stats->set_tx_packets(eth_stats.opackets);
+    stats->set_rx_bytes(eth_stats.ibytes);
+    stats->set_tx_bytes(eth_stats.obytes);
+    stats->set_rx_errors(eth_stats.ierrors);
+    stats->set_tx_errors(eth_stats.oerrors);
+    stats->set_rx_dropped(eth_stats.imissed);
+
+    return 0;
+}
+
 grpc::Status VRGCLIServiceImpl::GetVrgSystemInfo(::grpc::ServerContext* context, const ::google::protobuf::Empty* request, ::vrgcliservice::VrgSystemInfo* response)
 {
     uint8_t lan_port_id = 0, wan_port_id = 1;
@@ -212,6 +229,17 @@ grpc::Status VRGCLIServiceImpl::GetVrgSystemInfo(::grpc::ServerContext* context,
     // mac addr
     wan_nic_info->set_mac_addr(std::string(
         reinterpret_cast<const char*>(vrg_ccb->nic_info.hsi_wan_src_mac.addr_bytes), 6));
+
+    Statistics *lan_stats = response->add_stats();
+    if (getNicStats(lan_stats, lan_port_id) != 0) {
+        std::string err = "get lan device stats failed";
+        return grpc::Status(grpc::StatusCode::INTERNAL, err);
+    }
+    Statistics *wan_stats = response->add_stats();
+    if (getNicStats(wan_stats, wan_port_id) != 0) {
+        std::string err = "get wan device stats failed";
+        return grpc::Status(grpc::StatusCode::INTERNAL, err);
+    }
 
     return grpc::Status::OK;
 }

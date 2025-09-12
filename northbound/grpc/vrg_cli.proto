@@ -75,5 +75,5 @@ message Statistics{
 message VrgSystemInfo {
   VrgBaseInfo base_info = 1;
   repeated NicDriverInfo nics = 2;
-  Statistics stats = 3;
+  repeated Statistics stats = 3;
 }

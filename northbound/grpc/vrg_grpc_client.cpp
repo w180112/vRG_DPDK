@@ -117,7 +117,7 @@ void vrg_grpc_get_system_info() {
         std::cout << "  Number of subscribers: " << reply.base_info().num_users() << std::endl;
 
         std::cout << "  NICs: " << std::endl;
-        for(int i=0; i<reply.nics_size(); i++) {
+        for(int i=0; i<reply.nics_size() && i<reply.stats_size(); i++) {
             const NicDriverInfo& nic_info = reply.nics(i);
             std::cout << "    NIC " << i << ":" << std::endl;
             std::cout << "      Driver name: " << nic_info.driver_name() << std::endl;
@@ -127,6 +127,14 @@ void vrg_grpc_get_system_info() {
             const uint8_t* mac_bytes = reinterpret_cast<const uint8_t*>(mac_bin.data());
             for(size_t j=0; j<mac_bin.size(); j++)
                 printf("%02x%c", mac_bytes[j], (j == mac_bin.size()-1 ? '\n' : ':'));
+            const Statistics& stats = reply.stats(i);
+            std::cout << "      Rx packets: " << stats.rx_packets() << std::endl;
+            std::cout << "      Tx packets: " << stats.tx_packets() << std::endl;
+            std::cout << "      Rx bytes: " << stats.rx_bytes() << std::endl;
+            std::cout << "      Tx bytes: " << stats.tx_bytes() << std::endl;
+            std::cout << "      Rx errors: " << stats.rx_errors() << std::endl;
+            std::cout << "      Tx errors: " << stats.tx_errors() << std::endl;
+            std::cout << "      Rx dropped: " << stats.rx_dropped() << std::endl;
         }
     } else {
         std::cout << "grpc client get info failed: " << std::endl;

@@ -63,15 +63,6 @@ static void cmd_info_parsed(void *parsed_result,
 		vrg_grpc_get_system_info();
 
 	return;
-	struct rte_eth_stats ethdev_stat;
-	rte_eth_stats_get(0, &ethdev_stat);
-	cmdline_printf(cl, "LAN port total rx %" PRIu64 " pkts, tx %" PRIu64 " pkts. ", ethdev_stat.ipackets, ethdev_stat.opackets);
-	cmdline_printf(cl, "Rx %" PRIu64 " bytes, tx %" PRIu64 " bytes. ", ethdev_stat.ibytes, ethdev_stat.obytes);
-	cmdline_printf(cl, "Rx drops %" PRIu64 " pkts.\n", ethdev_stat.imissed);
-	rte_eth_stats_get(1, &ethdev_stat);
-	cmdline_printf(cl, "WAN port total rx %" PRIu64 " pkts, tx %" PRIu64 " pkts. ", ethdev_stat.ipackets, ethdev_stat.opackets);
-	cmdline_printf(cl, "Rx %" PRIu64 " bytes, tx %" PRIu64 " bytes. ", ethdev_stat.ibytes, ethdev_stat.obytes);
-	cmdline_printf(cl, "Rx drops %" PRIu64 " pkts.\n", ethdev_stat.imissed);
 #if 0
 	dhcp_ccb_t *dhcp_ccb = vrg_ccb->dhcp_ccb;
 	for(int i=0; i<vrg_ccb->user_count; i++) {
