@@ -13,7 +13,7 @@ GIT_COMMIT := $(shell git describe --always --dirty --tags)
 
 CFLAGS = $(INCLUDE) -Wall -g $(shell pkg-config --cflags libdpdk) -O3 -DALLOW_EXPERIMENTAL_API -D_TEST_MODE #-Wextra -fsanitize=address
 
-LDFLAGS = $(shell pkg-config --static --libs libdpdk) -lutils -lconfig -Wl,--start-group -lstdc++ -lgrpc -lgrpc++ -lgrpc_unsecure -lgrpc++_unsecure -lgpr -laddress_sorting -pthread -lprotobuf -lpthread -Wl,--end-group
+LDFLAGS = $(shell pkg-config --static --libs libdpdk) -lutils -lconfig -Wl,--start-group -lstdc++ $(shell pkg-config --libs grpc++ protobuf) -laddress_sorting -lpthread -Wl,--end-group
 
 TARGET = vrg
 VERSION_H = src/version.h
@@ -21,11 +21,8 @@ SRC = $(wildcard src/*.c) $(wildcard src/pppd/*.c) $(wildcard src/dhcpd/*.c)
 OBJ = $(SRC:.c=.o)
 
 GRPCDIR = northbound/grpc
-GRPC_SRC = $(filter-out $(GRPCDIR)/*client.cpp, $(wildcard $(GRPCDIR)/*.cpp))
-PB_SRC = $(wildcard $(GRPCDIR)/*.cc)
-GRPC_OBJ = $(GRPC_SRC:.cpp=.o)
-PB_OBJ = $(PB_SRC:.cc=.o)
-
+GRPC_SRC = $(filter-out $(GRPCDIR)/%client.cpp, $(wildcard $(GRPCDIR)/*.cpp))
+GRPC_OBJ = $(GRPC_SRC:.cpp=.o) ${GRPCDIR}/*pb.o
 TESTDIR = unit_test
 TESTBIN = unit-tester
 
@@ -51,7 +48,7 @@ $(VERSION_H):
 
 $(TARGET): $(VERSION_H) $(OBJ)
 	${MAKE} -C $(GRPCDIR)
-	$(CC) $(CFLAGS) $(OBJ) $(GRPC_OBJ) $(PB_OBJ) -o $(TARGET) $(LDFLAGS)
+	$(CC) $(CFLAGS) $(OBJ) $(GRPC_OBJ) -o $(TARGET) $(LDFLAGS)
 
 install:
 	cp $(TARGET) /usr/local/bin/$(TARGET)

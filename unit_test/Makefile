@@ -9,7 +9,7 @@ CC = gcc
 INCLUDE = 
 CFLAGS = $(INCLUDE) -Wall -g $(shell pkg-config --cflags libdpdk) -O3 -DALLOW_EXPERIMENTAL_API
 
-LDFLAGS = $(shell pkg-config --static --libs libdpdk) -lutils -lconfig -Wl,--start-group -lstdc++ -lgrpc -lgrpc++ -lgrpc_unsecure -lgrpc++_unsecure -lgpr -laddress_sorting -pthread -lprotobuf -lpthread -Wl,--end-group
+LDFLAGS = $(shell pkg-config --static --libs libdpdk) -lutils -lconfig -Wl,--start-group -lstdc++ $(shell pkg-config --libs grpc++ protobuf) -lgrpc_unsecure -lgrpc++_unsecure -laddress_sorting -lpthread -Wl,--end-group
 
 TARGET = unit-tester
 SRC = $(wildcard *.c) $(wildcard pppd/*.c) $(wildcard dhcpd/*.c)

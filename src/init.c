@@ -118,7 +118,8 @@ int init_port(VRG_t *vrg_ccb)
 		}
 	}
 
-	vrg_ccb->vrg_switch = vrg_malloc(vrg_feature_switch_t, sizeof(vrg_feature_switch_t), 0);
+	vrg_ccb->vrg_switch = vrg_malloc(vrg_feature_switch_t, vrg_ccb->user_count * 
+		sizeof(vrg_feature_switch_t), 0);
 	if (vrg_ccb->vrg_switch == NULL) {
 		VRG_LOG(ERR, vrg_ccb->fp, NULL, NULL, "Cannot allocate memory for vrg_switch");
 		return -1;

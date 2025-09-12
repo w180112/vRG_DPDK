@@ -105,7 +105,7 @@ static int encaps_udp(VRG_t *vrg_ccb, struct rte_mbuf **single_pkt, struct rte_e
 		pppoe_header->code = 0;
 		pppoe_header->session_id = vrg_ccb->ppp_ccb[user_index].session_id;
 		pppoe_header->length = rte_cpu_to_be_16(((*single_pkt)->data_len) - (U16)(sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t) + sizeof(pppoe_header_t)));
-		*(U16 *)(pppoe_header + 1) = rte_cpu_to_be_16(IP_PROTOCOL);
+		*(U16 *)(pppoe_header + 1) = rte_cpu_to_be_16(PPP_IP_PROTOCOL);
 	}
 
 	return new_pkt_num;
@@ -170,7 +170,7 @@ static int encaps_tcp(VRG_t *vrg_ccb, struct rte_mbuf **single_pkt, struct rte_e
 			pppoe_header->code = 0;
 			pppoe_header->session_id = vrg_ccb.ppp_ccb[user_index].session_id;
 			pppoe_header->length = rte_cpu_to_be_16(((*single_pkt)->data_len) - (U16)(sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t) + sizeof(pppoe_header_t)));
-			*(U16 *)(pppoe_header + 1) = rte_cpu_to_be_16(IP_PROTOCOL);
+			*(U16 *)(pppoe_header + 1) = rte_cpu_to_be_16(PPP_IP_PROTOCOL);
 			ip_hdr->hdr_checksum = rte_ipv4_cksum(ip_hdr);
 			tcphdr->cksum = rte_ipv4_udptcp_cksum(ip_hdr,tcphdr);
 		}
@@ -212,7 +212,7 @@ static int encaps_tcp(VRG_t *vrg_ccb, struct rte_mbuf **single_pkt, struct rte_e
 		pppoe_header->code = 0;
 		pppoe_header->session_id = vrg_ccb->ppp_ccb[user_index].session_id;
 		pppoe_header->length = rte_cpu_to_be_16(((*single_pkt)->data_len) - (U16)(sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t) + sizeof(pppoe_header_t)));
-		*(U16 *)(pppoe_header + 1) = rte_cpu_to_be_16(IP_PROTOCOL);
+		*(U16 *)(pppoe_header + 1) = rte_cpu_to_be_16(PPP_IP_PROTOCOL);
 	}
 	return new_pkt_num;
 }

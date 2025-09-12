@@ -1,13 +1,15 @@
 name: vRG ci
 on:
   push: 
-    branches: [ "master" ]
+    branches: 
+      - master
+      - ci-dev
   pull_request:
     branches: [ "master" ]
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
     - uses: actions/checkout@v2
     - run: sudo apt-get update && sudo apt-get install -y libnuma-dev linux-headers-$(uname -r) python3-pip git gcc make libtool-bin pkg-config pciutils iproute2 kmod vim net-tools libconfig-dev libgrpc++-dev protobuf-compiler-grpc
@@ -15,10 +17,10 @@ jobs:
     - run: sudo ${{ github.workspace }}/boot.sh
     - run: sudo docker build --no-cache -t vrg:latest .
   test:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
     - uses: actions/checkout@v2
-    - run: sudo apt-get update && sudo apt-get install -y libnuma-dev linux-headers-$(uname -r) python3-pip git gcc make libtool-bin pkg-config pciutils iproute2 kmod vim net-tools libconfig-dev libgrpc++-dev protobuf-compiler-grpc
+    - run: sudo apt-get update && sudo apt-get install -y libnuma-dev linux-headers-$(uname -r) python3-pip git gcc make libtool-bin pkg-config pciutils iproute2 kmod vim net-tools libconfig-dev libgrpc++-dev protobuf-compiler-grpc libabsl-dev
     - run: sudo pip3 install setuptools meson ninja pyelftools
     - run: sudo ${{ github.workspace }}/boot.sh
     - run: cd ${{ github.workspace }} && sudo make test
