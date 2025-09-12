@@ -7,11 +7,16 @@
 ######################################	
 CC = gcc
 INCLUDE = -Inorthbound/grpc
+
+BUILD_TIME := $(shell date '+%Y/%b/%d %H:%M:%S %Z')
+GIT_COMMIT := $(shell git describe --always --dirty --tags)
+
 CFLAGS = $(INCLUDE) -Wall -g $(shell pkg-config --cflags libdpdk) -O3 -DALLOW_EXPERIMENTAL_API -D_TEST_MODE #-Wextra -fsanitize=address
 
 LDFLAGS = $(shell pkg-config --static --libs libdpdk) -lutils -lconfig -Wl,--start-group -lstdc++ -lgrpc -lgrpc++ -lgrpc_unsecure -lgrpc++_unsecure -lgpr -laddress_sorting -pthread -lprotobuf -lpthread -Wl,--end-group
 
 TARGET = vrg
+VERSION_H = src/version.h
 SRC = $(wildcard src/*.c) $(wildcard src/pppd/*.c) $(wildcard src/dhcpd/*.c)
 OBJ = $(SRC:.c=.o)
 
@@ -34,7 +39,17 @@ all: $(TARGET)
 # Compile & Link
 # 	Must use \tab key after new line
 ######################################
-$(TARGET): $(OBJ)
+$(VERSION_H):
+	@echo "Generating $@"
+	@echo "#ifndef VERSION_H"              >  $@
+	@echo "#define VERSION_H"              >> $@
+	@echo ""                               >> $@
+	@echo "#define GIT_COMMIT_ID \"$(GIT_COMMIT)\"" >> $@
+	@echo "#define BUILD_TIME   \"$(BUILD_TIME)\""  >> $@
+	@echo ""                               >> $@
+	@echo "#endif"                         >> $@
+
+$(TARGET): $(VERSION_H) $(OBJ)
 	${MAKE} -C $(GRPCDIR)
 	$(CC) $(CFLAGS) $(OBJ) $(GRPC_OBJ) $(PB_OBJ) -o $(TARGET) $(LDFLAGS)
 
@@ -49,7 +64,7 @@ test: $(TARGET)
 # Clean 
 ######################################
 clean:
-	rm -rf $(OBJ) $(TARGET) .libs
+	rm -rf $(OBJ) $(TARGET) .libs $(VERSION_H)
 	$(MAKE) -C $(TESTDIR) -f Makefile $@
 	$(MAKE) -C $(GRPCDIR) -f Makefile $@
 

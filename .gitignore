@@ -10,3 +10,4 @@ unit_test/unit-tester
 **/vrg_cli
 **/libvrg_northbound.a
 **/*.pb.*
+src/version.h

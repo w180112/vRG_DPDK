@@ -10,6 +10,7 @@
 #include "init.h"
 #include "vrg.h"
 #include "dbg.h"
+#include "version.h"
 
 #define NUM_MBUFS 		8191
 #define MBUF_CACHE_SIZE 512
@@ -127,8 +128,8 @@ int init_port(VRG_t *vrg_ccb)
 		vrg_ccb->vrg_switch[i].is_dhcp_server_enable = VRG_SUBMODULE_IS_TERMINATED;
 	}
 
-	vrg_ccb->version = VRG_VERSION;
-	vrg_ccb->build_date = __DATE__" "__TIME__;
+	vrg_ccb->version = GIT_COMMIT_ID;
+	vrg_ccb->build_date = BUILD_TIME;
 
 	return 0;
 }

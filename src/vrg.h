@@ -17,8 +17,6 @@ extern "C" {
 #define LINK_DOWN           0x0
 #define LINK_UP             0x1
 
-#define VRG_VERSION "v0.0.1"
-
 enum {
     CLI_QUIT = 0,
     CLI_DISCONNECT,
