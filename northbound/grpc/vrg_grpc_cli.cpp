@@ -110,21 +110,24 @@ grpc::Status VRGCLIServiceImpl::DhcpServerStart(::grpc::ServerContext* context, 
 
     cout << "DhcpServerStart called" << endl;
     if (user_id == 0) {
+        std::string err;
         for(int i=0; i<vrg_ccb->user_count; i++) {
             if (vrg_ccb->vrg_switch[i].is_dhcp_server_enable == VRG_SUBMODULE_IS_ENABLED || 
                     vrg_ccb->vrg_switch[i].is_dhcp_server_enable == VRG_SUBMODULE_IS_SPAWNED || 
                     vrg_ccb->vrg_switch[i].is_dhcp_server_enable == VRG_SUBMODULE_IS_SPAWNING) {
-                cout << "User " << i + 1 << " dhcp server is already enabled" << endl;
+                err += "User " + std::to_string(i + 1) + " dhcp server is already enabled\n";
                 continue;
             }
             vrg_ccb->vrg_switch[i].is_dhcp_server_enable = VRG_SUBMODULE_IS_ENABLED;
         }
+        if (!err.empty())
+            return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, err);
     } else {
         if (vrg_ccb->vrg_switch[ccb_id].is_dhcp_server_enable == VRG_SUBMODULE_IS_ENABLED || 
                 vrg_ccb->vrg_switch[ccb_id].is_dhcp_server_enable == VRG_SUBMODULE_IS_SPAWNED || 
                 vrg_ccb->vrg_switch[ccb_id].is_dhcp_server_enable == VRG_SUBMODULE_IS_SPAWNING) {
-            cout << "User " << user_id << " dhcp server is already enabled" << endl;
-            return grpc::Status::OK;
+            std::string err = "User " + std::to_string(user_id) + " dhcp server is already enabled";
+            return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, err);
         }
         vrg_ccb->vrg_switch[ccb_id].is_dhcp_server_enable = VRG_SUBMODULE_IS_ENABLED;
     }
@@ -144,21 +147,24 @@ grpc::Status VRGCLIServiceImpl::DhcpServerStop(::grpc::ServerContext* context, c
 
     cout << "DhcpServerStop called" << endl;
     if (user_id == 0) {
+        std::string err;
         for(int i=0; i<vrg_ccb->user_count; i++) {
             if (vrg_ccb->vrg_switch[i].is_dhcp_server_enable == VRG_SUBMODULE_IS_DISABLED || 
                     vrg_ccb->vrg_switch[i].is_dhcp_server_enable == VRG_SUBMODULE_IS_TERMINATED || 
                     vrg_ccb->vrg_switch[i].is_dhcp_server_enable == VRG_SUBMODULE_IS_TERMINATING) {
-                cout << "User " << i + 1 << " dhcp server is already disabled" << endl;
+                err += "User " + std::to_string(i + 1) + " dhcp server is already disabled\n";
                 continue;
             }
             vrg_ccb->vrg_switch[i].is_dhcp_server_enable = VRG_SUBMODULE_IS_DISABLED;
         }
+        if (!err.empty())
+            return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, err);
     } else {
         if (vrg_ccb->vrg_switch[ccb_id].is_dhcp_server_enable == VRG_SUBMODULE_IS_DISABLED || 
                 vrg_ccb->vrg_switch[ccb_id].is_dhcp_server_enable == VRG_SUBMODULE_IS_TERMINATED || 
                 vrg_ccb->vrg_switch[ccb_id].is_dhcp_server_enable == VRG_SUBMODULE_IS_TERMINATING) {
-            cout << "User " << user_id << " dhcp server is already disabled" << endl;
-            return grpc::Status::OK;
+            std::string err = "User " + std::to_string(user_id) + " dhcp server is already disabled";
+            return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, err);
         }
         vrg_ccb->vrg_switch[ccb_id].is_dhcp_server_enable = VRG_SUBMODULE_IS_DISABLED;
     }
@@ -166,7 +172,8 @@ grpc::Status VRGCLIServiceImpl::DhcpServerStop(::grpc::ServerContext* context, c
     return grpc::Status::OK;
 }
 
-int getNicInfo(NicDriverInfo *nic_info, uint8_t port_id) {
+int getNicInfo(NicDriverInfo *nic_info, uint8_t port_id)
+{
     struct rte_eth_dev_info dev_info = {0};
     if (rte_eth_dev_info_get(port_id, &dev_info) != 0) {
 		std::string err = "get device info failed";
@@ -183,7 +190,8 @@ int getNicInfo(NicDriverInfo *nic_info, uint8_t port_id) {
     return 0;
 }
 
-int getNicStats(Statistics *stats, uint8_t port_id) {
+int getNicStats(Statistics *stats, uint8_t port_id)
+{
     struct rte_eth_stats eth_stats = {0};
     if (rte_eth_stats_get(port_id, &eth_stats) != 0) {
         std::string err = "get device stats failed";
@@ -241,5 +249,100 @@ grpc::Status VRGCLIServiceImpl::GetVrgSystemInfo(::grpc::ServerContext* context,
         return grpc::Status(grpc::StatusCode::INTERNAL, err);
     }
 
+    return grpc::Status::OK;
+}
+
+grpc::Status VRGCLIServiceImpl:: GetVrgHsiInfo(::grpc::ServerContext* context, const ::google::protobuf::Empty* request, ::vrgcliservice::VrgHsiInfo* response) 
+{
+    cout << "GetVrgHsiInfo called" << endl;
+    for(int i=0; i<vrg_ccb->user_count; i++) {
+        HsiInfo* hsi_info = response->add_hsi_infos();
+        hsi_info->set_user_id(i + 1);
+        hsi_info->set_vlan_id(vrg_ccb->ppp_ccb[i].vlan);
+        switch (vrg_ccb->ppp_ccb[i].phase) {
+            case END_PHASE:
+                hsi_info->set_status("init phase");
+                break;
+            case PPPOE_PHASE:
+                hsi_info->set_status("pppoe phase");
+                break;
+            case LCP_PHASE:
+                hsi_info->set_status("lcp phase");
+                break;
+            case AUTH_PHASE:
+                hsi_info->set_status("auth phase");
+                break;
+            case IPCP_PHASE:
+                hsi_info->set_status("ipcp phase");
+                break;
+            case DATA_PHASE:
+                hsi_info->set_status("PPPoE connection");
+                hsi_info->set_account(std::string(reinterpret_cast<const char*>(vrg_ccb->ppp_ccb->ppp_user_id)));
+                hsi_info->set_password(std::string(reinterpret_cast<const char*>(vrg_ccb->ppp_ccb->ppp_passwd)));
+                hsi_info->set_session_id(rte_be_to_cpu_16(vrg_ccb->ppp_ccb->session_id));
+                hsi_info->set_ip_addr(std::to_string(*(((U8 *)&(vrg_ccb->ppp_ccb[i].hsi_ipv4)))) + "." +
+                                     std::to_string(*(((U8 *)&(vrg_ccb->ppp_ccb[i].hsi_ipv4))+1)) + "." +
+                                     std::to_string(*(((U8 *)&(vrg_ccb->ppp_ccb[i].hsi_ipv4))+2)) + "." +
+                                     std::to_string(*(((U8 *)&(vrg_ccb->ppp_ccb[i].hsi_ipv4))+3)));
+                hsi_info->set_gateway(std::to_string(*(((U8 *)&(vrg_ccb->ppp_ccb[i].hsi_ipv4_gw)))) + "." +
+                                     std::to_string(*(((U8 *)&(vrg_ccb->ppp_ccb[i].hsi_ipv4_gw))+1)) + "." +
+                                     std::to_string(*(((U8 *)&(vrg_ccb->ppp_ccb[i].hsi_ipv4_gw))+2)) + "." +
+                                     std::to_string(*(((U8 *)&(vrg_ccb->ppp_ccb[i].hsi_ipv4_gw))+3)));
+                hsi_info->add_dnss(std::to_string(*(((U8 *)&(vrg_ccb->ppp_ccb[i].hsi_primary_dns)))) + "." +
+                                   std::to_string(*(((U8 *)&(vrg_ccb->ppp_ccb[i].hsi_primary_dns))+1)) + "." +
+                                   std::to_string(*(((U8 *)&(vrg_ccb->ppp_ccb[i].hsi_primary_dns))+2)) + "." +
+                                   std::to_string(*(((U8 *)&(vrg_ccb->ppp_ccb[i].hsi_primary_dns))+3)));
+                hsi_info->add_dnss(std::to_string(*(((U8 *)&(vrg_ccb->ppp_ccb[i].hsi_second_dns)))) + "." +
+                                   std::to_string(*(((U8 *)&(vrg_ccb->ppp_ccb[i].hsi_second_dns))+1)) + "." +
+                                   std::to_string(*(((U8 *)&(vrg_ccb->ppp_ccb[i].hsi_second_dns))+2)) + "." +
+                                   std::to_string(*(((U8 *)&(vrg_ccb->ppp_ccb[i].hsi_second_dns))+3)));
+                break;
+            default:
+                hsi_info->set_status("unknown status");
+                break;
+        }
+    }
+
+    return grpc::Status::OK;
+}
+
+grpc::Status VRGCLIServiceImpl:: GetVrgDhcpInfo(::grpc::ServerContext* context, const ::google::protobuf::Empty* request, ::vrgcliservice::VrgDhcpInfo* response) 
+{
+    cout << "GetVrgDhcpInfo called" << endl;
+    dhcp_ccb_t *dhcp_ccb = vrg_ccb->dhcp_ccb;
+    for(int i=0; i<vrg_ccb->user_count; i++) {
+        DhcpInfo* dhcp_info = response->add_dhcp_infos();
+        if (rte_atomic16_read(&vrg_ccb->dhcp_ccb[i].dhcp_bool) == 1) {
+            dhcp_info->set_user_id(i + 1);
+            dhcp_info->set_status("DHCP server is on");
+
+			for(U8 j=0; j<MAX_IP_POOL; j++) {
+				if (dhcp_ccb[i].ip_pool[j].used) {
+                    dhcp_info->add_inuse_ips(std::to_string(*(((U8 *)&(dhcp_ccb[i].ip_pool[j].ip_addr)))) + "." +
+                        std::to_string(*(((U8 *)&(dhcp_ccb[i].ip_pool[j].ip_addr))+1)) + "." +
+                        std::to_string(*(((U8 *)&(dhcp_ccb[i].ip_pool[j].ip_addr))+2)) + "." +
+                        std::to_string(*(((U8 *)&(dhcp_ccb[i].ip_pool[j].ip_addr))+3)));
+				}
+			}
+		}
+		else {
+            dhcp_info->set_user_id(i + 1);
+            dhcp_info->set_status("DHCP server is off");
+        }
+
+        dhcp_info->set_start_ip(std::to_string(*(((U8 *)&(dhcp_ccb[i].ip_pool[0].ip_addr)))) + "." +
+            std::to_string(*(((U8 *)&(dhcp_ccb[i].ip_pool[0].ip_addr))+1)) + "." +
+            std::to_string(*(((U8 *)&(dhcp_ccb[i].ip_pool[0].ip_addr))+2)) + "." +
+            std::to_string(*(((U8 *)&(dhcp_ccb[i].ip_pool[0].ip_addr))+3)));
+        dhcp_info->set_end_ip(std::to_string(*(((U8 *)&(dhcp_ccb[i].ip_pool[MAX_IP_POOL - 1].ip_addr)))) + "." +
+            std::to_string(*(((U8 *)&(dhcp_ccb[i].ip_pool[MAX_IP_POOL - 1].ip_addr))+1)) + "." +
+            std::to_string(*(((U8 *)&(dhcp_ccb[i].ip_pool[MAX_IP_POOL - 1].ip_addr))+2)) + "." +
+            std::to_string(*(((U8 *)&(dhcp_ccb[i].ip_pool[MAX_IP_POOL - 1].ip_addr))+3)));
+        dhcp_info->set_subnet_mask("255.255.255.0");
+        dhcp_info->set_gateway(std::to_string(*(((U8 *)&(dhcp_ccb[i].dhcp_server_ip)))) + "." +
+            std::to_string(*(((U8 *)&(dhcp_ccb[i].dhcp_server_ip))+1)) + "." +
+            std::to_string(*(((U8 *)&(dhcp_ccb[i].dhcp_server_ip))+2)) + "." +
+            std::to_string(*(((U8 *)&(dhcp_ccb[i].dhcp_server_ip))+3)));
+    }
     return grpc::Status::OK;
 }

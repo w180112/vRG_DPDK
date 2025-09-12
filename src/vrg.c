@@ -161,21 +161,25 @@ void *vrg_loop_check_feature(void *arg)
 			}
 
 			if (vrg_ccb->vrg_switch[i].is_dhcp_server_enable == VRG_SUBMODULE_IS_ENABLED) {
+				vrg_ccb->vrg_switch[i].is_dhcp_server_enable = VRG_SUBMODULE_IS_SPAWNING;
 				VRG_LOG(INFO, vrg_ccb->fp, NULL, NULL, "User %d dhcp server is spawning\n", i+1);
 				if (rte_atomic16_read(&vrg_ccb->dhcp_ccb[i].dhcp_bool) == 1) {
 					VRG_LOG(ERR, vrg_ccb->fp, &(vrg_ccb->dhcp_ccb[i]), DHCPLOGMSG, "Error! User %u dhcp server is already on", i+1);
 					break;
 				}
 				rte_atomic16_set(&vrg_ccb->dhcp_ccb[i].dhcp_bool, 1);
-                vrg_ccb->vrg_switch[i].is_dhcp_server_enable = VRG_SUBMODULE_IS_SPAWNING;
+                vrg_ccb->vrg_switch[i].is_dhcp_server_enable = VRG_SUBMODULE_IS_SPAWNED;
+				VRG_LOG(INFO, vrg_ccb->fp, &(vrg_ccb->dhcp_ccb[i]), DHCPLOGMSG, "User %d dhcp server is spawned\n", i+1);
 			} else if (vrg_ccb->vrg_switch[i].is_dhcp_server_enable == VRG_SUBMODULE_IS_DISABLED) {
+				vrg_ccb->vrg_switch[i].is_dhcp_server_enable = VRG_SUBMODULE_IS_TERMINATING;
 				VRG_LOG(INFO, vrg_ccb->fp, NULL, NULL, "User %d dhcp server is terminating\n", i+1);
 				if (rte_atomic16_read(&vrg_ccb->dhcp_ccb[i].dhcp_bool) == 0) {
 					VRG_LOG(ERR, vrg_ccb->fp, &(vrg_ccb->dhcp_ccb[i]), DHCPLOGMSG, "Error! User %u dhcp server is already off", i+1);
 					break;
 				}
 				rte_atomic16_set(&vrg_ccb->dhcp_ccb[i].dhcp_bool, 0);
-                vrg_ccb->vrg_switch[i].is_dhcp_server_enable = VRG_SUBMODULE_IS_TERMINATING;
+                vrg_ccb->vrg_switch[i].is_dhcp_server_enable = VRG_SUBMODULE_IS_TERMINATED;
+				VRG_LOG(INFO, vrg_ccb->fp, &(vrg_ccb->dhcp_ccb[i]), DHCPLOGMSG, "User %d dhcp server is terminated\n", i+1);
 			}
 		}
 	}

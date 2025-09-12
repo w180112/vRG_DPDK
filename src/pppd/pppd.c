@@ -206,6 +206,7 @@ void exit_ppp(__attribute__((unused)) struct rte_timer *tim, PPP_INFO_t *ppp_ccb
 	ppp_ccb->ppp_phase[1].state = S_INIT;
 	ppp_ccb->pppoe_phase.active = FALSE;
 	vrg_ccb->vrg_switch[ppp_ccb->user_num-1].is_hsi_enable = VRG_SUBMODULE_IS_TERMINATED;
+	VRG_LOG(INFO, vrg_ccb->fp, ppp_ccb, PPPLOGMSG, "User %" PRIu16 " HSI module is terminated.\n", ppp_ccb->user_num);
 }
 
 /**

@@ -29,6 +29,8 @@ service VrgService {
   rpc DhcpServerStart(DhcpServerRequest) returns(DhcpServerReply) {}
   rpc DhcpServerStop(DhcpServerRequest) returns(DhcpServerReply) {}
   rpc GetVrgSystemInfo(google.protobuf.Empty) returns(VrgSystemInfo) {}
+  rpc GetVrgHsiInfo(google.protobuf.Empty) returns(VrgHsiInfo) {}
+  rpc GetVrgDhcpInfo(google.protobuf.Empty) returns(VrgDhcpInfo) {}
 }
 
 message HsiRequest {
@@ -76,4 +78,35 @@ message VrgSystemInfo {
   VrgBaseInfo base_info = 1;
   repeated NicDriverInfo nics = 2;
   repeated Statistics stats = 3;
+}
+
+message HsiInfo {
+  uint32 user_id = 1;
+  uint32 vlan_id = 2;
+  string status = 3;
+  string account = 4;
+  string password = 5;
+  uint32 session_id = 6;
+  string ip_addr = 7;
+  string gateway = 8;
+  repeated string dnss = 9;
+}
+
+message VrgHsiInfo {
+  repeated HsiInfo hsi_infos = 1;
+}
+
+message DhcpInfo {
+  uint32 user_id = 1;
+  string status = 2;
+  string start_ip = 3;
+  string end_ip = 4;
+  string subnet_mask = 5;
+  string gateway = 6;
+  repeated string inuse_ips = 7;
+  repeated string dnss = 8;
+}
+
+message VrgDhcpInfo {
+  repeated DhcpInfo dhcp_infos = 1;
 }

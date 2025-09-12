@@ -32,11 +32,12 @@ STATUS dhcp_init(void *ccb)
         for(int j=0; j<LAN_USER; j++) {
             rte_timer_init(&(dhcp_ccb[i].lan_user_info[j].timer));
             rte_timer_init(&(dhcp_ccb[i].lan_user_info[j].lan_user_timer));
-	        dhcp_ccb[i].dhcp_server_ip = rte_cpu_to_be_32(0xc0a80201);
+	        dhcp_ccb[i].dhcp_server_ip = vrg_ccb->lan_ip; //default dhcp server ip is vRG lan ip
             dhcp_ccb[i].lan_user_info[j].lan_user_used = FALSE;
             rte_ether_addr_copy(&zero_mac, &dhcp_ccb[i].lan_user_info[j].mac_addr);
 		    dhcp_ccb[i].ip_pool[j].used = FALSE;
-		    dhcp_ccb[i].ip_pool[j].ip_addr = rte_cpu_to_be_32(0xc0a80200 | (j + 101));
+            //default ip pool start from lan_ip + 100
+		    dhcp_ccb[i].ip_pool[j].ip_addr = rte_cpu_to_be_32((rte_be_to_cpu_32(vrg_ccb->lan_ip) + j + 100));
             rte_ether_addr_copy(&zero_mac, &dhcp_ccb[i].ip_pool[j].mac_addr);
             dhcp_ccb[i].lan_user_info[j].state = S_DHCP_INIT;
             rte_atomic16_init(&dhcp_ccb[i].dhcp_bool);

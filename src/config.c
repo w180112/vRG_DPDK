@@ -44,7 +44,7 @@ STATUS parse_config(const char *config_path, VRG_t *vrg_ccb, struct vrg_config *
 
     if (config_lookup_string(&cfg, "DefaultGateway", &default_gateway) == CONFIG_FALSE)
         default_gateway = "192.168.2.1";
-    vrg_ccb->lan_ip = rte_cpu_to_be_32(inet_addr(default_gateway));
+    vrg_ccb->lan_ip = inet_addr(default_gateway);
 
     if (config_lookup_string(&cfg, "DefaultUnixSocket", &unix_sock_path) == CONFIG_FALSE)
         unix_sock_path = "unix:///var/run/vrg/vrg.sock";

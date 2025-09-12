@@ -144,9 +144,76 @@ void vrg_grpc_get_system_info() {
 }
 
 void vrg_grpc_get_hsi_info() {
+    std::cout << "grpc client getting hsi info" << std::endl;
+    google::protobuf::Empty request;
+    VrgHsiInfo reply;
+    ClientContext context;
+    Status status = vrg_client->stub_->GetVrgHsiInfo(&context, request, &reply);
+    if (status.ok()) {
+        std::cout << "grpc client get hsi info ok" << std::endl;
+        for(int i=0; i<reply.hsi_infos_size(); i++) {
+            const HsiInfo& hsi_info = reply.hsi_infos(i);
+            std::cout << "  HSI " << i << ":" << std::endl;
+            std::cout << "    User ID: " << hsi_info.user_id() << std::endl;
+            std::cout << "    VLAN ID: " << hsi_info.vlan_id() << std::endl;
+            std::cout << "    Status: " << hsi_info.status() << std::endl;
+            std::cout << "    Account: " << hsi_info.account() << std::endl;
+            std::cout << "    Password: " << hsi_info.password() << std::endl;
+            std::cout << "    Session ID: " << hsi_info.session_id() << std::endl;
+            std::cout << "    IP address: " << hsi_info.ip_addr() << std::endl;
+            std::cout << "    Gateway: " << hsi_info.gateway() << std::endl;
+            std::cout << "    DNS servers: ";
+            for(int j=0; j<hsi_info.dnss_size(); j++) {
+                std::cout << hsi_info.dnss(j);
+                if (j < hsi_info.dnss_size() - 1)
+                    std::cout << ", ";
+            }
+            std::cout << std::endl;
+        }
+    } else {
+        std::cout << "grpc client get hsi info failed: " << std::endl;
+        std::cout << "  Error code: " << status.error_code() << std::endl;
+        std::cout << "  Error message: " << status.error_message() << std::endl;
+    }
 }
 
 void vrg_grpc_get_dhcp_info() {
+    std::cout << "grpc client getting dhcp info" << std::endl;
+    google::protobuf::Empty request;
+    VrgDhcpInfo reply;
+    ClientContext context;
+    Status status = vrg_client->stub_->GetVrgDhcpInfo(&context, request, &reply);
+    if (status.ok()) {
+        std::cout << "grpc client get dhcp info ok" << std::endl;
+        for(int i=0; i<reply.dhcp_infos_size(); i++) {
+            const DhcpInfo& dhcp_info = reply.dhcp_infos(i);
+            std::cout << "  DHCP " << i << ":" << std::endl;
+            std::cout << "    User ID: " << dhcp_info.user_id() << std::endl;
+            std::cout << "    Status: " << dhcp_info.status() << std::endl;
+            std::cout << "    Start IP: " << dhcp_info.start_ip() << std::endl;
+            std::cout << "    End IP: " << dhcp_info.end_ip() << std::endl;
+            std::cout << "    Subnet Mask: " << dhcp_info.subnet_mask() << std::endl;
+            std::cout << "    Gateway: " << dhcp_info.gateway() << std::endl;
+            std::cout << "    In-use IPs: ";
+            for(int j=0; j<dhcp_info.inuse_ips_size(); j++) {
+                std::cout << dhcp_info.inuse_ips(j);
+                if (j < dhcp_info.inuse_ips_size() - 1)
+                    std::cout << ", ";
+            }
+            std::cout << std::endl;
+            std::cout << "    DNS servers: ";
+            for(int j=0; j<dhcp_info.dnss_size(); j++) {
+                std::cout << dhcp_info.dnss(j);
+                if (j < dhcp_info.dnss_size() - 1)
+                    std::cout << ", ";
+            }
+            std::cout << std::endl;
+        }
+    } else {
+        std::cout << "grpc client get dhcp info failed: " << std::endl;
+        std::cout << "  Error code: " << status.error_code() << std::endl;
+        std::cout << "  Error message: " << status.error_message() << std::endl;
+    }
 }
 
 #ifdef __cplusplus

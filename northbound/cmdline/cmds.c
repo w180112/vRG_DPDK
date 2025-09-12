@@ -52,7 +52,6 @@ static void cmd_info_parsed(void *parsed_result,
 		struct cmdline *cl,
 		__attribute__((unused)) void *data)
 {
-	char buf[64];
 	struct cmd_info_result *res = parsed_result;
 
 	if (strncmp(res->subsystem, "hsi", 3) == 0)
@@ -63,53 +62,6 @@ static void cmd_info_parsed(void *parsed_result,
 		vrg_grpc_get_system_info();
 
 	return;
-#if 0
-	dhcp_ccb_t *dhcp_ccb = vrg_ccb->dhcp_ccb;
-	for(int i=0; i<vrg_ccb->user_count; i++) {
-		cmdline_printf(cl, "================================================================================\n");
-		if (vrg_ccb->non_vlan_mode == TRUE)
-			cmdline_printf(cl, "User %d is in ", i + 1);
-		else
-			cmdline_printf(cl, "User %d VLAN ID is %" PRIu16 " and is in ", i + 1, vrg_ccb->ppp_ccb[i].vlan);
-		switch (vrg_ccb->ppp_ccb[i].phase) {
-		case END_PHASE:
-			cmdline_printf(cl, "init phase\n");
-			break;
-		case PPPOE_PHASE:
-			cmdline_printf(cl, "pppoe phase\n");
-			break;
-		case LCP_PHASE:
-			cmdline_printf(cl, "lcp phase\n");
-			break;
-		case AUTH_PHASE:
-			cmdline_printf(cl, "auth phase\n");
-			break;
-		case IPCP_PHASE:
-			cmdline_printf(cl, "ipcp phase\n");
-			break;
-		case DATA_PHASE:
-			cmdline_printf(cl, "PPPoE connection\n");
-			cmdline_printf(cl, "PPP account is %s, password is %s\n", vrg_ccb->ppp_ccb[i].ppp_user_id, vrg_ccb->ppp_ccb[i].ppp_passwd);
-			cmdline_printf(cl, "Session ID is 0x%x\n", rte_be_to_cpu_16(vrg_ccb->ppp_ccb[i].session_id));
-			cmdline_printf(cl, "WAN IP addr is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 "\n", *(((U8 *)&(vrg_ccb->ppp_ccb[i].hsi_ipv4))), *(((U8 *)&(vrg_ccb->ppp_ccb[i].hsi_ipv4))+1), *(((U8 *)&(vrg_ccb->ppp_ccb[i].hsi_ipv4))+2), *(((U8 *)&(vrg_ccb->ppp_ccb[i].hsi_ipv4))+3));
-			break;
-		default:
-			break;
-		}
-
-		if (rte_atomic16_read(&vrg_ccb->dhcp_ccb[i].dhcp_bool) == 1) {
-			cmdline_printf(cl, "DHCP server is on and IP addr is %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 "\n", (rte_be_to_cpu_32(dhcp_ccb[i].dhcp_server_ip) & 0xff000000) >> 24, (rte_be_to_cpu_32(dhcp_ccb[i].dhcp_server_ip) & 0x00ff0000) >> 16, (rte_be_to_cpu_32(dhcp_ccb[i].dhcp_server_ip) & 0x0000ff00) >> 8, rte_be_to_cpu_32(dhcp_ccb[i].dhcp_server_ip) & 0x000000ff);
-			for(U8 j=0; j<MAX_IP_POOL; j++) {
-				if (dhcp_ccb[i].ip_pool[j].used) {
-					rte_ether_format_addr(buf, 18, &dhcp_ccb[i].ip_pool[j].mac_addr);
-					cmdline_printf(cl, "DHCP ip pool index %" PRIu8 " IP addr %" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 " is used by %s\n", j, (rte_be_to_cpu_32(dhcp_ccb[i].ip_pool[j].ip_addr) & 0xff000000) >> 24, (rte_be_to_cpu_32(dhcp_ccb[i].ip_pool[j].ip_addr) & 0x00ff0000) >> 16, (rte_be_to_cpu_32(dhcp_ccb[i].ip_pool[j].ip_addr) & 0x0000ff00) >> 8, rte_be_to_cpu_32(dhcp_ccb[i].ip_pool[j].ip_addr) & 0x000000ff, buf);
-				}
-			}
-		}
-		else if (rte_atomic16_read(&vrg_ccb->dhcp_ccb[i].dhcp_bool) == 0)
-			cmdline_printf(cl, "DHCP server is off\n");
-	}
-#endif
 }
 
 cmdline_parse_token_string_t cmd_info_info_token =
