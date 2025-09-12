@@ -35,7 +35,7 @@
 #define SESSION_DATA 		0x0
 
 #define LCP_PROTOCOL 		0xc021
-#define IP_PROTOCOL 		0x0021
+#define PPP_IP_PROTOCOL 	0x0021
 #define IPCP_PROTOCOL		0x8021
 #define PAP_PROTOCOL		0xc023
 #define CHAP_PROTOCOL		0xc223
