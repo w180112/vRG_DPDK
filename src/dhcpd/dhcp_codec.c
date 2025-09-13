@@ -183,53 +183,61 @@ STATUS build_dhcp_offer(dhcp_ccb_t *dhcp_ccb)
     dhcp_ccb->dhcp_info->next_server_ip = dhcp_ccb->dhcp_server_ip;
     dhcp_ccb->udp_hdr->dgram_len += sizeof(dhcp_info_t);
 
-    unsigned char buf[64];
+    unsigned char buf[128] = {0};
+    U32 dhcp_opt_len = 0;
 
     dhcp_opt_t *cur = (dhcp_opt_t *)buf;
     cur->opt_type = DHCP_MSG_TYPE;
-    cur->len = 0x1;
+    cur->len = sizeof(U8);
     *(cur->val) = DHCP_OFFER;
     dhcp_ccb->udp_hdr->dgram_len += sizeof(dhcp_opt_t) + cur->len;
+    dhcp_opt_len += sizeof(dhcp_opt_t) + cur->len;
 
     cur = (dhcp_opt_t *)(((char *)cur) + sizeof(dhcp_opt_t) + cur->len);
     cur->opt_type = DHCP_SERVER_ID;
-    cur->len = 0x4;
+    cur->len = sizeof(dhcp_ccb->dhcp_server_ip);
     rte_memcpy(cur->val, &dhcp_ccb->dhcp_server_ip, cur->len);
     dhcp_ccb->udp_hdr->dgram_len += sizeof(dhcp_opt_t) + cur->len;
+    dhcp_opt_len += sizeof(dhcp_opt_t) + cur->len;
 
     cur = (dhcp_opt_t *)(((char *)cur) + sizeof(dhcp_opt_t) + cur->len);
     cur->opt_type = DHCP_SUBNET_MASK;
-    cur->len = 0x4;
+    cur->len = sizeof(U32); // sizeof(255.255.255.0)
     cur->val[0] = 0x00;
     cur->val[1] = cur->val[2] = cur->val[3] = 0xff;
     dhcp_ccb->udp_hdr->dgram_len += sizeof(dhcp_opt_t) + cur->len;
+    dhcp_opt_len += sizeof(dhcp_opt_t) + cur->len;
 
     cur = (dhcp_opt_t *)(((char *)cur) + sizeof(dhcp_opt_t) + cur->len);
     cur->opt_type = DHCP_LEASE_TIME;
-    cur->len = 0x4;
+    cur->len = sizeof(U32);
     U32 lease_time = rte_cpu_to_be_32(LEASE_TIMEOUT); //1 hr
     rte_memcpy(cur->val, &lease_time, cur->len);
     dhcp_ccb->udp_hdr->dgram_len += sizeof(dhcp_opt_t) + cur->len;
+    dhcp_opt_len += sizeof(dhcp_opt_t) + cur->len;
 
     cur = (dhcp_opt_t *)(((char *)cur) + sizeof(dhcp_opt_t) + cur->len);
     cur->opt_type = DHCP_ROUTER;
-    cur->len = 0x4;
+    cur->len = sizeof(dhcp_ccb->dhcp_server_ip);
     rte_memcpy(cur->val, &dhcp_ccb->dhcp_server_ip, cur->len);
     dhcp_ccb->udp_hdr->dgram_len += sizeof(dhcp_opt_t) + cur->len;
+    dhcp_opt_len += sizeof(dhcp_opt_t) + cur->len;
     
     cur = (dhcp_opt_t *)(((char *)cur) + sizeof(dhcp_opt_t) + cur->len);
     cur->opt_type = DHCP_DNS;
-    cur->len = 0x8;
+    cur->len = sizeof(U32) * 2; // 2 DNS servers
     U32 dns[2] = { rte_cpu_to_be_32(0x08080808), rte_cpu_to_be_32(0x01010101)};
     rte_memcpy(cur->val, &dns, cur->len);
     dhcp_ccb->udp_hdr->dgram_len += sizeof(dhcp_opt_t) + cur->len;
+    dhcp_opt_len += sizeof(dhcp_opt_t) + cur->len;
 
     cur = (dhcp_opt_t *)(((char *)cur) + sizeof(dhcp_opt_t) + cur->len);
-    memset(cur, 0, 23);
     *(U8 *)cur = DHCP_END;
-    dhcp_ccb->udp_hdr->dgram_len += 1 + 22;
+    memset(((U8 *)cur) + 1, 0, 22);
+    dhcp_ccb->udp_hdr->dgram_len += sizeof(U8) + 22;
+    dhcp_opt_len += sizeof(U8) + 22;
 
-    rte_memcpy((dhcp_ccb->dhcp_info + 1), buf, dhcp_ccb->udp_hdr->dgram_len);
+    rte_memcpy((dhcp_ccb->dhcp_info + 1), buf, dhcp_opt_len);
 
     dhcp_ccb->ip_hdr->total_length += dhcp_ccb->udp_hdr->dgram_len;
     //PRINT_MESSAGE(dhcp_ccb->eth_hdr, sizeof(struct rte_ether_hdr) + sizeof(struct rte_ipv4_hdr) + sizeof(vlan_header_t) + dhcp_ccb->ip_hdr->total_length);
@@ -265,53 +273,61 @@ STATUS build_dhcp_ack(dhcp_ccb_t *dhcp_ccb)
     dhcp_ccb->dhcp_info->next_server_ip = dhcp_ccb->dhcp_server_ip;
     dhcp_ccb->udp_hdr->dgram_len += sizeof(dhcp_info_t);
 
-    unsigned char buf[128];
+    unsigned char buf[128] = {0};
+    U32 dhcp_opt_len = 0;
 
     dhcp_opt_t *cur = (dhcp_opt_t *)buf;
     cur->opt_type = DHCP_MSG_TYPE;
-    cur->len = 0x1;
+    cur->len = sizeof(U8);
     *(cur->val) = DHCP_ACK;
     dhcp_ccb->udp_hdr->dgram_len += sizeof(dhcp_opt_t) + cur->len;
+    dhcp_opt_len += sizeof(dhcp_opt_t) + cur->len;
 
     cur = (dhcp_opt_t *)(((char *)cur) + sizeof(dhcp_opt_t) + cur->len);
     cur->opt_type = DHCP_SERVER_ID;
-    cur->len = 0x4;
+    cur->len = sizeof(dhcp_ccb->dhcp_server_ip);
     rte_memcpy(cur->val, &dhcp_ccb->dhcp_server_ip, cur->len);
     dhcp_ccb->udp_hdr->dgram_len += sizeof(dhcp_opt_t) + cur->len;
+    dhcp_opt_len += sizeof(dhcp_opt_t) + cur->len;
 
     cur = (dhcp_opt_t *)(((char *)cur) + sizeof(dhcp_opt_t) + cur->len);
     cur->opt_type = DHCP_SUBNET_MASK;
-    cur->len = 0x4;
+    cur->len = sizeof(U32); // sizeof(255.255.255.0)
     cur->val[3] = 0x00;
     cur->val[0] = cur->val[1] = cur->val[2] = 0xff;
     dhcp_ccb->udp_hdr->dgram_len += sizeof(dhcp_opt_t) + cur->len;
+    dhcp_opt_len += sizeof(dhcp_opt_t) + cur->len;
 
     cur = (dhcp_opt_t *)(((char *)cur) + sizeof(dhcp_opt_t) + cur->len);
     cur->opt_type = DHCP_LEASE_TIME;
-    cur->len = 0x4;
+    cur->len = sizeof(U32);
     U32 lease_time = rte_cpu_to_be_32(LEASE_TIMEOUT); //1 hr
     rte_memcpy(cur->val, &lease_time, cur->len);
     dhcp_ccb->udp_hdr->dgram_len += sizeof(dhcp_opt_t) + cur->len;
+    dhcp_opt_len += sizeof(dhcp_opt_t) + cur->len;
 
     cur = (dhcp_opt_t *)(((char *)cur) + sizeof(dhcp_opt_t) + cur->len);
     cur->opt_type = DHCP_ROUTER;
-    cur->len = 0x4;
+    cur->len = sizeof(dhcp_ccb->dhcp_server_ip);
     rte_memcpy(cur->val, &dhcp_ccb->dhcp_server_ip, cur->len);
     dhcp_ccb->udp_hdr->dgram_len += sizeof(dhcp_opt_t) + cur->len;
-    
+    dhcp_opt_len += sizeof(dhcp_opt_t) + cur->len;
+
     cur = (dhcp_opt_t *)(((char *)cur) + sizeof(dhcp_opt_t) + cur->len);
     cur->opt_type = DHCP_DNS;
-    cur->len = 0x8;
+    cur->len = sizeof(U32) * 2; // 2 DNS servers
     U32 dns[2] = { rte_cpu_to_be_32(0x08080808), rte_cpu_to_be_32(0x01010101) };
     rte_memcpy(cur->val, &dns, cur->len);
     dhcp_ccb->udp_hdr->dgram_len += sizeof(dhcp_opt_t) + cur->len;
+    dhcp_opt_len += sizeof(dhcp_opt_t) + cur->len;
 
     cur = (dhcp_opt_t *)(((char *)cur) + sizeof(dhcp_opt_t) + cur->len);
-    memset(cur, 0, 23);
     *(U8 *)cur = DHCP_END;
-    dhcp_ccb->udp_hdr->dgram_len += 1 + 22;
+    memset(((U8 *)cur) + 1, 0, 22);
+    dhcp_ccb->udp_hdr->dgram_len += sizeof(U8) + 22;
+    dhcp_opt_len += sizeof(U8) + 22;
 
-    rte_memcpy((dhcp_ccb->dhcp_info + 1), buf, dhcp_ccb->udp_hdr->dgram_len);
+    rte_memcpy((dhcp_ccb->dhcp_info + 1), buf, dhcp_opt_len);
 
     dhcp_ccb->ip_hdr->total_length += dhcp_ccb->udp_hdr->dgram_len;
     //PRINT_MESSAGE(dhcp_ccb->eth_hdr, sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t) + sizeof(struct rte_ipv4_hdr) + dhcp_ccb->ip_hdr->total_length);
@@ -350,32 +366,37 @@ STATUS build_dhcp_nak(dhcp_ccb_t *dhcp_ccb)
     dhcp_ccb->dhcp_info->next_server_ip = dhcp_ccb->dhcp_server_ip;
     dhcp_ccb->udp_hdr->dgram_len += sizeof(dhcp_info_t);
 
-    unsigned char buf[64];
+    unsigned char buf[128] = {0};
+    U32 dhcp_opt_len = 0;
 
     dhcp_opt_t *cur = (dhcp_opt_t *)buf;
     cur->opt_type = DHCP_MSG_TYPE;
-    cur->len = 0x1;
+    cur->len = sizeof(U8);
     *(cur->val) = DHCP_NAK;
     dhcp_ccb->udp_hdr->dgram_len += sizeof(dhcp_opt_t) + cur->len;
+    dhcp_opt_len += sizeof(dhcp_opt_t) + cur->len;
 
     cur = (dhcp_opt_t *)(((char *)cur) + sizeof(dhcp_opt_t) + cur->len);
     cur->opt_type = DHCP_SERVER_ID;
-    cur->len = 0x4;
+    cur->len = sizeof(dhcp_ccb->dhcp_server_ip);
     rte_memcpy(cur->val, &dhcp_ccb->dhcp_server_ip, cur->len);
     dhcp_ccb->udp_hdr->dgram_len += sizeof(dhcp_opt_t) + cur->len;
+    dhcp_opt_len += sizeof(dhcp_opt_t) + cur->len;
 
     cur = (dhcp_opt_t *)(((char *)cur) + sizeof(dhcp_opt_t) + cur->len);
     cur->opt_type = DHCP_CLIENT_ID;
     cur->len = RTE_ETHER_ADDR_LEN;
     rte_ether_addr_copy(&dhcp_ccb->eth_hdr->dst_addr, (struct rte_ether_addr *)(cur->val));
     dhcp_ccb->udp_hdr->dgram_len += sizeof(dhcp_opt_t) + cur->len;
+    dhcp_opt_len += sizeof(dhcp_opt_t) + cur->len;
 
     cur = (dhcp_opt_t *)(((char *)cur) + sizeof(dhcp_opt_t) + cur->len);
-    memset(cur, 0, 23);
     *(U8 *)cur = DHCP_END;
-    dhcp_ccb->udp_hdr->dgram_len += 1 + 22;
+    memset(((U8 *)cur) + 1, 0, 22);
+    dhcp_ccb->udp_hdr->dgram_len += sizeof(U8) + 22;
+    dhcp_opt_len += sizeof(U8) + 22;
 
-    rte_memcpy((dhcp_ccb->dhcp_info + 1), buf, dhcp_ccb->udp_hdr->dgram_len);
+    rte_memcpy((dhcp_ccb->dhcp_info + 1), buf, dhcp_opt_len);
 
     dhcp_ccb->ip_hdr->total_length += dhcp_ccb->udp_hdr->dgram_len;
     //PRINT_MESSAGE(dhcp_ccb->eth_hdr, sizeof(struct rte_ether_hdr) + sizeof(vlan_header_t) + sizeof(struct rte_ipv4_hdr) + dhcp_ccb->ip_hdr->total_length);

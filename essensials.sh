@@ -41,7 +41,7 @@ elif [[ "$OS_ID" == "ubuntu" ]]; then
         git gcc make libtool-bin pkg-config pciutils iproute2 \
         kmod vim net-tools libconfig-dev \
         libgrpc++-dev protobuf-compiler-grpc libabsl-dev meson \
-        python3.12-venv python3-pyelftools ninja-build python3-setuptools
+        python3-pyelftools ninja-build python3-setuptools
 
     apt-get clean -y
     apt-get autoclean -y

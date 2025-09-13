@@ -15,6 +15,8 @@
 #include <rte_ether.h>
 #include "header.h"
 
+#define PPP_MSG_BUF_LEN			128
+
 #define MULTICAST_TAG 			4001
 #define TOTAL_SOCK_PORT			65536
 
