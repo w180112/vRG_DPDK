@@ -693,11 +693,11 @@ STATUS A_this_layer_finish(__attribute__((unused)) struct rte_timer *tim, __attr
 
 STATUS A_this_layer_up(__attribute__((unused)) struct rte_timer *tim, __attribute__((unused)) PPP_INFO_t *s_ppp_ccb)
 {
-	unsigned char buffer[MSG_BUF];
+	unsigned char buffer[PPP_MSG_BUF_LEN];
     U16 mulen;
 
 	if (s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].ppp_payload.ppp_protocol == rte_cpu_to_be_16(LCP_PROTOCOL)) {
-    	memset(buffer,0,MSG_BUF);
+    	memset(buffer,0,PPP_MSG_BUF_LEN);
         rte_timer_reset(&(s_ppp_ccb->ppp_alive), ppp_interval*rte_get_timer_hz(), SINGLE, vrg_ccb->lcore.timer_thread, (rte_timer_cb_t)exit_ppp, s_ppp_ccb);
     	if (s_ppp_ccb->auth_method == PAP_PROTOCOL)
             build_auth_request_pap(buffer, &mulen, s_ppp_ccb);
@@ -775,7 +775,7 @@ STATUS A_init_restart_termin(__attribute__((unused)) struct rte_timer *tim, __at
 
 STATUS A_send_config_request(__attribute__((unused)) struct rte_timer *tim, __attribute__((unused)) PPP_INFO_t *s_ppp_ccb)
 {
-    unsigned char buffer[MSG_BUF];
+    unsigned char buffer[PPP_MSG_BUF_LEN];
     U16 mulen;
 
     if (s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].timer_counter == 0) {
@@ -792,7 +792,7 @@ STATUS A_send_config_request(__attribute__((unused)) struct rte_timer *tim, __at
 
 STATUS A_send_config_nak_rej(__attribute__((unused)) struct rte_timer *tim, __attribute__((unused)) PPP_INFO_t *s_ppp_ccb)
 {
-    unsigned char buffer[MSG_BUF];
+    unsigned char buffer[PPP_MSG_BUF_LEN];
     U16 mulen;
 
     build_config_nak_rej(buffer, &mulen, s_ppp_ccb);
@@ -803,7 +803,7 @@ STATUS A_send_config_nak_rej(__attribute__((unused)) struct rte_timer *tim, __at
 
 STATUS A_send_config_ack(__attribute__((unused)) struct rte_timer *tim, __attribute__((unused)) PPP_INFO_t *s_ppp_ccb)
 {
-    unsigned char buffer[MSG_BUF];
+    unsigned char buffer[PPP_MSG_BUF_LEN];
     U16 mulen;
 
     build_config_ack(buffer, &mulen, s_ppp_ccb);
@@ -814,7 +814,7 @@ STATUS A_send_config_ack(__attribute__((unused)) struct rte_timer *tim, __attrib
 
 STATUS A_send_terminate_request(struct rte_timer *tim, PPP_INFO_t *s_ppp_ccb)
 {
-    unsigned char buffer[MSG_BUF];
+    unsigned char buffer[PPP_MSG_BUF_LEN];
     U16 mulen;
 
     if (s_ppp_ccb->ppp_phase[s_ppp_ccb->cp].timer_counter == 0) {
@@ -831,7 +831,7 @@ STATUS A_send_terminate_request(struct rte_timer *tim, PPP_INFO_t *s_ppp_ccb)
 
 STATUS A_send_terminate_ack(__attribute__((unused)) struct rte_timer *tim, PPP_INFO_t *s_ppp_ccb)
 {
-    unsigned char buffer[MSG_BUF];
+    unsigned char buffer[PPP_MSG_BUF_LEN];
     U16 mulen;
 
     build_terminate_ack(buffer, &mulen, s_ppp_ccb);
@@ -842,7 +842,7 @@ STATUS A_send_terminate_ack(__attribute__((unused)) struct rte_timer *tim, PPP_I
 
 STATUS A_send_code_reject(__attribute__((unused)) struct rte_timer *tim, __attribute__((unused)) PPP_INFO_t *s_ppp_ccb)
 {
-    unsigned char buffer[MSG_BUF];
+    unsigned char buffer[PPP_MSG_BUF_LEN];
     U16 mulen;
 
     if (build_code_reject(buffer,s_ppp_ccb,&mulen) < 0)
@@ -854,7 +854,7 @@ STATUS A_send_code_reject(__attribute__((unused)) struct rte_timer *tim, __attri
 
 STATUS A_send_echo_reply(__attribute__((unused)) struct rte_timer *tim, __attribute__((unused)) PPP_INFO_t *s_ppp_ccb)
 {
-    unsigned char buffer[MSG_BUF];
+    unsigned char buffer[PPP_MSG_BUF_LEN];
     U16 mulen;
 
     build_echo_reply(buffer, &mulen, s_ppp_ccb);

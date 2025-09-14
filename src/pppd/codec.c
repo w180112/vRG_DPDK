@@ -39,7 +39,7 @@ STATUS check_ipcp_nak_rej(U8 flag, PPP_INFO_t *s_ppp_ccb, U16 ppp_hdr_len)
     pppoe_header_t 	*pppoe_header = &(s_ppp_ccb->pppoe_header);
     ppp_header_t 	*ppp_hdr = &(s_ppp_ccb->ppp_phase[1].ppp_hdr);
     ppp_options_t   *ppp_options = s_ppp_ccb->ppp_phase[1].ppp_options;
-	ppp_options_t   *tmp_buf = vrg_malloc(ppp_options_t, MSG_BUF*sizeof(char), 0);
+	ppp_options_t   *tmp_buf = vrg_malloc(ppp_options_t, PPP_MSG_BUF_LEN*sizeof(char), 0);
 	ppp_options_t   *tmp_cur = tmp_buf;
 	int bool_flag = 0;
 	U16 tmp_total_length = 4;
@@ -49,7 +49,7 @@ STATUS check_ipcp_nak_rej(U8 flag, PPP_INFO_t *s_ppp_ccb, U16 ppp_hdr_len)
 		return -1;
 	}
 	
-	memset(tmp_buf,0,MSG_BUF);
+	memset(tmp_buf,0,PPP_MSG_BUF_LEN);
 	rte_memcpy(tmp_buf, ppp_options, ppp_hdr_len-sizeof(ppp_header_t));
 
 	ppp_hdr->length = sizeof(ppp_header_t);
@@ -104,7 +104,7 @@ STATUS check_nak_reject(U8 flag, PPP_INFO_t *s_ppp_ccb, U16 ppp_hdr_len)
     pppoe_header_t 	*pppoe_header = &(s_ppp_ccb->pppoe_header);
     ppp_header_t 	*ppp_hdr = &(s_ppp_ccb->ppp_phase[0].ppp_hdr);
     ppp_options_t   *ppp_options = s_ppp_ccb->ppp_phase[0].ppp_options;
-	ppp_options_t 	*tmp_buf = vrg_malloc(ppp_options_t, MSG_BUF*sizeof(char), 0);
+	ppp_options_t 	*tmp_buf = vrg_malloc(ppp_options_t, PPP_MSG_BUF_LEN*sizeof(char), 0);
 	ppp_options_t 	*tmp_cur = tmp_buf;
 	int 			bool_flag = 0;
 	U16 		tmp_total_length = 4;
@@ -114,7 +114,7 @@ STATUS check_nak_reject(U8 flag, PPP_INFO_t *s_ppp_ccb, U16 ppp_hdr_len)
 		return -1;
 	}
 	
-	memset(tmp_buf, 0, MSG_BUF);
+	memset(tmp_buf, 0, PPP_MSG_BUF_LEN);
 	rte_memcpy(tmp_buf, ppp_options, ppp_hdr_len-sizeof(ppp_header_t));
 
 	ppp_hdr->length = sizeof(ppp_header_t);
@@ -264,7 +264,8 @@ STATUS decode_lcp(U16 ppp_hdr_len, U16 *event, struct rte_timer *tim, PPP_INFO_t
 			if (s_ppp_ccb->phase < LCP_PHASE)
 				return ERROR;
 			rte_timer_stop(&(s_ppp_ccb->ppp_alive));
-			rte_timer_reset(&(s_ppp_ccb->ppp_alive), ppp_interval*rte_get_timer_hz(), SINGLE, vrg_ccb->lcore.timer_thread, (rte_timer_cb_t)exit_ppp, s_ppp_ccb);
+			rte_timer_reset(&(s_ppp_ccb->ppp_alive), ppp_interval*rte_get_timer_hz(), 
+				SINGLE, vrg_ccb->lcore.timer_thread, (rte_timer_cb_t)exit_ppp, s_ppp_ccb);
 			*event = E_RECV_ECHO_REPLY_REQUEST_DISCARD_REQUEST;
 			return SUCCESS;
 		case ECHO_REPLY:
@@ -416,7 +417,7 @@ STATUS build_padi(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb)
  */
 STATUS build_padr(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb)
 {
-	//static unsigned char 		buffer[MSG_BUF];
+	//static unsigned char 		buffer[PPP_MSG_BUF_LEN];
 	//static U16 			mulen;
 	struct rte_ether_hdr 		*eth_hdr = (struct rte_ether_hdr *)buffer;
 	vlan_header_t			*vlan_header = (vlan_header_t *)(eth_hdr + 1);
@@ -1032,7 +1033,7 @@ void build_auth_response_chap(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb, ppp
 
 STATUS send_pkt(U8 encode_type, PPP_INFO_t *s_ppp_ccb)
 {
-	U8 buffer[MSG_BUF];
+	U8 buffer[PPP_MSG_BUF_LEN];
 	U16 mulen = 0;
 
 	switch (encode_type) {
@@ -1212,9 +1213,9 @@ STATUS decode_ppp(ppp_payload_t *ppp_payload, U16 *event, PPP_INFO_t *s_ppp_ccb)
 			return SUCCESS;
 		}
 		else if (ppp_hdr->code == PAP_REQUEST) {
-			U8 buffer[MSG_BUF];
+			U8 buffer[PPP_MSG_BUF_LEN];
     		U16 mulen;
-    		PPP_INFO_t tmp_s_ppp_ccb;
+    		PPP_INFO_t tmp_s_ppp_ccb = {0};
 
     		s_ppp_ccb->phase = AUTH_PHASE;
     		tmp_s_ppp_ccb.eth_hdr = s_ppp_ccb->eth_hdr;
@@ -1237,7 +1238,7 @@ STATUS decode_ppp(ppp_payload_t *ppp_payload, U16 *event, PPP_INFO_t *s_ppp_ccb)
 			return ERROR;
 		ppp_chap_data_t *ppp_chap_data = (ppp_chap_data_t *)(ppp_hdr + 1);
 		if (ppp_hdr->code == CHAP_CHALLANGE) {
-			U8 buffer[MSG_BUF];
+			U8 buffer[PPP_MSG_BUF_LEN];
     		U16 mulen;
     		PPP_INFO_t tmp_s_ppp_ccb;
 
