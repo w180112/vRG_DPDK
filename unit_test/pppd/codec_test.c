@@ -5,7 +5,7 @@
 #include "../../src/protocol.h"
 
 void test_build_padi() {
-    U8 buffer[80];
+    U8 buffer[80] = { 0 };
     U16 mulen;
 
     PPP_INFO_t s_ppp_ccb_1 = {
@@ -24,13 +24,14 @@ void test_build_padi() {
     assert(mulen == sizeof(pkt_1));
     assert(memcmp(buffer, pkt_1, mulen) == 0);
 
-    memset(buffer, 0, sizeof(buffer));
+    // TODO: move timeout test to send_pkt()
+    /*memset(buffer, 0, sizeof(buffer));
     s_ppp_ccb_1.pppoe_phase.timer_counter = 10;
-    assert(build_padi(buffer, &mulen, &s_ppp_ccb_1) == ERROR);
+    assert(build_padi(buffer, &mulen, &s_ppp_ccb_1) == ERROR);*/
 }
 
 void test_build_padr() {
-    U8 buffer[80];
+    U8 buffer[80] = { 0 };
     U16 mulen = 0;
     struct rte_ether_hdr eth_hdr = {
         .ether_type = htons(VLAN),
@@ -73,13 +74,14 @@ void test_build_padr() {
     assert(mulen == sizeof(pkt_1));
     assert(memcmp(buffer, pkt_1, mulen) == 0);
 
-    memset(buffer, 0, sizeof(buffer));
+    // TODO: move timeout test to send_pkt()
+    /*memset(buffer, 0, sizeof(buffer));
     s_ppp_ccb_1.pppoe_phase.timer_counter = 10;
-    assert(build_padr(buffer, &mulen, &s_ppp_ccb_1) == ERROR);
+    assert(build_padr(buffer, &mulen, &s_ppp_ccb_1) == ERROR);*/
 }
 
 void test_build_padt() {
-    U8 buffer[80];
+    U8 buffer[80] = { 0 };
     U16 mulen = 0;
     struct rte_ether_hdr eth_hdr = {
         .ether_type = htons(VLAN),
@@ -120,7 +122,7 @@ void test_build_padt() {
 }
 
 void test_build_config_request() {
-    U8 buffer[80];
+    U8 buffer[80] = { 0 };
     U16 mulen = 0;
 
     PPP_INFO_t s_ppp_ccb[] = {
@@ -179,7 +181,7 @@ void test_build_config_request() {
 }
 
 void test_build_config_ack() {
-    U8 buffer[80];
+    U8 buffer[80] = { 0 };
     U16 mulen = 0;
 
     PPP_INFO_t s_ppp_ccb_1 = {
@@ -259,7 +261,7 @@ void test_build_config_ack() {
 }
 
 void test_build_terminate_request() {
-    U8 buffer[80];
+    U8 buffer[80] = { 0 };
     U16 mulen = 0;
 
     PPP_INFO_t s_ppp_ccb_1 = {
@@ -462,7 +464,7 @@ void test_build_config_nak_rej()
 
 void test_build_terminate_ack() 
 {
-    U8 buffer[80];
+    U8 buffer[80] = { 0 };
     U16 mulen = 0;
 
     PPP_INFO_t s_ppp_ccb_1 = {
@@ -545,7 +547,7 @@ void test_build_terminate_ack()
 
 void test_build_echo_reply() 
 {
-    U8 buffer[80];
+    U8 buffer[80] = { 0 };
     U16 mulen = 0;
 
     PPP_INFO_t s_ppp_ccb_1 = {
@@ -610,7 +612,7 @@ void test_build_echo_reply()
 
 void test_build_auth_request_pap()
 {
-    U8 buffer[80];
+    U8 buffer[80] = { 0 };
     U16 mulen = 0;
 
     PPP_INFO_t s_ppp_ccb_1 = {
@@ -678,7 +680,7 @@ void test_build_auth_request_pap()
 
 void test_build_auth_ack_pap()
 {
-    U8 buffer[80];
+    U8 buffer[80] = { 0 };
     U16 mulen = 0;
 
     PPP_INFO_t s_ppp_ccb_1 = {

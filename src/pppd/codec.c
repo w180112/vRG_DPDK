@@ -370,11 +370,6 @@ STATUS build_padi(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb)
 	pppoe_header_t 		*pppoe_header = (pppoe_header_t *)(vlan_header + 1);
 	pppoe_header_tag_t 	*pppoe_header_tag = (pppoe_header_tag_t *)(pppoe_header + 1);
 
-	if (s_ppp_ccb->pppoe_phase.timer_counter >= s_ppp_ccb->pppoe_phase.max_retransmit) {
-		VRG_LOG(ERR, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "User %" PRIu16 " timeout when sending PADI", s_ppp_ccb->user_num);
-		return ERROR;
-	}
-
 	for(int i=0; i<RTE_ETHER_ADDR_LEN; i++) {
  		eth_hdr->src_addr.addr_bytes[i] = vrg_ccb->nic_info.hsi_wan_src_mac.addr_bytes[i];
  		eth_hdr->dst_addr.addr_bytes[i] = 0xff;
@@ -423,11 +418,6 @@ STATUS build_padr(U8 *buffer, U16 *mulen, PPP_INFO_t *s_ppp_ccb)
 	vlan_header_t			*vlan_header = (vlan_header_t *)(eth_hdr + 1);
 	pppoe_header_t 			*pppoe_header = (pppoe_header_t *)(vlan_header + 1);
 	pppoe_header_tag_t 	*pppoe_header_tag = (pppoe_header_tag_t *)(pppoe_header + 1);
-
-	if (s_ppp_ccb->pppoe_phase.timer_counter >= s_ppp_ccb->pppoe_phase.max_retransmit) {
-		VRG_LOG(ERR, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "User %" PRIu16 "timeout when sending PADR", s_ppp_ccb->user_num);
-		return ERROR;
-	}
 
 	rte_ether_addr_copy(&vrg_ccb->nic_info.hsi_wan_src_mac, &s_ppp_ccb->eth_hdr.src_addr);
 	rte_ether_addr_copy(&s_ppp_ccb->PPP_dst_mac, &s_ppp_ccb->eth_hdr.dst_addr);
@@ -1038,6 +1028,11 @@ STATUS send_pkt(U8 encode_type, PPP_INFO_t *s_ppp_ccb)
 
 	switch (encode_type) {
 	case ENCODE_PADI:
+		if (s_ppp_ccb->pppoe_phase.timer_counter >= s_ppp_ccb->pppoe_phase.max_retransmit) {
+			VRG_LOG(ERR, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "User %" PRIu16 " timeout when sending PADI", s_ppp_ccb->user_num);
+			exit_ppp(NULL, s_ppp_ccb);
+			return ERROR;
+		}
 		if (build_padi(buffer, &mulen, s_ppp_ccb) == ERROR) {
 			PPP_bye(s_ppp_ccb);
 			return ERROR;
@@ -1046,6 +1041,11 @@ STATUS send_pkt(U8 encode_type, PPP_INFO_t *s_ppp_ccb)
 		drv_xmit(vrg_ccb, buffer, mulen);
 		break;
 	case ENCODE_PADR:
+		if (s_ppp_ccb->pppoe_phase.timer_counter >= s_ppp_ccb->pppoe_phase.max_retransmit) {
+			VRG_LOG(ERR, vrg_ccb->fp, s_ppp_ccb, PPPLOGMSG, "User %" PRIu16 "timeout when sending PADR", s_ppp_ccb->user_num);
+			exit_ppp(NULL, s_ppp_ccb);
+			return ERROR;
+		}
 		if (build_padr(buffer, &mulen, s_ppp_ccb) == ERROR) {
 			PPP_bye(s_ppp_ccb);
 			return ERROR;
