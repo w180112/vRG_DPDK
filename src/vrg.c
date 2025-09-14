@@ -237,6 +237,7 @@ int vrg_start(int argc, char **argv)
     	vrg_ccb.base_vlan = 2;
 	}
 	vrg_ccb.unix_sock_path = vrg_cfg.unix_sock_path;
+	vrg_ccb.node_grpc_ip_port = vrg_cfg.node_grpc_ip_port;
 	vrg_ccb.fp = fopen(vrg_cfg.log_path, "w+");
 	if (vrg_ccb.fp)
         rte_openlog_stream(vrg_ccb.fp);

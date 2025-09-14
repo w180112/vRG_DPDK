@@ -8,7 +8,7 @@ STATUS parse_config(const char *config_path, VRG_t *vrg_ccb, struct vrg_config *
 {
     config_t cfg;
     int user_count, base_vlan, non_vlan_mode;
-    const char *loglvl, *default_gateway, *unix_sock_path, *log_path;
+    const char *loglvl, *default_gateway, *unix_sock_path, *log_path, *node_grpc_port;
 
     config_init(&cfg);
     if (!config_read_file(&cfg, config_path)) {
@@ -46,11 +46,18 @@ STATUS parse_config(const char *config_path, VRG_t *vrg_ccb, struct vrg_config *
         default_gateway = "192.168.2.1";
     vrg_ccb->lan_ip = inet_addr(default_gateway);
 
-    if (config_lookup_string(&cfg, "DefaultUnixSocket", &unix_sock_path) == CONFIG_FALSE)
+    if (config_lookup_string(&cfg, "NodeGrpcUnixSocket", &unix_sock_path) == CONFIG_FALSE)
         unix_sock_path = "unix:///var/run/vrg/vrg.sock";
     strncpy(vrg_cfg->unix_sock_path, unix_sock_path, sizeof(vrg_cfg->unix_sock_path) - 1);
     vrg_cfg->unix_sock_path[sizeof(vrg_cfg->unix_sock_path) - 1] = '\0';
-    
+
+    if (config_lookup_string(&cfg, "NodeGrpcPort", &node_grpc_port) == CONFIG_FALSE)
+        node_grpc_port = "50051";    
+    char node_grpc_ip_port[64];  // 足夠放 "0.0.0.0:PORT"
+    snprintf(node_grpc_ip_port, sizeof(node_grpc_ip_port), "0.0.0.0:%s", node_grpc_port);
+    strncpy(vrg_cfg->node_grpc_ip_port, node_grpc_ip_port, sizeof(vrg_cfg->node_grpc_ip_port) - 1);
+    vrg_cfg->node_grpc_ip_port[sizeof(vrg_cfg->node_grpc_ip_port) - 1] = '\0';
+
     config_destroy(&cfg);
 
     return SUCCESS;

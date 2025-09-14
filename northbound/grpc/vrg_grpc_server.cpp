@@ -12,18 +12,21 @@ extern "C" {
 void vrg_grpc_server_run(void *arg) {
     VRG_t *vrg_ccb = (VRG_t *)arg;
 
-    std::string server_address(vrg_ccb->unix_sock_path);
+    std::string unix_sock_path(vrg_ccb->unix_sock_path);
+    std::string ip_address(vrg_ccb->node_grpc_ip_port);
     std::cout << "grpc server starting..." << std::endl;
     grpc::ServerBuilder builder;
 
     grpc::EnableDefaultHealthCheckService(true);
-    std::shared_ptr<grpc::ServerCredentials> ptr = grpc::InsecureServerCredentials();
-    builder.AddListeningPort(server_address, ptr);
+    std::shared_ptr<grpc::ServerCredentials> cred = grpc::InsecureServerCredentials();
+    builder.AddListeningPort(unix_sock_path, cred);
+    builder.AddListeningPort(ip_address, cred);
     VRGCLIServiceImpl vrg_service(vrg_ccb);
     builder.RegisterService(&vrg_service);
 
     std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
-    std::cout << "grpc server listening on " << server_address << std::endl;
+    std::cout << "grpc server listening on " << unix_sock_path << std::endl;
+    std::cout << "grpc server listening on " << ip_address << std::endl;
     server->Wait();
     return;
 }

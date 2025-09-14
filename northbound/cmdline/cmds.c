@@ -304,6 +304,7 @@ int main(int argc, char **argv)
 {
 	grpc_init();
 	vrg_grpc_client_connect("unix:///var/run/vrg/vrg.sock");
+	//vrg_grpc_client_connect("127.0.0.1:50051");
 
 	struct cmdline *cl = cmdline_stdin_new(ctx, "vRG>");
 	if (cl == NULL)

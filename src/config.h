@@ -11,6 +11,7 @@
 
 struct vrg_config {
     char unix_sock_path[256];
+    char node_grpc_ip_port[256];
     char log_path[256];
 };
 
