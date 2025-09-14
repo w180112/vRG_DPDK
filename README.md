@@ -44,7 +44,7 @@ e.g.
 For using vRG in Docker,
 
 	# mount -t hugetlbfs -o pagesize=1G none /dev/hugepages1G
-	# docker run -it --net=host --privileged -v /sys/bus/pci/devices:/sys/bus/pci/devices -v /sys/kernel/mm/hugepages:/sys/kernel/mm/hugepages -v /sys/devices/system/node:/sys/devices/system/node -v /dev:/dev $DOCKER_IMAGE  bash
+	# docker run -it --net=host --privileged -v /sys/bus/pci/devices:/sys/bus/pci/devices -v /sys/kernel/mm/hugepages:/sys/kernel/mm/hugepages -v /sys/devices/system/node:/sys/devices/system/node -v /dev:/dev -v /var/run/vrg:/var/run/vrg $DOCKER_IMAGE bash
 
 Execute following command in Docker container
 
@@ -86,8 +86,8 @@ For hugepages, NIC binding and other system configuration, please refer to Intel
 
 ## Test environment:
 
-1. Ubuntu 22.04 with Mellanox CX4 Lx virtual function and RHEL 9.2 with Intel X710 NIC SR-I/OV virtual function
-2. Xeon Platinum 8124 / Xeon Gold 6268 with ECC RAM server
+1. Ubuntu 24.04 with Mellanox CX4 Lx virtual function and RHEL 9.2 with Intel X710 NIC SR-I/OV virtual function
+2. Xeon Platinum 8124 / Xeon Gold 8255 with ECC RAM server
 3. Successfully test control plane and data plane with CHT(Chunghwa Telecom Co., Ltd.) BRAS, open source RP-PPPoE and Spirent test center PPPoE server
 4. Intel DPDK 22.11
 
@@ -98,7 +98,6 @@ For hugepages, NIC binding and other system configuration, please refer to Intel
 ## TODO:
 
 1. Add unit tests
-2. Add show command in CLI
-3. Split ccb for each CPU core
-4. Support DDP
-5. Add LCP exception
+2. Split ccb for each CPU core
+3. Support DDP
+4. Add LCP exception
