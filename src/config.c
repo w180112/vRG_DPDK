@@ -53,7 +53,7 @@ STATUS parse_config(const char *config_path, VRG_t *vrg_ccb, struct vrg_config *
 
     if (config_lookup_string(&cfg, "NodeGrpcPort", &node_grpc_port) == CONFIG_FALSE)
         node_grpc_port = "50051";    
-    char node_grpc_ip_port[64];  // 足夠放 "0.0.0.0:PORT"
+    char node_grpc_ip_port[64];  // "0.0.0.0:PORT"
     snprintf(node_grpc_ip_port, sizeof(node_grpc_ip_port), "0.0.0.0:%s", node_grpc_port);
     strncpy(vrg_cfg->node_grpc_ip_port, node_grpc_ip_port, sizeof(vrg_cfg->node_grpc_ip_port) - 1);
     vrg_cfg->node_grpc_ip_port[sizeof(vrg_cfg->node_grpc_ip_port) - 1] = '\0';

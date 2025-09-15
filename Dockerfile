@@ -22,7 +22,7 @@ COPY --from=builder --chown=root:root --chmod=0755 /usr/local/bin/vrg /usr/local
 COPY --from=builder /usr/local/lib/libutils.so.*.*.* /usr/local/lib/
 RUN mkdir -p /var/log/vrg && mkdir -p /var/run/vrg \
     && ln -s /usr/local/lib/libutils.so.* /usr/local/lib/libutils.so \
-    && apt update -y && apt install -y libnuma1 libatomic1 libconfig9 \
+    && apt update -y && apt install -y libnuma1 libatomic1 libconfig9 iproute2\
     libgrpc++1.51t64 && apt clean -y && apt autoclean -y && apt autoremove -y
 
 VOLUME /var/log/vrg

@@ -31,6 +31,7 @@ service VrgService {
   rpc GetVrgSystemInfo(google.protobuf.Empty) returns(VrgSystemInfo) {}
   rpc GetVrgHsiInfo(google.protobuf.Empty) returns(VrgHsiInfo) {}
   rpc GetVrgDhcpInfo(google.protobuf.Empty) returns(VrgDhcpInfo) {}
+  rpc GetNodeStatus(google.protobuf.Empty) returns(NodeStatus) {}
 }
 
 message HsiRequest {

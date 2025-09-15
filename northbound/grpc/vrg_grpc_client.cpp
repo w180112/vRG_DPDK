@@ -103,22 +103,23 @@ void vrg_grpc_dhcp_server_stop(U8 user_id) {
 }
 
 void vrg_grpc_get_system_info() {
-    std::cout << "grpc client getting system info" << std::endl;
+    std::cout << "grpc client getting vRG system and node info" << std::endl;
     google::protobuf::Empty request;
-    VrgSystemInfo reply;
-    ClientContext context;
-    Status status = vrg_client->stub_->GetVrgSystemInfo(&context, request, &reply);
+    VrgSystemInfo reply_vrg_system;
+    NodeStatus reply_node_status;
+    ClientContext context_vrg_system, context_node_status;
+    Status status = vrg_client->stub_->GetVrgSystemInfo(&context_vrg_system, request, &reply_vrg_system);
     if (status.ok()) {
-        std::cout << "grpc client get system info ok" << std::endl;
-        std::cout << "  vRG version: " << reply.base_info().vrg_version() << std::endl;
-        std::cout << "  Build date: " << reply.base_info().build_date() << std::endl;
-        std::cout << "  DPDK version: " << reply.base_info().dpdk_version() << std::endl;
-        std::cout << "  DPDK EAL args: " << reply.base_info().dpdk_eal_args() << std::endl;
-        std::cout << "  Number of subscribers: " << reply.base_info().num_users() << std::endl;
+        std::cout << "grpc client get vRG system info ok" << std::endl;
+        std::cout << "  vRG version: " << reply_vrg_system.base_info().vrg_version() << std::endl;
+        std::cout << "  Build date: " << reply_vrg_system.base_info().build_date() << std::endl;
+        std::cout << "  DPDK version: " << reply_vrg_system.base_info().dpdk_version() << std::endl;
+        std::cout << "  DPDK EAL args: " << reply_vrg_system.base_info().dpdk_eal_args() << std::endl;
+        std::cout << "  Number of subscribers: " << reply_vrg_system.base_info().num_users() << std::endl;
 
         std::cout << "  NICs: " << std::endl;
-        for(int i=0; i<reply.nics_size() && i<reply.stats_size(); i++) {
-            const NicDriverInfo& nic_info = reply.nics(i);
+        for(int i=0; i<reply_vrg_system.nics_size() && i<reply_vrg_system.stats_size(); i++) {
+            const NicDriverInfo& nic_info = reply_vrg_system.nics(i);
             std::cout << "    NIC " << i << ":" << std::endl;
             std::cout << "      Driver name: " << nic_info.driver_name() << std::endl;
             std::cout << "      PCI address: " << nic_info.pci_addr() << std::endl;
@@ -127,7 +128,7 @@ void vrg_grpc_get_system_info() {
             const uint8_t* mac_bytes = reinterpret_cast<const uint8_t*>(mac_bin.data());
             for(size_t j=0; j<mac_bin.size(); j++)
                 printf("%02x%c", mac_bytes[j], (j == mac_bin.size()-1 ? '\n' : ':'));
-            const Statistics& stats = reply.stats(i);
+            const Statistics& stats = reply_vrg_system.stats(i);
             std::cout << "      Rx packets: " << stats.rx_packets() << std::endl;
             std::cout << "      Tx packets: " << stats.tx_packets() << std::endl;
             std::cout << "      Rx bytes: " << stats.rx_bytes() << std::endl;
@@ -138,6 +139,21 @@ void vrg_grpc_get_system_info() {
         }
     } else {
         std::cout << "grpc client get info failed: " << std::endl;
+        std::cout << "  Error code: " << status.error_code() << std::endl;
+        std::cout << "  Error message: " << status.error_message() << std::endl;
+    }
+
+    context_node_status.set_deadline(std::chrono::system_clock::now() + std::chrono::seconds(5));
+    status = vrg_client->stub_->GetNodeStatus(&context_node_status, request, &reply_node_status);
+    if (status.ok()) {
+        std::cout << "grpc client get node status ok" << std::endl;
+        std::cout << "  Node OS version: " << reply_node_status.node_os_version() << std::endl;
+        std::cout << "  Node uptime (seconds): " << reply_node_status.node_uptime() << std::endl;
+        std::cout << "  Node IP address: " << reply_node_status.node_ip_info() << std::endl;
+        std::cout << "  Health status: " << (reply_node_status.healthy() ? "Healthy" : "Unhealthy") << std::endl;
+
+    } else {
+        std::cout << "grpc client get node status failed: " << std::endl;
         std::cout << "  Error code: " << status.error_code() << std::endl;
         std::cout << "  Error message: " << status.error_message() << std::endl;
     }

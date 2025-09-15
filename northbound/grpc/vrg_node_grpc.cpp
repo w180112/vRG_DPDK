@@ -1,4 +1,7 @@
 #include <grpc++/grpc++.h>
+#include <fstream>
+#include <sys/utsname.h>
+#include <ifaddrs.h>
 #include "vrg_node_grpc.h"
 
 #ifdef __cplusplus
@@ -252,7 +255,7 @@ grpc::Status VRGNodeServiceImpl::GetVrgSystemInfo(::grpc::ServerContext* context
     return grpc::Status::OK;
 }
 
-grpc::Status VRGNodeServiceImpl:: GetVrgHsiInfo(::grpc::ServerContext* context, const ::google::protobuf::Empty* request, ::vrgnodeservice::VrgHsiInfo* response) 
+grpc::Status VRGNodeServiceImpl::GetVrgHsiInfo(::grpc::ServerContext* context, const ::google::protobuf::Empty* request, ::vrgnodeservice::VrgHsiInfo* response) 
 {
     cout << "GetVrgHsiInfo called" << endl;
     for(int i=0; i<vrg_ccb->user_count; i++) {
@@ -306,7 +309,7 @@ grpc::Status VRGNodeServiceImpl:: GetVrgHsiInfo(::grpc::ServerContext* context, 
     return grpc::Status::OK;
 }
 
-grpc::Status VRGNodeServiceImpl:: GetVrgDhcpInfo(::grpc::ServerContext* context, const ::google::protobuf::Empty* request, ::vrgnodeservice::VrgDhcpInfo* response) 
+grpc::Status VRGNodeServiceImpl::GetVrgDhcpInfo(::grpc::ServerContext* context, const ::google::protobuf::Empty* request, ::vrgnodeservice::VrgDhcpInfo* response) 
 {
     cout << "GetVrgDhcpInfo called" << endl;
     dhcp_ccb_t *dhcp_ccb = vrg_ccb->dhcp_ccb;
@@ -344,5 +347,105 @@ grpc::Status VRGNodeServiceImpl:: GetVrgDhcpInfo(::grpc::ServerContext* context,
             std::to_string(*(((U8 *)&(dhcp_ccb[i].dhcp_server_ip))+2)) + "." +
             std::to_string(*(((U8 *)&(dhcp_ccb[i].dhcp_server_ip))+3)));
     }
+    return grpc::Status::OK;
+}
+
+grpc::Status VRGNodeServiceImpl::GetNodeStatus(::grpc::ServerContext* context, const ::google::protobuf::Empty* request, ::vrgnodeservice::NodeStatus* response) 
+{
+    cout << "GetNodeStatus called" << endl;
+
+    // get os version
+    std::string os_name;
+    struct utsname buffer;
+    if (uname(&buffer) == 0) {
+        os_name = std::string(buffer.sysname) + " " + std::string(buffer.release);
+    } else {
+        std::string err = "Failed to get Linux kernel version";
+        return grpc::Status(grpc::StatusCode::INTERNAL, err);
+    }
+    std::ifstream os_release("/etc/os-release");
+    if (os_release.is_open()) {
+        std::string line, name, version;
+        while (std::getline(os_release, line)) {
+            if (line.rfind("PRETTY_NAME=", 0) == 0) {
+                std::string value = line.substr(12); // remove PRETTY_NAME="
+                if (!value.empty() && value.front() == '"' && value.back() == '"') {
+                    value = value.substr(1, value.size() - 2);
+                }
+                os_name += " " + value;
+                break;
+            }
+        }
+        os_release.close();
+    } else {
+        std::string err = "Failed to open /etc/os-release";
+        return grpc::Status(grpc::StatusCode::INTERNAL, err);
+    }
+    response->set_node_os_version(os_name);
+
+    std::ifstream uptime_file("/proc/uptime");
+    if (!uptime_file.is_open()) {
+        std::string err = "Failed to get system uptime";
+        return grpc::Status(grpc::StatusCode::INTERNAL, err);
+    }
+    double uptime_seconds;
+    uptime_file >> uptime_seconds;
+    uptime_file.close();
+    response->set_node_uptime(static_cast<int64_t>(uptime_seconds));
+
+    FILE* fp = popen("ip route show default 2>/dev/null", "r");
+    std::string def_route;
+    if (fp) {
+        char buf[256];
+        if (fgets(buf, sizeof(buf), fp)) {
+            def_route = buf;
+        }
+        pclose(fp);
+    } else {
+        std::string err = "Failed to get default route";
+        return grpc::Status(grpc::StatusCode::INTERNAL, err);
+    }
+
+    std::string iface;
+    if (!def_route.empty()) {
+        std::istringstream iss(def_route);
+        std::string word;
+        while (iss >> word) {
+            if (word == "dev") {
+                iss >> iface;
+                break;
+            }
+        }
+    } else {
+        std::string err = "No default route found";
+        return grpc::Status(grpc::StatusCode::INTERNAL, err);
+    }
+
+    if (!iface.empty()) {
+        struct ifaddrs *ifaddr, *ifa;
+        if (getifaddrs(&ifaddr) == 0) {
+            for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
+                if (ifa->ifa_addr == NULL) continue;
+                if (iface == ifa->ifa_name && ifa->ifa_addr->sa_family == AF_INET) {
+                    char ip[INET_ADDRSTRLEN];
+                    void* addr = &((struct sockaddr_in*)ifa->ifa_addr)->sin_addr;
+                    inet_ntop(AF_INET, addr, ip, sizeof(ip));
+                    
+                    char netmask[INET_ADDRSTRLEN];
+                    void* mask = &((struct sockaddr_in*)ifa->ifa_netmask)->sin_addr;
+                    inet_ntop(AF_INET, mask, netmask, sizeof(netmask));
+
+                    response->set_node_ip_info(std::string(ip) + "/" + std::string(netmask));
+                }
+            }
+            freeifaddrs(ifaddr);
+        }
+    } else {
+        std::string err = "No default route interface found.";
+        return grpc::Status(grpc::StatusCode::INTERNAL, err);
+    }
+
+    response->set_healthy(true);
+
     return grpc::Status::OK;
 }

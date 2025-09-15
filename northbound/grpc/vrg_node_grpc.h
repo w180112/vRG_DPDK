@@ -17,6 +17,7 @@ class VRGNodeServiceImpl final : public vrgnodeservice::VrgService::Service
     ::grpc::Status GetVrgSystemInfo(::grpc::ServerContext* context, const ::google::protobuf::Empty* request, ::vrgnodeservice::VrgSystemInfo* response) override;
     ::grpc::Status GetVrgHsiInfo(::grpc::ServerContext* context, const ::google::protobuf::Empty* request, ::vrgnodeservice::VrgHsiInfo* response) override;
     ::grpc::Status GetVrgDhcpInfo(::grpc::ServerContext* context, const ::google::protobuf::Empty* request, ::vrgnodeservice::VrgDhcpInfo* response) override;
+    ::grpc::Status GetNodeStatus(::grpc::ServerContext* context, const ::google::protobuf::Empty* request, ::vrgnodeservice::NodeStatus* response) override;
 
     private:
     VRG_t* vrg_ccb;
