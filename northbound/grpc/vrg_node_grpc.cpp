@@ -1,5 +1,5 @@
 #include <grpc++/grpc++.h>
-#include "vrg_grpc_cli.h"
+#include "vrg_node_grpc.h"
 
 #ifdef __cplusplus
 extern "C" 
@@ -16,11 +16,11 @@ extern "C"
 #endif
 
 using namespace std;
-using namespace vrgcliservice;
+using namespace vrgnodeservice;
 
 extern struct rte_ring *rte_ring;
 
-grpc::Status VRGCLIServiceImpl::ConnectHsi(::grpc::ServerContext* context, const ::vrgcliservice::HsiRequest* request, ::vrgcliservice::HsiReply* response)
+grpc::Status VRGNodeServiceImpl::ConnectHsi(::grpc::ServerContext* context, const ::vrgnodeservice::HsiRequest* request, ::vrgnodeservice::HsiReply* response)
 {
     uint16_t user_id = request->user_id(), ccb_id = request->user_id() - 1;
     if (user_id > vrg_ccb->user_count) {
@@ -53,7 +53,7 @@ grpc::Status VRGCLIServiceImpl::ConnectHsi(::grpc::ServerContext* context, const
     return grpc::Status::OK;
 }
 
-grpc::Status VRGCLIServiceImpl::DisconnectHsi(::grpc::ServerContext* context, const ::vrgcliservice::HsiRequest* request, ::vrgcliservice::HsiReply* response)
+grpc::Status VRGNodeServiceImpl::DisconnectHsi(::grpc::ServerContext* context, const ::vrgnodeservice::HsiRequest* request, ::vrgnodeservice::HsiReply* response)
 {
     uint16_t user_id = request->user_id(), ccb_id = request->user_id() - 1;
     bool force = request->force();
@@ -98,7 +98,7 @@ grpc::Status VRGCLIServiceImpl::DisconnectHsi(::grpc::ServerContext* context, co
     return grpc::Status::OK;
 }
 
-grpc::Status VRGCLIServiceImpl::DhcpServerStart(::grpc::ServerContext* context, const ::vrgcliservice::DhcpServerRequest* request, ::vrgcliservice::DhcpServerReply* response)
+grpc::Status VRGNodeServiceImpl::DhcpServerStart(::grpc::ServerContext* context, const ::vrgnodeservice::DhcpServerRequest* request, ::vrgnodeservice::DhcpServerReply* response)
 {
     uint16_t user_id = request->user_id(), ccb_id = request->user_id() - 1;
 
@@ -135,7 +135,7 @@ grpc::Status VRGCLIServiceImpl::DhcpServerStart(::grpc::ServerContext* context, 
     return grpc::Status::OK;
 }
 
-grpc::Status VRGCLIServiceImpl::DhcpServerStop(::grpc::ServerContext* context, const ::vrgcliservice::DhcpServerRequest* request, ::vrgcliservice::DhcpServerReply* response)
+grpc::Status VRGNodeServiceImpl::DhcpServerStop(::grpc::ServerContext* context, const ::vrgnodeservice::DhcpServerRequest* request, ::vrgnodeservice::DhcpServerReply* response)
 {
     uint16_t user_id = request->user_id(), ccb_id = request->user_id() - 1;
 
@@ -208,7 +208,7 @@ int getNicStats(Statistics *stats, uint8_t port_id)
     return 0;
 }
 
-grpc::Status VRGCLIServiceImpl::GetVrgSystemInfo(::grpc::ServerContext* context, const ::google::protobuf::Empty* request, ::vrgcliservice::VrgSystemInfo* response)
+grpc::Status VRGNodeServiceImpl::GetVrgSystemInfo(::grpc::ServerContext* context, const ::google::protobuf::Empty* request, ::vrgnodeservice::VrgSystemInfo* response)
 {
     uint8_t lan_port_id = 0, wan_port_id = 1;
 
@@ -252,7 +252,7 @@ grpc::Status VRGCLIServiceImpl::GetVrgSystemInfo(::grpc::ServerContext* context,
     return grpc::Status::OK;
 }
 
-grpc::Status VRGCLIServiceImpl:: GetVrgHsiInfo(::grpc::ServerContext* context, const ::google::protobuf::Empty* request, ::vrgcliservice::VrgHsiInfo* response) 
+grpc::Status VRGNodeServiceImpl:: GetVrgHsiInfo(::grpc::ServerContext* context, const ::google::protobuf::Empty* request, ::vrgnodeservice::VrgHsiInfo* response) 
 {
     cout << "GetVrgHsiInfo called" << endl;
     for(int i=0; i<vrg_ccb->user_count; i++) {
@@ -306,7 +306,7 @@ grpc::Status VRGCLIServiceImpl:: GetVrgHsiInfo(::grpc::ServerContext* context, c
     return grpc::Status::OK;
 }
 
-grpc::Status VRGCLIServiceImpl:: GetVrgDhcpInfo(::grpc::ServerContext* context, const ::google::protobuf::Empty* request, ::vrgcliservice::VrgDhcpInfo* response) 
+grpc::Status VRGNodeServiceImpl:: GetVrgDhcpInfo(::grpc::ServerContext* context, const ::google::protobuf::Empty* request, ::vrgnodeservice::VrgDhcpInfo* response) 
 {
     cout << "GetVrgDhcpInfo called" << endl;
     dhcp_ccb_t *dhcp_ccb = vrg_ccb->dhcp_ccb;

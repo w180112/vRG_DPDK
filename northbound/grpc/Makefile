@@ -11,7 +11,7 @@ CFLAGS = $(INCLUDE) -Wall -g -O3
 
 LDFLAGS = -lutils 
 
-PROTO_SRC = vrg_cli.proto
+PROTO_SRC = vrg_node.proto
 GRPC_SRC = $(wildcard *.cpp)
 PB_HDR    = $(PB_SRC:.cc=.h)
 PB_SRC = $(PROTO_SRC:.proto=.pb.cc) $(PROTO_SRC:.proto=.grpc.pb.cc)

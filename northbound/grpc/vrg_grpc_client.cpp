@@ -2,7 +2,7 @@
 #include <grpc++/grpc++.h>
 #include <grpcpp/grpcpp.h>
 #include <grpcpp/health_check_service_interface.h>
-#include "vrg_grpc_cli.h"
+#include "vrg_node_grpc.h"
 #include "../../src/vrg.h"
 
 #ifdef __cplusplus
@@ -12,22 +12,22 @@ extern "C" {
 using grpc::Channel;
 using grpc::ClientContext;
 using grpc::Status;
-using vrgcliservice::VrgService;
-using vrgcliservice::HsiRequest;
-using vrgcliservice::HsiReply;
+using vrgnodeservice::VrgService;
+using vrgnodeservice::HsiRequest;
+using vrgnodeservice::HsiReply;
 
-class VRGCliClient {
+class VRGNodeClient {
     public:
-        VRGCliClient(std::shared_ptr<Channel> channel):stub_(VrgService::NewStub(channel)) {}
+        VRGNodeClient(std::shared_ptr<Channel> channel):stub_(VrgService::NewStub(channel)) {}
     std::unique_ptr<VrgService::Stub> stub_;
 };
 
-std::unique_ptr<VRGCliClient> vrg_client;
+std::unique_ptr<VRGNodeClient> vrg_client;
 
 void vrg_grpc_client_connect(char *server_address) {
     std::cout << "grpc client connecting to " << server_address << std::endl;
     auto channel = grpc::CreateChannel(server_address, grpc::InsecureChannelCredentials());
-    vrg_client = std::make_unique<VRGCliClient>(channel);
+    vrg_client = std::make_unique<VRGNodeClient>(channel);
     std::cout << "grpc client connected to " << server_address << std::endl;
 
     return;

@@ -15,12 +15,12 @@
 syntax = "proto3";
 
 option java_multiple_files = true;
-option java_package = "io.grpc.vrgcliservice";
-option java_outer_classname = "VrgCliProto";
+option java_package = "io.grpc.vrgnodeservice";
+option java_outer_classname = "VrgNodeProto";
 
 import "google/protobuf/empty.proto";
 
-package vrgcliservice;
+package vrgnodeservice;
 
 service VrgService {
   //rpc ConnectHsi(HsiRequest) returns(google.protobuf.Empty) {}
@@ -53,9 +53,10 @@ message DhcpServerReply {
 message VrgBaseInfo {
   string vrg_version = 1;
   string build_date = 2;
-  string dpdk_version = 3;
-  string dpdk_eal_args = 4;
-  uint32 num_users = 5;
+  int64 uptime = 3; // in seconds
+  string dpdk_version = 4;
+  string dpdk_eal_args = 5;
+  uint32 num_users = 6;
 }
 
 message NicDriverInfo {
@@ -78,6 +79,13 @@ message VrgSystemInfo {
   VrgBaseInfo base_info = 1;
   repeated NicDriverInfo nics = 2;
   repeated Statistics stats = 3;
+}
+
+message NodeStatus {
+  string node_os_version = 1;
+  int64 node_uptime = 2; // in seconds
+  string node_ip_info = 3; // mgmt ip/netmask
+  bool healthy = 4;
 }
 
 message HsiInfo {

@@ -2,7 +2,7 @@
 #include <grpc++/grpc++.h>
 #include <grpcpp/grpcpp.h>
 #include <grpcpp/health_check_service_interface.h>
-#include "vrg_grpc_cli.h"
+#include "vrg_node_grpc.h"
 #include "../../src/vrg.h"
 
 #ifdef __cplusplus
@@ -21,7 +21,7 @@ void vrg_grpc_server_run(void *arg) {
     std::shared_ptr<grpc::ServerCredentials> cred = grpc::InsecureServerCredentials();
     builder.AddListeningPort(unix_sock_path, cred);
     builder.AddListeningPort(ip_address, cred);
-    VRGCLIServiceImpl vrg_service(vrg_ccb);
+    VRGNodeServiceImpl vrg_service(vrg_ccb);
     builder.RegisterService(&vrg_service);
 
     std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
