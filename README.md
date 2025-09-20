@@ -45,7 +45,7 @@ For using vRG in Docker,
 
 	# docker build --no-cache -t vrg:latest .
 	# mount -t hugetlbfs -o pagesize=1G none /dev/hugepages1G
-	# docker run -it -d --net=host --privileged -v /sys/bus/pci/devices:/sys/bus/pci/devices \
+	# docker run -d --net=host --privileged -v /sys/bus/pci/devices:/sys/bus/pci/devices \
 	-v /sys/kernel/mm/hugepages:/sys/kernel/mm/hugepages -v /sys/devices/system/node:/sys/devices/system/node -v /dev:/dev vrg:latest bash
 
 After vRG system started, there is a CLI. User can input "?" command to show available commands.
