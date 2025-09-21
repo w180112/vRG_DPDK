@@ -1,0 +1,97 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate release body
+        id: release_body
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git fetch --tags --force
+
+          current_tag="${GITHUB_REF_NAME}"
+
+          prev_tag="$(git tag --sort=-creatordate | grep -vx "$current_tag" | head -n 1 || true)"
+
+          if [ -n "${prev_tag:-}" ]; then
+            range="${prev_tag}..${current_tag}"
+            header="New commits: ${prev_tag}..${current_tag}"
+          else
+            range="${current_tag}"
+            header="New commits: first time to ${current_tag}"
+          fi
+
+          repo_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
+
+          tmp="$(mktemp)"
+          git log --no-merges --pretty=format:'%s|%h|%H' ${range} > "$tmp" || true
+
+          map_section_title() {
+            case "$1" in
+              feat)     echo "feature: " ;;
+              fix)      echo "fix bug: " ;;
+              docs)     echo "documents: " ;;
+              style)    echo "style: " ;;
+              refactor) echo "refactor: " ;;
+              perf)     echo "performance: " ;;
+              test)     echo "test: " ;;
+              chore)    echo "chore: " ;;
+              revert)   echo "revert: " ;;
+            esac
+          }
+
+          body_file="$(mktemp)"
+          echo "# Release ${current_tag}" >> "$body_file"
+          echo "" >> "$body_file"
+          echo "${header}" >> "$body_file"
+          echo "" >> "$body_file"
+
+          types=(feat fix docs style refactor perf test chore revert)
+          total_count=0
+
+          for t in "${types[@]}"; do
+            entries="$(awk -F'|' -v t="^${t}([^)]+)?: " -v repo_url="$repo_url" '
+              $1 ~ t {
+                # $1=subject, $2=short, $3=full
+                printf("- %s ([%s](%s/commit/%s))\n", $1, $2, repo_url, $3)
+              }' "$tmp")"
+
+            if [ -n "$entries" ]; then
+              total_count=$((total_count+1))
+              echo "## $(map_section_title "$t")" >> "$body_file"
+              echo "$entries" >> "$body_file"
+              echo "" >> "$body_file"
+            fi
+          done
+
+          {
+            echo "body<<EOF"
+            cat "$body_file"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          body: ${{ steps.release_body.outputs.body }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
