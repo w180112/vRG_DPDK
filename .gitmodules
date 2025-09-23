@@ -7,4 +7,4 @@
 	branch = main
 [submodule "lib/dpdk"]
 	path = lib/dpdk
-	url = https://dpdk.org/git/dpdk-stable
+	url = git://dpdk.org/dpdk-stable
