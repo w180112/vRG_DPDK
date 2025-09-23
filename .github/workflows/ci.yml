@@ -11,14 +11,14 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v5
     - run: sudo ${{ github.workspace }}/essensials.sh
     - run: sudo ${{ github.workspace }}/boot.sh
     - run: sudo docker build --no-cache -t vrg:latest .
   test:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v5
     - run: sudo ${{ github.workspace }}/essensials.sh
     - run: sudo ${{ github.workspace }}/boot.sh
     - run: cd ${{ github.workspace }} && sudo make test
