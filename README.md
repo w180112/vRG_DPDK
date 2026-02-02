@@ -1,3 +1,5 @@
+The vRG project is archived and is no longer maintained, please refer to [FastRG Node](https://github.com/w180112/fastrg-node) and [FastRG Controller](https://github.com/w180112/fastrg-controller) for further updates.
+
 # Virtualized residential gateway (vRG) implementation using DPDK
 
 [![BSD license](https://img.shields.io/badge/License-BSD-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
